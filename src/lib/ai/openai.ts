@@ -150,3 +150,69 @@ export async function extractFlags(emailBody: string, aiResponse: string, previo
     return defaultFlags;
   }
 }
+
+export interface EmailClassification {
+  type: "customer" | "alert" | "ignore";
+  reason: string; // short explanation
+  taskDescription?: string; // only when type === "alert"
+}
+
+/**
+ * Quickly classifies an incoming email before any processing.
+ * - "customer": real customer needing a reply (order issues, complaints, questions)
+ * - "alert": important non-customer email requiring human attention (Shopify critical
+ *   alerts, chargebacks, legal threats, account suspension warnings, payment failures)
+ * - "ignore": marketing, newsletters, proposals, service offers, cold outreach
+ */
+export async function classifyEmail(
+  from: string,
+  subject: string,
+  bodyText: string
+): Promise<EmailClassification> {
+  try {
+    const completion = await getClient().chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You classify incoming emails for an e-commerce store. Return only valid JSON with no markdown.",
+        },
+        {
+          role: "user",
+          content: `From: ${from}
+Subject: ${subject}
+Body (first 800 chars): ${bodyText.slice(0, 800)}
+
+Classify this email. Return JSON:
+{
+  "type": "customer" | "alert" | "ignore",
+  "reason": "<one sentence>",
+  "taskDescription": "<only if type is alert, else null>"
+}
+
+Rules:
+- "customer": real customer asking about their order, complaint, refund request, tracking question, product issue, or any human who bought or wants to buy something.
+- "alert": automated or business email that REQUIRES human attention: Shopify chargeback notification, Shopify payment/payout issue, Shopify account warning/suspension, fraud alert, legal threat, DMCA, dispute opened by payment provider, critical system alert.
+- "ignore": everything else — marketing emails, newsletters, promotional offers, SEO/agency proposals, cold sales outreach, partnership offers, service pitches, automated shipping notifications that need no action, social media notifications, any bulk/no-reply sender that is not critical.
+
+When in doubt between "customer" and "ignore", choose "customer".
+When in doubt between "alert" and "ignore", choose "alert".`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0,
+      max_tokens: 150,
+    });
+
+    const parsed = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    return {
+      type: parsed.type ?? "customer",
+      reason: parsed.reason ?? "",
+      taskDescription: parsed.taskDescription ?? undefined,
+    };
+  } catch {
+    // On any error, default to customer so we don't accidentally drop real emails
+    return { type: "customer", reason: "Classification failed — defaulting to customer" };
+  }
+}

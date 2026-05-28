@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { fetchNewEmails } from "@/lib/email/imap";
 import { decrypt } from "@/lib/crypto/encryption";
 import { matchOrCreateCustomer } from "@/lib/customer/identifier";
+import { classifyEmail } from "@/lib/ai/openai";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 const REPLY_DELAY_MINUTES = 10;
@@ -77,6 +78,16 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      // Classify email before saving — drop marketing/spam, flag critical alerts
+      const classification = await classifyEmail(email.from, email.subject, email.bodyText);
+
+      if (classification.type === "ignore") {
+        console.log(`Ignored email from ${email.from}: ${classification.reason}`);
+        maxUid = Math.max(maxUid, email.uid);
+        totalSaved; // not incrementing — intentionally skipped
+        continue;
+      }
+
       const scheduledReplyAt = new Date(
         email.receivedAt.getTime() + REPLY_DELAY_MINUTES * 60 * 1000
       );
@@ -91,6 +102,9 @@ export async function POST(req: NextRequest) {
         bodyText: email.bodyText,
         emailDocId: emailRef.id,
       });
+
+      // For alerts: save but mark as cancelled (no auto-reply) and create a task
+      const emailStatus = classification.type === "alert" ? "cancelled" : "pending";
 
       await emailRef.set({
         accountId: email.accountId,
@@ -107,12 +121,35 @@ export async function POST(req: NextRequest) {
         bodyHtml: email.bodyHtml,
         receivedAt: Timestamp.fromDate(email.receivedAt),
         scheduledReplyAt: Timestamp.fromDate(scheduledReplyAt),
-        status: "pending",
+        status: emailStatus,
         aiResponse: null,
         sentAt: null,
         error: null,
         createdAt: FieldValue.serverTimestamp(),
       });
+
+      if (classification.type === "alert" && classification.taskDescription) {
+        await db.collection("tasks").add({
+          emailId: emailRef.id,
+          customerId: matchResult.customerId,
+          accountId: email.accountId,
+          accountEmail: email.accountEmail,
+          customerName: email.fromName || email.from,
+          emailSubject: email.subject,
+          description: classification.taskDescription,
+          priority: "high",
+          completed: false,
+          flags: {
+            chargeback_risk: false,
+            manual_review: true,
+            refund_pending: false,
+            photos_received: false,
+            carrier_problem: false,
+            address_problem: false,
+          },
+          createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+        });
+      }
 
       maxUid = Math.max(maxUid, email.uid);
       totalSaved++;
