@@ -7,6 +7,19 @@ import { classifyEmail } from "@/lib/ai/openai";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 const REPLY_DELAY_MINUTES = 10;
+// Firestore field limit is ~1 MB. Strip inline base64 images which are the main culprit,
+// then hard-truncate as a safety net.
+const FIRESTORE_FIELD_BYTE_LIMIT = 800_000;
+
+function sanitizeBodyHtml(html: string): string {
+  // Remove base64-encoded src attributes (embedded images)
+  const stripped = html.replace(/\ssrc="data:[^"]*"/gi, ' src=""');
+  // Hard-truncate if still over the limit
+  if (Buffer.byteLength(stripped, "utf8") > FIRESTORE_FIELD_BYTE_LIMIT) {
+    return Buffer.from(stripped, "utf8").slice(0, FIRESTORE_FIELD_BYTE_LIMIT).toString("utf8");
+  }
+  return stripped;
+}
 
 // Vercel Cron Jobs send GET requests
 export async function GET(req: NextRequest) {
@@ -118,7 +131,7 @@ export async function POST(req: NextRequest) {
         to: email.to,
         subject: email.subject,
         bodyText: email.bodyText,
-        bodyHtml: email.bodyHtml,
+        bodyHtml: sanitizeBodyHtml(email.bodyHtml),
         receivedAt: Timestamp.fromDate(email.receivedAt),
         scheduledReplyAt: Timestamp.fromDate(scheduledReplyAt),
         status: emailStatus,
