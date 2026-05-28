@@ -9,7 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@types/fast-levenshtein": "^0.0.4",
+    "@types/mailparser": "^3.4.6",
+    "@types/nodemailer": "^8.0.0",
+    "fast-levenshtein": "^3.0.0",
+    "firebase": "^12.13.0",
+    "firebase-admin": "^13.10.0",
+    "imapflow": "^1.3.3",
+    "jose": "^6.2.3",
+    "mailparser": "^3.9.8",
     "next": "16.2.6",
+    "nodemailer": "^8.0.9",
+    "openai": "^6.39.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
