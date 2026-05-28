@@ -50,11 +50,13 @@ export async function fetchNewEmails(account: AccountCredentials): Promise<Fetch
       // On first run (lastUid === 0), limit to emails since account creation date
       let uids: number[];
       if (account.lastUid > 0) {
-        uids = await client.search({ uid: `${account.lastUid + 1}:*` }, { uid: true });
+        const result = await client.search({ uid: `${account.lastUid + 1}:*` }, { uid: true });
+        uids = result || [];
       } else {
         const since = account.createdAt ?? new Date();
         since.setHours(0, 0, 0, 0);
-        uids = await client.search({ since }, { uid: true });
+        const result = await client.search({ since }, { uid: true });
+        uids = result || [];
       }
 
       if (!uids || uids.length === 0) return results;
