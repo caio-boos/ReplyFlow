@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  const base = process.env.NEXTAUTH_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+  const base = req.nextUrl.origin;
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
 
