@@ -71,9 +71,9 @@ export async function generateReply(params: GenerateReplyParams): Promise<string
 
   const systemPrompt = `You are a customer support agent for the store "${storeName}".
 
-⚠️ LANGUAGE RULE (highest priority): Detect the language of the customer's email and reply in that EXACT language. English email → English reply. No exceptions.
+⚠️ LANGUAGE RULE (highest priority): Always reply in ENGLISH, regardless of the language the customer used. No exceptions.
 
-STORE CONTEXT (use as behavior guide only — do NOT affect reply language):
+STORE CONTEXT (use as behavior guide only):
 ${systemContext}
 
 IMPORTANT RULES:
@@ -85,7 +85,7 @@ IMPORTANT RULES:
 - Always sign as "${storeName} Support Team".
 - ⚠️ ACCEPTANCE RULE (critical): If the customer's message is accepting or confirming an offer you made in a previous reply (e.g. "ok", "yes", "that works", "I accept", "deal", "fine", "agreed"), you MUST confirm the acceptance and tell them the action will be processed. Do NOT offer a higher percentage, a new deal, or any other alternative. Simply confirm: "Thank you for accepting. We will process your [X]% refund within [timeframe]." Do NOT escalate the offer when the customer has already agreed.
 
-⚠️ REMINDER: Reply in the SAME LANGUAGE the customer used. The store context above may be in Portuguese — ignore its language, follow only its logic.`;
+⚠️ REMINDER: Always reply in ENGLISH. Ignore the language of the customer's email and the store context above — reply only in English.`;
 
   const cleanBody = stripQuotedText(currentEmailBody);
   const bodyDisplay = cleanBody.trim()
@@ -101,7 +101,7 @@ Subject: ${currentSubject}
 Message:
 ${bodyDisplay}
 
-Write a professional and empathetic reply in the SAME LANGUAGE as the customer's message above.`;
+Write a professional and empathetic reply in ENGLISH.`;
 
 
   const completion = await getClient().chat.completions.create({

@@ -52,7 +52,7 @@ const EMPTY_ADD = {
   label: "", provider: "godaddy", email: "", password: "",
   imapHost: "imap.secureserver.net", imapPort: "993",
   smtpHost: "smtpout.secureserver.net", smtpPort: "465",
-  shopifyDomain: "",
+  shopifyDomain: "", shopifyToken: "",
 };
 
 type FormState = typeof EMPTY_ADD;
@@ -141,15 +141,34 @@ function AccountForm({
         </div>
         <div className="col-span-2 border-t border-gray-700 pt-4">
           <p className="text-xs text-indigo-400 font-medium mb-3 uppercase tracking-wide">Shopify (opcional)</p>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Domínio da loja</label>
-            <input
-              value={form.shopifyDomain}
-              onChange={(e) => setForm({ ...form, shopifyDomain: e.target.value })}
-              className={inputCls}
-              placeholder="minhaloja.myshopify.com"
-            />
-            <p className="text-xs text-gray-500 mt-1.5">Após salvar, use o botão &quot;Conectar Shopify&quot; no card para autorizar o acesso via OAuth.</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Domínio da loja</label>
+              <input
+                value={form.shopifyDomain}
+                onChange={(e) => setForm({ ...form, shopifyDomain: e.target.value })}
+                className={inputCls}
+                placeholder="minhaloja.myshopify.com"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">
+                Admin API Token {isEdit && <span className="text-gray-500">(vazio = manter atual)</span>}
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={form.shopifyToken}
+                  onChange={(e) => setForm({ ...form, shopifyToken: e.target.value })}
+                  className={`${inputCls} pr-10`}
+                  placeholder="shpat_..."
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200">
+                  <EyeIcon show={showPassword} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -213,7 +232,7 @@ export default function AccountsPage() {
       label: acc.label, provider: acc.provider, email: acc.email, password: "",
       imapHost: acc.imapHost, imapPort: String(acc.imapPort),
       smtpHost: acc.smtpHost, smtpPort: String(acc.smtpPort),
-      shopifyDomain: acc.shopifyDomain ?? "",
+      shopifyDomain: acc.shopifyDomain ?? "", shopifyToken: "",
     });
     setShowEditPassword(false);
     setShowAddForm(false);
@@ -231,6 +250,7 @@ export default function AccountsPage() {
         imapPort: addForm.imapPort ? parseInt(addForm.imapPort) : undefined,
         smtpPort: addForm.smtpPort ? parseInt(addForm.smtpPort) : undefined,
         shopifyDomain: addForm.shopifyDomain || undefined,
+        shopifyToken: addForm.shopifyToken || undefined,
       }),
     });
     if (res.ok) { setShowAddForm(false); setAddForm({ ...EMPTY_ADD }); loadAccounts(); }
@@ -251,6 +271,7 @@ export default function AccountsPage() {
       shopifyDomain: editForm.shopifyDomain || null,
     };
     if (editForm.password) body.password = editForm.password;
+    if (editForm.shopifyToken) body.shopifyToken = editForm.shopifyToken;
     const res = await fetch(`/api/accounts/${editingId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
