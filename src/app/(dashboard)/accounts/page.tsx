@@ -1,7 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
+function ShopifyParamsReader({
+  onMessage,
+}: {
+  onMessage: (msg: { type: "success" | "error"; reason?: string }) => void;
+}) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  useEffect(() => {
+    const shopify = searchParams.get("shopify");
+    if (!shopify) return;
+    if (shopify === "connected") {
+      onMessage({ type: "success" });
+    } else if (shopify === "error") {
+      onMessage({ type: "error", reason: searchParams.get("reason") ?? undefined });
+    }
+    router.replace("/accounts");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
 
 interface Account {
   id: string;
@@ -161,8 +181,6 @@ export default function AccountsPage() {
   const [testResult, setTestResult] = useState<{ success: boolean; data?: string; error?: string } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   const [shopifyMsg, setShopifyMsg] = useState<{ type: "success" | "error"; reason?: string } | null>(null);
-  const searchParams = useSearchParams();
-  const router = useRouter();
 
   async function handleShopifyTest(accountId: string) {
     if (!testQuery.trim()) return;
@@ -177,17 +195,6 @@ export default function AccountsPage() {
     setTestResult(res.ok ? { success: true, data: data.result } : { success: false, error: data.error });
     setTestLoading(false);
   }
-
-  useEffect(() => {
-    const shopify = searchParams.get("shopify");
-    if (!shopify) return;
-    if (shopify === "connected") {
-      setShopifyMsg({ type: "success" });
-    } else if (shopify === "error") {
-      setShopifyMsg({ type: "error", reason: searchParams.get("reason") ?? undefined });
-    }
-    router.replace("/accounts");
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadAccounts() {
     const res = await fetch("/api/accounts");
@@ -269,6 +276,9 @@ export default function AccountsPage() {
 
   return (
     <div className="p-6 max-w-4xl">
+      <Suspense fallback={null}>
+        <ShopifyParamsReader onMessage={setShopifyMsg} />
+      </Suspense>
       {shopifyMsg && (
         <div className={`mb-4 flex items-center justify-between px-4 py-3 rounded-lg text-sm border ${
           shopifyMsg.type === "success"
