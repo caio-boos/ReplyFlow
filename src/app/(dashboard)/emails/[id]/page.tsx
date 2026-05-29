@@ -40,6 +40,8 @@ export default function EmailDetailPage() {
   const [email, setEmail] = useState<EmailDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/emails/${id}`)
@@ -55,6 +57,32 @@ export default function EmailDetailPage() {
     const updated = await fetch(`/api/emails/${id}`).then((r) => r.json());
     setEmail(updated);
     setCancelling(false);
+  }
+
+  async function handleSend(resend = false) {
+    const confirmed = window.confirm(
+      resend
+        ? "Tem certeza que deseja REENVIAR este e-mail? O cliente receberá a resposta novamente."
+        : "Tem certeza que deseja enviar este e-mail agora?"
+    );
+    if (!confirmed) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const res = await fetch(`/api/emails/${id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resend }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
+      const updated = await fetch(`/api/emails/${id}`).then((r) => r.json());
+      setEmail(updated);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Erro ao enviar");
+    } finally {
+      setSending(false);
+    }
   }
 
   if (loading) {
@@ -115,12 +143,30 @@ export default function EmailDetailPage() {
             </span>
 
             {email.status === "pending" && (
+              <>
+                <button
+                  onClick={() => handleSend(false)}
+                  disabled={sending}
+                  className="px-3 py-1.5 bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-600 text-indigo-300 text-xs rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {sending ? "Enviando..." : "Enviar agora"}
+                </button>
+                <button
+                  onClick={handleCancel}
+                  disabled={cancelling || sending}
+                  className="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 border border-red-700 text-red-300 text-xs rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {cancelling ? "Cancelando..." : "Cancelar envio"}
+                </button>
+              </>
+            )}
+            {(email.status === "sent" || email.status === "failed" || email.status === "cancelled") && (
               <button
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 border border-red-700 text-red-300 text-xs rounded-lg transition-colors disabled:opacity-50"
+                onClick={() => handleSend(true)}
+                disabled={sending}
+                className="px-3 py-1.5 bg-yellow-900/50 hover:bg-yellow-800 border border-yellow-700 text-yellow-300 text-xs rounded-lg transition-colors disabled:opacity-50"
               >
-                {cancelling ? "Cancelando..." : "Cancelar envio"}
+                {sending ? "Reenviando..." : "Reenviar"}
               </button>
             )}
           </div>
@@ -139,6 +185,11 @@ export default function EmailDetailPage() {
         {email.error && (
           <div className="mt-3 pt-3 border-t border-gray-800 text-xs text-red-400">
             Erro: {email.error}
+          </div>
+        )}
+        {sendError && (
+          <div className="mt-3 pt-3 border-t border-gray-800 text-xs text-red-400">
+            Erro ao enviar: {sendError}
           </div>
         )}
       </div>
