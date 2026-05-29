@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Account {
   id: string;
@@ -11,6 +12,7 @@ interface Account {
   imapPort: number;
   smtpHost: string;
   smtpPort: number;
+  shopifyDomain: string | null;
   active: boolean;
 }
 
@@ -30,6 +32,7 @@ const EMPTY_ADD = {
   label: "", provider: "godaddy", email: "", password: "",
   imapHost: "imap.secureserver.net", imapPort: "993",
   smtpHost: "smtpout.secureserver.net", smtpPort: "465",
+  shopifyDomain: "",
 };
 
 type FormState = typeof EMPTY_ADD;
@@ -116,6 +119,19 @@ function AccountForm({
           <label className="block text-xs text-gray-400 mb-1">SMTP Port</label>
           <input value={form.smtpPort} onChange={(e) => setForm({ ...form, smtpPort: e.target.value })} className={inputCls} />
         </div>
+        <div className="col-span-2 border-t border-gray-700 pt-4">
+          <p className="text-xs text-indigo-400 font-medium mb-3 uppercase tracking-wide">Shopify (opcional)</p>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Domínio da loja</label>
+            <input
+              value={form.shopifyDomain}
+              onChange={(e) => setForm({ ...form, shopifyDomain: e.target.value })}
+              className={inputCls}
+              placeholder="minhaloja.myshopify.com"
+            />
+            <p className="text-xs text-gray-500 mt-1.5">Após salvar, use o botão &quot;Conectar Shopify&quot; no card para autorizar o acesso via OAuth.</p>
+          </div>
+        </div>
       </div>
       <div className="flex gap-3 pt-1">
         <button type="submit" disabled={saving} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors">
@@ -140,6 +156,38 @@ export default function AccountsPage() {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testQuery, setTestQuery] = useState("");
+  const [testResult, setTestResult] = useState<{ success: boolean; data?: string; error?: string } | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [shopifyMsg, setShopifyMsg] = useState<{ type: "success" | "error"; reason?: string } | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  async function handleShopifyTest(accountId: string) {
+    if (!testQuery.trim()) return;
+    setTestLoading(true);
+    setTestResult(null);
+    const res = await fetch("/api/shopify/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId, query: testQuery.trim() }),
+    });
+    const data = await res.json();
+    setTestResult(res.ok ? { success: true, data: data.result } : { success: false, error: data.error });
+    setTestLoading(false);
+  }
+
+  useEffect(() => {
+    const shopify = searchParams.get("shopify");
+    if (!shopify) return;
+    if (shopify === "connected") {
+      setShopifyMsg({ type: "success" });
+    } else if (shopify === "error") {
+      setShopifyMsg({ type: "error", reason: searchParams.get("reason") ?? undefined });
+    }
+    router.replace("/accounts");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadAccounts() {
     const res = await fetch("/api/accounts");
@@ -158,6 +206,7 @@ export default function AccountsPage() {
       label: acc.label, provider: acc.provider, email: acc.email, password: "",
       imapHost: acc.imapHost, imapPort: String(acc.imapPort),
       smtpHost: acc.smtpHost, smtpPort: String(acc.smtpPort),
+      shopifyDomain: acc.shopifyDomain ?? "",
     });
     setShowEditPassword(false);
     setShowAddForm(false);
@@ -174,6 +223,7 @@ export default function AccountsPage() {
         ...addForm,
         imapPort: addForm.imapPort ? parseInt(addForm.imapPort) : undefined,
         smtpPort: addForm.smtpPort ? parseInt(addForm.smtpPort) : undefined,
+        shopifyDomain: addForm.shopifyDomain || undefined,
       }),
     });
     if (res.ok) { setShowAddForm(false); setAddForm({ ...EMPTY_ADD }); loadAccounts(); }
@@ -191,6 +241,7 @@ export default function AccountsPage() {
       imapPort: editForm.imapPort ? parseInt(editForm.imapPort) : undefined,
       smtpHost: editForm.smtpHost,
       smtpPort: editForm.smtpPort ? parseInt(editForm.smtpPort) : undefined,
+      shopifyDomain: editForm.shopifyDomain || null,
     };
     if (editForm.password) body.password = editForm.password;
     const res = await fetch(`/api/accounts/${editingId}`, {
@@ -218,6 +269,20 @@ export default function AccountsPage() {
 
   return (
     <div className="p-6 max-w-4xl">
+      {shopifyMsg && (
+        <div className={`mb-4 flex items-center justify-between px-4 py-3 rounded-lg text-sm border ${
+          shopifyMsg.type === "success"
+            ? "bg-green-900/30 border-green-800 text-green-300"
+            : "bg-red-900/30 border-red-800 text-red-300"
+        }`}>
+          <span>
+            {shopifyMsg.type === "success"
+              ? "Shopify conectado com sucesso!"
+              : `Erro ao conectar Shopify${shopifyMsg.reason ? `: ${shopifyMsg.reason.replace(/_/g, " ")}` : ""}`}
+          </span>
+          <button onClick={() => setShopifyMsg(null)} className="ml-4 text-xs underline opacity-70 hover:opacity-100">Fechar</button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Contas de E-mail</h1>
@@ -254,38 +319,91 @@ export default function AccountsPage() {
                   onSubmit={handleEditSubmit} onCancel={() => setEditingId(null)}
                   saving={saving} error={error} isEdit={true} />
               ) : (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-medium text-gray-100">{acc.label}</span>
-                      <span className="text-xs px-1.5 py-0.5 bg-gray-800 text-gray-400 rounded">
-                        {PROVIDER_LABELS[acc.provider] ?? acc.provider}
-                      </span>
-                      {!acc.active && (
-                        <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-400 border border-red-800 rounded">Inativa</span>
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-medium text-gray-100">{acc.label}</span>
+                        <span className="text-xs px-1.5 py-0.5 bg-gray-800 text-gray-400 rounded">
+                          {PROVIDER_LABELS[acc.provider] ?? acc.provider}
+                        </span>
+                        {!acc.active && (
+                          <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-400 border border-red-800 rounded">Inativa</span>
+                        )}
+                        {acc.shopifyDomain && (
+                          <span className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 border border-green-800 rounded">Shopify</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-400">{acc.email}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        IMAP: {acc.imapHost}:{acc.imapPort} · SMTP: {acc.smtpHost}:{acc.smtpPort}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {acc.shopifyDomain && (
+                        <>
+                          <a
+                            href={`/api/shopify/install?accountId=${acc.id}&shop=${acc.shopifyDomain}`}
+                            className="px-3 py-1.5 rounded-lg text-xs bg-indigo-900/40 text-indigo-400 border border-indigo-800 hover:bg-indigo-900/60 transition-colors"
+                          >
+                            Conectar Shopify
+                          </a>
+                          <button
+                            onClick={() => { setTestingId(testingId === acc.id ? null : acc.id); setTestQuery(""); setTestResult(null); }}
+                            className="px-3 py-1.5 rounded-lg text-xs bg-green-900/30 text-green-400 border border-green-800 hover:bg-green-900/50 transition-colors"
+                          >
+                            Testar Shopify
+                          </button>
+                        </>
+                      )}
+                      <button onClick={() => handleEditOpen(acc)}
+                        className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
+                        Editar
+                      </button>
+                      <button onClick={() => handleToggle(acc.id, acc.active)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          acc.active ? "bg-gray-800 text-gray-400 hover:bg-gray-700" : "bg-green-900/50 text-green-400 border border-green-800 hover:bg-green-900"
+                        }`}>
+                        {acc.active ? "Desativar" : "Ativar"}
+                      </button>
+                      <button onClick={() => handleDelete(acc.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs bg-red-900/30 text-red-400 border border-red-900 hover:bg-red-900/50 transition-colors">
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                  {testingId === acc.id && (
+                    <div className="mt-4 border-t border-gray-800 pt-4">
+                      <p className="text-xs text-indigo-400 font-medium mb-2 uppercase tracking-wide">Testar integração Shopify</p>
+                      <div className="flex gap-2 mb-3">
+                        <input
+                          value={testQuery}
+                          onChange={(e) => setTestQuery(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleShopifyTest(acc.id)}
+                          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Número do pedido (#1234) ou e-mail do cliente"
+                        />
+                        <button
+                          onClick={() => handleShopifyTest(acc.id)}
+                          disabled={testLoading || !testQuery.trim()}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors"
+                        >
+                          {testLoading ? "Buscando..." : "Buscar"}
+                        </button>
+                      </div>
+                      {testResult && (
+                        testResult.success ? (
+                          <pre className="bg-gray-950 border border-gray-700 rounded-lg p-3 text-xs text-green-300 whitespace-pre-wrap overflow-auto max-h-64">
+                            {testResult.data}
+                          </pre>
+                        ) : (
+                          <div className="bg-red-900/30 border border-red-800 rounded-lg px-3 py-2 text-xs text-red-400">
+                            {testResult.error}
+                          </div>
+                        )
                       )}
                     </div>
-                    <p className="text-sm text-gray-400">{acc.email}</p>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      IMAP: {acc.imapHost}:{acc.imapPort} · SMTP: {acc.smtpHost}:{acc.smtpPort}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => handleEditOpen(acc)}
-                      className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
-                      Editar
-                    </button>
-                    <button onClick={() => handleToggle(acc.id, acc.active)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        acc.active ? "bg-gray-800 text-gray-400 hover:bg-gray-700" : "bg-green-900/50 text-green-400 border border-green-800 hover:bg-green-900"
-                      }`}>
-                      {acc.active ? "Desativar" : "Ativar"}
-                    </button>
-                    <button onClick={() => handleDelete(acc.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs bg-red-900/30 text-red-400 border border-red-900 hover:bg-red-900/50 transition-colors">
-                      Remover
-                    </button>
-                  </div>
+                  )}
                 </div>
               )}
             </div>

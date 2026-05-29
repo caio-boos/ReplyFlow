@@ -36,6 +36,7 @@ export interface GenerateReplyParams {
   customerEmail: string;
   currentSubject: string;
   currentEmailBody: string;
+  orderInfo?: string | null;
   emailHistory: Array<{
     subject: string;
     bodyText: string;
@@ -53,6 +54,7 @@ export async function generateReply(params: GenerateReplyParams): Promise<string
     customerEmail,
     currentSubject,
     currentEmailBody,
+    orderInfo,
     emailHistory,
   } = params;
 
@@ -92,7 +94,7 @@ IMPORTANT RULES:
 
   const userPrompt = `EMAIL HISTORY FOR THIS CUSTOMER:
 ${historyBlock}
-
+${orderInfo ? `\n--- SHOPIFY ORDER DATA (use this for accurate delivery/tracking info) ---\n${orderInfo}\n` : ""}
 --- CURRENT EMAIL TO REPLY TO ---
 From: ${customerName} <${customerEmail}>
 Subject: ${currentSubject}

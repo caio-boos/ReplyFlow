@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { label, provider, email, password, imapHost, imapPort, smtpHost, smtpPort } = body;
+  const { label, provider, email, password, imapHost, imapPort, smtpHost, smtpPort, shopifyDomain, shopifyToken } = body;
 
   if (!label || !email || !password || !provider) {
     return NextResponse.json({ error: "label, email, password and provider are required" }, { status: 400 });
@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
     smtpHost: smtpHost || defaults.smtpHost,
     smtpPort: smtpPort || defaults.smtpPort,
     encryptedPassword: encrypt(password),
+    shopifyDomain: shopifyDomain?.trim() || null,
+    encryptedShopifyToken: shopifyToken?.trim() ? encrypt(shopifyToken.trim()) : null,
     lastUid: 0,
     active: true,
     createdAt: FieldValue.serverTimestamp(),

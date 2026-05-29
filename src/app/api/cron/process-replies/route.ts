@@ -3,8 +3,9 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { generateReply, extractFlags } from "@/lib/ai/openai";
 import { sendEmail } from "@/lib/email/smtp";
 import { decrypt } from "@/lib/crypto/encryption";
-import { getCustomerEmailHistory } from "@/lib/customer/identifier";
+import { getCustomerEmailHistory, extractOrderNumbers } from "@/lib/customer/identifier";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { getShopifyOrderByNumber, getShopifyOrdersByEmail, formatOrderForAI } from "@/lib/shopify/client";
 
 // Allow up to 5 minutes on Vercel Pro (cron processes 5/run × every minute = handles any volume)
 export const maxDuration = 300;
@@ -77,6 +78,29 @@ export async function POST(req: NextRequest) {
       // Get full customer history
       const emailHistory = await getCustomerEmailHistory(emailData.customerId);
 
+      // Lookup Shopify order if account has Shopify integration
+      let orderInfo: string | null = null;
+      if (accountData.shopifyDomain && accountData.encryptedShopifyToken) {
+        try {
+          const shopifyToken = decrypt(accountData.encryptedShopifyToken);
+          const orderNumbers = extractOrderNumbers(
+            (emailData.subject ?? "") + " " + (emailData.bodyText ?? "")
+          );
+          let order = null;
+          for (const num of orderNumbers) {
+            order = await getShopifyOrderByNumber(accountData.shopifyDomain, shopifyToken, num);
+            if (order) break;
+          }
+          if (!order) {
+            const orders = await getShopifyOrdersByEmail(accountData.shopifyDomain, shopifyToken, emailData.from);
+            if (orders.length > 0) order = orders[0];
+          }
+          if (order) orderInfo = formatOrderForAI(order);
+        } catch (shopifyErr) {
+          console.error("Shopify lookup failed (non-fatal):", shopifyErr);
+        }
+      }
+
       // Generate AI reply
       const aiResponse = await generateReply({
         systemContext,
@@ -85,6 +109,7 @@ export async function POST(req: NextRequest) {
         customerEmail: emailData.from,
         currentSubject: emailData.subject,
         currentEmailBody: emailData.bodyText,
+        orderInfo,
         emailHistory,
       });
 

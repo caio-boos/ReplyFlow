@@ -18,13 +18,16 @@ export async function PATCH(
   const doc = await ref.get();
   if (!doc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const allowedFields = ["label", "active", "imapHost", "imapPort", "smtpHost", "smtpPort"];
+  const allowedFields = ["label", "active", "imapHost", "imapPort", "smtpHost", "smtpPort", "shopifyDomain"];
   const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
   for (const field of allowedFields) {
     if (field in body) update[field] = body[field];
   }
   if (body.password && typeof body.password === "string" && body.password.trim()) {
     update.encryptedPassword = encrypt(body.password.trim());
+  }
+  if (body.shopifyToken && typeof body.shopifyToken === "string" && body.shopifyToken.trim()) {
+    update.encryptedShopifyToken = encrypt(body.shopifyToken.trim());
   }
 
   await ref.update(update);
