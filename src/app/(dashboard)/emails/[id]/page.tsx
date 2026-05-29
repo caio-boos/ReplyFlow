@@ -4,6 +4,20 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
+interface FirestoreTimestamp {
+  seconds?: number;
+  _seconds?: number;
+  nanoseconds?: number;
+  _nanoseconds?: number;
+}
+
+function tsToDate(ts: FirestoreTimestamp | null | undefined): Date | null {
+  if (!ts) return null;
+  const secs = ts.seconds ?? ts._seconds;
+  if (secs == null) return null;
+  return new Date(secs * 1000);
+}
+
 interface EmailDetail {
   id: string;
   from: string;
@@ -12,9 +26,9 @@ interface EmailDetail {
   bodyText: string;
   aiResponse: string | null;
   status: string;
-  receivedAt: { seconds: number };
-  scheduledReplyAt: { seconds: number };
-  sentAt: { seconds: number } | null;
+  receivedAt: FirestoreTimestamp;
+  scheduledReplyAt: FirestoreTimestamp;
+  sentAt: FirestoreTimestamp | null;
   error: string | null;
   accountEmail: string;
   customerId: string;
@@ -50,8 +64,8 @@ export default function EmailDetailPage() {
     return <div className="p-6 text-red-400">E-mail não encontrado</div>;
   }
 
-  const receivedDate = new Date(email.receivedAt.seconds * 1000).toLocaleString("pt-BR");
-  const scheduledDate = new Date(email.scheduledReplyAt.seconds * 1000).toLocaleString("pt-BR");
+  const receivedDate = tsToDate(email.receivedAt)?.toLocaleString("pt-BR") ?? "—";
+  const scheduledDate = tsToDate(email.scheduledReplyAt)?.toLocaleString("pt-BR") ?? "—";
 
   return (
     <div className="p-6 max-w-4xl">
@@ -119,7 +133,7 @@ export default function EmailDetailPage() {
         )}
         {email.sentAt && (
           <div className="mt-3 pt-3 border-t border-gray-800 text-xs text-green-400">
-            Resposta enviada em: {new Date(email.sentAt.seconds * 1000).toLocaleString("pt-BR")}
+            Resposta enviada em: {tsToDate(email.sentAt)?.toLocaleString("pt-BR") ?? "—"}
           </div>
         )}
         {email.error && (

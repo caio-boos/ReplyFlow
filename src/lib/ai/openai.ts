@@ -85,6 +85,11 @@ IMPORTANT RULES:
 
 ⚠️ REMINDER: Reply in the SAME LANGUAGE the customer used. The store context above may be in Portuguese — ignore its language, follow only its logic.`;
 
+  const cleanBody = stripQuotedText(currentEmailBody);
+  const bodyDisplay = cleanBody.trim()
+    ? cleanBody
+    : "[Customer sent no text — replied with images/attachments only. Based on the conversation history, infer the context and proceed to the appropriate next step (e.g. if photos were previously requested, now offer the partial refund).]";
+
   const userPrompt = `EMAIL HISTORY FOR THIS CUSTOMER:
 ${historyBlock}
 
@@ -92,7 +97,7 @@ ${historyBlock}
 From: ${customerName} <${customerEmail}>
 Subject: ${currentSubject}
 Message:
-${stripQuotedText(currentEmailBody)}
+${bodyDisplay}
 
 Write a professional and empathetic reply in the SAME LANGUAGE as the customer's message above.`;
 
@@ -137,7 +142,7 @@ export async function extractFlags(emailBody: string, aiResponse: string, previo
         },
         {
           role: "user",
-          content: `${previousAiResponse ? `Previous AI reply (what customer is responding to):\n${previousAiResponse.slice(0, 600)}\n\n` : ""}Customer email:\n${emailBody.slice(0, 1200)}\n\nNew AI reply sent:\n${aiResponse.slice(0, 600)}\n\nReturn JSON:\n- chargeback_risk (bool): customer threatened chargeback/PayPal dispute\n- manual_review (bool): situation requires a human to review (address change, order edit, unclear case)\n- refund_pending (bool): customer EXPLICITLY ACCEPTED a refund offer in their email (e.g. "ok", "yes I accept", "that works", "I'll take it"). FALSE if the AI only offered — the customer must have clearly agreed.\n- photos_received (bool): customer sent photos in this email\n- carrier_problem (bool): shipping carrier / tracking issue\n- address_problem (bool): customer requested address change\n- priority: "high" if chargeback or customer accepted full refund, "medium" if manual review or address, else "low"\n- tasks: ONLY create a task when a HUMAN must take a real action. Valid reasons ONLY: (1) customer EXPLICITLY ACCEPTED a refund percentage in their email → "Process X% refund for [customer email]", (2) customer refuses ALL partial refunds and demands 100% → "Process full refund for [customer email]", (3) address change requested → "Update shipping address with carrier", (4) order cancellation confirmed → "Cancel order in system". Do NOT create tasks when: the AI offered a refund but customer has not replied yet, asking for photos, chargeback risk detected, tracking delays, or any normal automated reply. Max 2 tasks.`,
+          content: `${previousAiResponse ? `Previous AI reply (what customer is responding to):\n${previousAiResponse.slice(0, 600)}\n\n` : ""}Customer email:\n${emailBody.trim() ? emailBody.slice(0, 1200) : "[No text body — customer sent images/attachments only. If the previous AI reply requested photos, set photos_received: true]"}\n\nNew AI reply sent:\n${aiResponse.slice(0, 600)}\n\nReturn JSON:\n- chargeback_risk (bool): customer threatened chargeback/PayPal dispute\n- manual_review (bool): situation requires a human to review (address change, order edit, unclear case)\n- refund_pending (bool): customer EXPLICITLY ACCEPTED a refund offer in their email (e.g. "ok", "yes I accept", "that works", "I'll take it"). FALSE if the AI only offered — the customer must have clearly agreed.\n- photos_received (bool): customer sent photos or attachments in this email (true also when body is empty and previous reply asked for photos)\n- carrier_problem (bool): shipping carrier / tracking issue\n- address_problem (bool): customer requested address change\n- priority: "high" if chargeback or customer accepted full refund, "medium" if manual review or address, else "low"\n- tasks: ONLY create a task when a HUMAN must take a real action. Valid reasons ONLY: (1) customer EXPLICITLY ACCEPTED a refund percentage in their email → "Process X% refund for [customer email]", (2) customer refuses ALL partial refunds and demands 100% → "Process full refund for [customer email]", (3) address change requested → "Update shipping address with carrier", (4) order cancellation confirmed → "Cancel order in system". Do NOT create tasks when: the AI offered a refund but customer has not replied yet, asking for photos, chargeback risk detected, tracking delays, or any normal automated reply. Max 2 tasks.`,
         },
       ],
       response_format: { type: "json_object" },
