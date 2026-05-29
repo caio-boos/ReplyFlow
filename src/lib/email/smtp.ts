@@ -17,12 +17,20 @@ export interface SendOptions {
   messageId?: string;
 }
 
-export async function sendEmail(creds: SmtpCredentials, opts: SendOptions): Promise<void> {
+export interface SendResult {
+  messageId: string;
+  smtpResponse: string;
+}
+
+export async function sendEmail(creds: SmtpCredentials, opts: SendOptions): Promise<SendResult> {
   const transporter = nodemailer.createTransport({
     host: creds.smtpHost,
     port: creds.smtpPort,
     secure: creds.smtpPort === 465,
     auth: { user: creds.email, pass: creds.password },
+    connectionTimeout: 15_000, // 15s to establish connection
+    greetingTimeout: 10_000,   // 10s for SMTP greeting
+    socketTimeout: 30_000,     // 30s for socket inactivity
   });
 
   const allRefs = [...(opts.references ?? [])];
@@ -30,13 +38,21 @@ export async function sendEmail(creds: SmtpCredentials, opts: SendOptions): Prom
     allRefs.push(opts.inReplyTo);
   }
 
-  await transporter.sendMail({
-    from: creds.email,
-    to: opts.to,
-    subject: opts.subject.startsWith("Re:") ? opts.subject : `Re: ${opts.subject}`,
-    text: opts.text,
-    html: opts.html,
-    ...(opts.inReplyTo && { inReplyTo: opts.inReplyTo }),
-    ...(allRefs.length > 0 && { references: allRefs.join(" ") }),
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: creds.email,
+      to: opts.to,
+      subject: opts.subject.startsWith("Re:") ? opts.subject : `Re: ${opts.subject}`,
+      text: opts.text,
+      html: opts.html,
+      ...(opts.inReplyTo && { inReplyTo: opts.inReplyTo }),
+      ...(allRefs.length > 0 && { references: allRefs.join(" ") }),
+    });
+    return {
+      messageId: info.messageId ?? "",
+      smtpResponse: info.response ?? "",
+    };
+  } finally {
+    transporter.close();
+  }
 }

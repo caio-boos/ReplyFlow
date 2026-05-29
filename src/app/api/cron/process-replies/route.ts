@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Send the email
-      await sendEmail(
+      const sendResult = await sendEmail(
         {
           smtpHost: accountData.smtpHost,
           smtpPort: accountData.smtpPort,
@@ -113,6 +113,8 @@ export async function POST(req: NextRequest) {
         status: "sent",
         aiResponse,
         sentAt: FieldValue.serverTimestamp(),
+        smtpMessageId: sendResult.messageId,
+        smtpResponse: sendResult.smtpResponse,
         error: null,
       });
 
