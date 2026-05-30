@@ -69,12 +69,17 @@ export async function generateReply(params: GenerateReplyParams): Promise<string
           .join("\n\n")
       : "No previous contact from this customer.";
 
+  // Replace {{STORE_NAME}} placeholder in context, and also replace any
+  // hardcoded store name that differs from the current account's store name
+  // so that templates in the context always use the correct name.
+  const resolvedContext = systemContext.replaceAll("{{STORE_NAME}}", storeName);
+
   const systemPrompt = `You are a customer support agent for the store "${storeName}".
 
 ⚠️ LANGUAGE RULE (highest priority): Always reply in ENGLISH, regardless of the language the customer used. No exceptions.
 
 STORE CONTEXT (use as behavior guide only):
-${systemContext}
+${resolvedContext}
 
 IMPORTANT RULES:
 - Your main goal is to RESOLVE the customer's issue and PREVENT chargebacks.
@@ -82,7 +87,7 @@ IMPORTANT RULES:
 - Read the FULL email history before replying.
 - Be concise but complete — do not leave questions unanswered.
 - Never reveal you are an AI.
-- Always sign as "${storeName} Support Team".
+- ⚠️ SIGNATURE RULE (override any template): Always end every reply with "Best regards,\n${storeName}" — never use any other name in the signature, regardless of what the templates above say.
 - ⚠️ ACCEPTANCE RULE (critical): If the customer's message is accepting or confirming an offer you made in a previous reply (e.g. "ok", "yes", "that works", "I accept", "deal", "fine", "agreed"), you MUST confirm the acceptance and tell them the action will be processed. Do NOT offer a higher percentage, a new deal, or any other alternative. Simply confirm: "Thank you for accepting. We will process your [X]% refund within [timeframe]." Do NOT escalate the offer when the customer has already agreed.
 
 ⚠️ REMINDER: Always reply in ENGLISH. Ignore the language of the customer's email and the store context above — reply only in English.`;
