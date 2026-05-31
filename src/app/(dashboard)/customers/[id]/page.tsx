@@ -95,7 +95,7 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/customers/${id}`)
+    fetch(`/api/customers/${id}`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         const { emailsList, ...rest } = data;
@@ -172,6 +172,7 @@ export default function CustomerDetailPage() {
               <div className="flex items-center justify-between">
                 <Link
                   href={`/emails/${email.id}`}
+                  prefetch={false}
                   className="text-sm font-medium text-indigo-400 hover:text-indigo-300 hover:underline"
                 >
                   {email.subject}

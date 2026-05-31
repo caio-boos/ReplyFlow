@@ -18,7 +18,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/customers")
+    fetch("/api/customers", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setCustomers(d.customers ?? []))
       .finally(() => setLoading(false));
@@ -45,6 +45,7 @@ export default function CustomersPage() {
             <Link
               key={c.id}
               href={`/customers/${c.id}`}
+              prefetch={false}
               className="block bg-gray-900 border border-gray-800 hover:border-indigo-700 rounded-xl p-4 transition-colors"
             >
               <div className="flex items-start justify-between gap-4">
