@@ -1,7 +1,8 @@
 import { initializeApp, getApps, cert, App } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
-import type { Bucket } from "@google-cloud/storage";
+
+type Bucket = ReturnType<ReturnType<typeof getStorage>["bucket"]>;
 
 let app: App;
 let db: Firestore;
