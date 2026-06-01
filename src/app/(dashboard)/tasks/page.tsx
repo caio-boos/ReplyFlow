@@ -4,17 +4,119 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TaskDoc, TaskPriority } from "@/lib/types";
 
-const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; dot: string }> = {
-  high: { label: "ALTA", color: "bg-red-900/50 text-red-300 border-red-800", dot: "bg-red-400" },
-  medium: { label: "MÉDIA", color: "bg-yellow-900/50 text-yellow-300 border-yellow-800", dot: "bg-yellow-400" },
-  low: { label: "BAIXA", color: "bg-gray-800 text-gray-400 border-gray-700", dot: "bg-gray-500" },
+const PRIORITY_CONFIG: Record<
+  TaskPriority,
+  { label: string; color: string; bar: string }
+> = {
+  high: {
+    label: "Alta",
+    color: "bg-red-500/10 text-red-400 border-red-500/20",
+    bar: "bg-red-500",
+  },
+  medium: {
+    label: "Média",
+    color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    bar: "bg-yellow-400",
+  },
+  low: {
+    label: "Baixa",
+    color: "bg-gray-500/10 text-gray-500 border-gray-600/20",
+    bar: "bg-gray-500",
+  },
 };
 
-const FLAG_LABELS: Record<string, string> = {
-  chargeback_risk: "⚠️ Chargeback",
-  manual_review: "👁 Revisão manual",
-  refund_pending: "💰 Reembolso",
-  address_problem: "📍 Endereço",
+const FLAG_CONFIG: Record<
+  string,
+  { label: string; color: string; icon: React.ReactNode }
+> = {
+  chargeback_risk: {
+    label: "Chargeback",
+    color: "bg-red-500/10 text-red-400 border-red-500/20",
+    icon: (
+      <svg
+        className="w-3 h-3"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+        />
+      </svg>
+    ),
+  },
+  manual_review: {
+    label: "Revisão manual",
+    color: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+    icon: (
+      <svg
+        className="w-3 h-3"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+        />
+      </svg>
+    ),
+  },
+  refund_pending: {
+    label: "Reembolso",
+    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    icon: (
+      <svg
+        className="w-3 h-3"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75"
+        />
+      </svg>
+    ),
+  },
+  address_problem: {
+    label: "Endereço",
+    color: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    icon: (
+      <svg
+        className="w-3 h-3"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+        />
+      </svg>
+    ),
+  },
 };
 
 interface CustomerGroup {
@@ -25,7 +127,11 @@ interface CustomerGroup {
   done: TaskDoc[];
 }
 
-const PRIORITY_ORDER: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
+const PRIORITY_ORDER: Record<TaskPriority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
 
 function groupByCustomer(tasks: TaskDoc[]): CustomerGroup[] {
   const map = new Map<string, CustomerGroup>();
@@ -44,8 +150,12 @@ function groupByCustomer(tasks: TaskDoc[]): CustomerGroup[] {
     else g.pending.push(t);
   }
   for (const g of map.values()) {
-    g.pending.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-    g.done.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+    g.pending.sort(
+      (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
+    );
+    g.done.sort(
+      (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
+    );
   }
   // Groups with pending tasks come first, sorted by top priority; fully-done groups at bottom
   return Array.from(map.values()).sort((a, b) => {
@@ -68,58 +178,112 @@ function TaskRow({
   onDelete: (id: string) => void;
 }) {
   const cfg = PRIORITY_CONFIG[task.priority];
+  const activeFlags = task.flags
+    ? Object.entries(task.flags).filter(([k, v]) => v && FLAG_CONFIG[k])
+    : [];
+
   return (
     <div
-      className={`px-4 py-3 flex gap-3 items-start transition-all ${
-        task.completed ? "bg-green-950/20" : ""
-      }`}
+      className={`px-4 py-3.5 flex gap-3 items-start group transition-colors hover:bg-white/2 ${task.completed ? "opacity-60" : ""}`}
     >
+      {/* Priority bar */}
+      <div
+        className={`w-0.5 self-stretch rounded-full shrink-0 ${task.completed ? "bg-gray-700" : cfg.bar}`}
+      />
+
+      {/* Checkbox */}
       <button
         onClick={() => onToggle(task)}
-        className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+        className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all ${
           task.completed
-            ? "bg-green-600 border-green-600 text-white"
-            : "border-gray-600 hover:border-indigo-400"
+            ? "bg-emerald-600/80 border-emerald-600"
+            : "border-gray-600 hover:border-indigo-400 hover:bg-indigo-500/10"
         }`}
       >
         {task.completed && (
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          <svg
+            className="w-3 h-3 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={3}
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         )}
       </button>
 
-      <div className={`flex-1 min-w-0 ${task.completed ? "opacity-50" : ""}`}>
-        <p className={`text-sm font-medium ${task.completed ? "line-through text-gray-500" : "text-gray-100"}`}>
+      <div className="flex-1 min-w-0">
+        <p
+          className={`text-sm font-medium leading-snug ${task.completed ? "line-through text-gray-600" : "text-gray-200"}`}
+        >
           {task.description}
         </p>
-        <div className="flex flex-wrap items-center gap-2 mt-1.5">
-          <span className={`text-xs px-2 py-0.5 rounded border ${task.completed ? "opacity-50 " : ""}${cfg.color}`}>
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          <span
+            className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border ${cfg.color}`}
+          >
+            {task.priority === "high" && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+            )}
             {cfg.label}
           </span>
-          {task.flags &&
-            Object.entries(task.flags)
-              .filter(([k, v]) => v && FLAG_LABELS[k])
-              .map(([k]) => (
-                <span key={k} className="text-xs bg-gray-800 text-gray-500 px-2 py-0.5 rounded">
-                  {FLAG_LABELS[k]}
-                </span>
-              ))}
+          {activeFlags.map(([k]) => {
+            const fc = FLAG_CONFIG[k];
+            return (
+              <span
+                key={k}
+                className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border ${fc.color}`}
+              >
+                {fc.icon}
+                {fc.label}
+              </span>
+            );
+          })}
           <Link
             href={`/emails/${task.emailId}`}
-            className="text-xs text-indigo-400/70 hover:text-indigo-300 transition-colors truncate max-w-xs"
+            className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-indigo-400 transition-colors truncate max-w-xs"
           >
-            📧 {task.emailSubject}
+            <svg
+              className="w-3 h-3 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.75}
+                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+              />
+            </svg>
+            {task.emailSubject}
           </Link>
         </div>
       </div>
 
       <button
         onClick={() => onDelete(task.id)}
-        className="text-gray-700 hover:text-red-400 transition-colors shrink-0 mt-0.5 text-sm"
+        className="opacity-0 group-hover:opacity-100 text-gray-700 hover:text-red-400 transition-all shrink-0 mt-0.5 p-1 rounded-md hover:bg-red-500/10"
         title="Remover tarefa"
       >
-        ✕
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
       </button>
     </div>
   );
@@ -140,7 +304,9 @@ export default function TasksPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadTasks(); }, []);
+  useEffect(() => {
+    loadTasks();
+  }, []);
 
   async function toggleComplete(task: TaskDoc) {
     await fetch(`/api/tasks/${task.id}`, {
@@ -162,90 +328,212 @@ export default function TasksPage() {
   const doneCount = tasks.filter((t) => t.completed).length;
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100 flex items-center gap-2">
-            Tarefas
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-semibold text-gray-100">Tarefas</h1>
             {openCount > 0 && (
-              <span className="text-sm bg-red-600 text-white rounded-full px-2 py-0.5 font-medium">{openCount}</span>
+              <span className="inline-flex items-center justify-center text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/20 rounded-full px-2 py-0.5 min-w-5">
+                {openCount}
+              </span>
             )}
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">Ações manuais geradas pela IA — agrupadas por cliente</p>
+          </div>
+          <p className="text-gray-500 text-sm mt-0.5">
+            Ações manuais geradas pela IA — agrupadas por cliente
+          </p>
         </div>
         <button
           onClick={loadTasks}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-3 py-1.5 bg-gray-800 rounded-lg"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-900/60 border border-white/6 text-gray-500 hover:text-gray-200 hover:border-white/12 transition-all"
         >
-          ↻ Atualizar
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+            />
+          </svg>
+          Atualizar
         </button>
       </div>
 
-      {/* Summary bar */}
+      {/* Summary */}
       {!loading && tasks.length > 0 && (
-        <div className="flex gap-3 mb-5">
-          <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg px-4 py-2">
-            <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />
-            <span className="text-sm text-gray-300">
-              <span className="font-semibold text-white">{openCount}</span> pendente{openCount !== 1 ? "s" : ""}
-            </span>
+        <div className="grid grid-cols-2 gap-3 max-w-xs">
+          <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl px-4 py-3">
+            <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
+              <svg
+                className="w-4 h-4 text-yellow-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.75}
+                  d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Pendentes</p>
+              <p className="text-lg font-bold text-yellow-400 leading-none">
+                {openCount}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg px-4 py-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-            <span className="text-sm text-gray-300">
-              <span className="font-semibold text-white">{doneCount}</span> concluída{doneCount !== 1 ? "s" : ""}
-            </span>
+          <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl px-4 py-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+              <svg
+                className="w-4 h-4 text-emerald-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.75}
+                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Concluídas</p>
+              <p className="text-lg font-bold text-emerald-400 leading-none">
+                {doneCount}
+              </p>
+            </div>
           </div>
         </div>
       )}
 
+      {/* Content */}
       {loading ? (
-        <div className="text-gray-400">Carregando...</div>
+        <div className="flex items-center justify-center py-16 text-gray-600">
+          <svg
+            className="w-5 h-5 animate-spin mr-2"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          Carregando...
+        </div>
       ) : groups.length === 0 ? (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center text-gray-500">
-          <p className="text-lg mb-1">Nenhuma tarefa ainda</p>
-          <p className="text-sm">As tarefas são criadas quando o cliente aceita um estorno ou há necessidade de ação manual.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-gray-600 border border-white/6 rounded-2xl bg-gray-900/30">
+          <svg
+            className="w-10 h-10 mb-3 text-gray-700"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <p className="text-sm font-medium text-gray-500">
+            Nenhuma tarefa ainda
+          </p>
+          <p className="text-xs text-gray-600 mt-1 text-center max-w-xs">
+            As tarefas são criadas quando há necessidade de ação manual.
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {groups.map((group) => {
             const allDone = group.pending.length === 0;
+            const initials = group.customerName
+              .split(" ")
+              .map((n: string) => n[0])
+              .slice(0, 2)
+              .join("")
+              .toUpperCase();
             return (
               <div
                 key={group.customerId}
                 className={`border rounded-xl overflow-hidden transition-colors ${
                   allDone
-                    ? "bg-gray-900/50 border-gray-800/60"
-                    : "bg-gray-900 border-gray-700"
+                    ? "border-white/4 bg-gray-900/20"
+                    : "border-white/6 bg-gray-900/50"
                 }`}
               >
                 {/* Customer header */}
-                <div className={`px-4 py-3 border-b flex items-center justify-between ${allDone ? "border-gray-800/60" : "border-gray-800"}`}>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                        allDone ? "bg-green-800" : "bg-indigo-700"
+                <div
+                  className={`px-4 py-3 flex items-center justify-between border-b ${allDone ? "border-white/4" : "border-white/5"}`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
+                        allDone
+                          ? "bg-emerald-600/30 text-emerald-400"
+                          : "bg-linear-to-br from-indigo-500 to-violet-600"
                       }`}
                     >
-                      {allDone ? "✓" : group.customerName.charAt(0).toUpperCase()}
-                    </span>
+                      {allDone ? (
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      ) : (
+                        initials
+                      )}
+                    </div>
                     <div>
-                      <span className={`text-sm font-semibold ${allDone ? "text-gray-400" : "text-gray-100"}`}>
+                      <span
+                        className={`text-sm font-medium ${allDone ? "text-gray-500" : "text-gray-200"}`}
+                      >
                         {group.customerName}
                       </span>
-                      <span className="text-xs text-gray-600 ml-2">{group.accountEmail}</span>
+                      <span className="text-xs text-gray-600 ml-2">
+                        {group.accountEmail}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {group.pending.length > 0 && (
-                      <span className="text-xs bg-yellow-900/60 text-yellow-400 border border-yellow-800/50 rounded-full px-2 py-0.5">
-                        {group.pending.length} pendente{group.pending.length !== 1 ? "s" : ""}
+                      <span className="text-xs bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-full px-2 py-0.5">
+                        {group.pending.length} pendente
+                        {group.pending.length !== 1 ? "s" : ""}
                       </span>
                     )}
                     {group.done.length > 0 && (
-                      <span className="text-xs bg-green-900/40 text-green-500 border border-green-900/50 rounded-full px-2 py-0.5">
-                        {group.done.length} concluída{group.done.length !== 1 ? "s" : ""}
+                      <span className="text-xs bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full px-2 py-0.5">
+                        {group.done.length} concluída
+                        {group.done.length !== 1 ? "s" : ""}
                       </span>
                     )}
                   </div>
@@ -253,9 +541,14 @@ export default function TasksPage() {
 
                 {/* Pending tasks */}
                 {group.pending.length > 0 && (
-                  <div className="divide-y divide-gray-800">
+                  <div className="divide-y divide-white/4">
                     {group.pending.map((task) => (
-                      <TaskRow key={task.id} task={task} onToggle={toggleComplete} onDelete={deleteTask} />
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        onToggle={toggleComplete}
+                        onDelete={deleteTask}
+                      />
                     ))}
                   </div>
                 )}
@@ -264,15 +557,22 @@ export default function TasksPage() {
                 {group.done.length > 0 && (
                   <>
                     {group.pending.length > 0 && (
-                      <div className="flex items-center gap-2 px-4 py-1.5 bg-gray-950/40 border-t border-gray-800">
-                        <div className="h-px flex-1 bg-gray-800" />
-                        <span className="text-xs text-gray-600 font-medium uppercase tracking-wider">Histórico</span>
-                        <div className="h-px flex-1 bg-gray-800" />
+                      <div className="flex items-center gap-3 px-4 py-2 border-t border-white/4 bg-black/20">
+                        <div className="h-px flex-1 bg-white/5" />
+                        <span className="text-xs text-gray-700 font-medium uppercase tracking-wider">
+                          Histórico
+                        </span>
+                        <div className="h-px flex-1 bg-white/5" />
                       </div>
                     )}
-                    <div className={`divide-y divide-gray-800/50 ${allDone ? "" : "bg-gray-950/30"}`}>
+                    <div className="divide-y divide-white/3">
                       {group.done.map((task) => (
-                        <TaskRow key={task.id} task={task} onToggle={toggleComplete} onDelete={deleteTask} />
+                        <TaskRow
+                          key={task.id}
+                          task={task}
+                          onToggle={toggleComplete}
+                          onDelete={deleteTask}
+                        />
                       ))}
                     </div>
                   </>
