@@ -169,6 +169,30 @@ export interface EmailClassification {
   taskDescription?: string; // only when type === "alert"
 }
 
+function normalizeText(input: string): string {
+  return input.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function isLikelyFakeCustomerMarketing(subject: string, bodyText: string): boolean {
+  const text = normalizeText(`${subject} ${bodyText}`);
+  if (!text) return false;
+
+  const fakeCustomerPatterns = [
+    /\bis this (store|shop|business|website) available\b/,
+    /\bis your (store|shop|business|website) available\b/,
+    /\bare you the owner of (this )?(store|shop|business|website)\b/,
+    /\b(is|are) (the )?(store|shop|business|website) for sale\b/,
+  ];
+
+  const hasFakeCustomerPattern = fakeCustomerPatterns.some((pattern) => pattern.test(text));
+  if (!hasFakeCustomerPattern) return false;
+
+  // If there is clear purchase/support intent, do not auto-ignore.
+  const customerIntentSignals =
+    /\b(order|tracking|refund|return|exchange|shipment|shipping|cancel|complaint|broken|defect|wrong item|never arrived|didn't arrive|not received)\b/;
+  return !customerIntentSignals.test(text);
+}
+
 /**
  * Quickly classifies an incoming email before any processing.
  * - "customer": real customer needing a reply (order issues, complaints, questions)
@@ -181,6 +205,13 @@ export async function classifyEmail(
   subject: string,
   bodyText: string
 ): Promise<EmailClassification> {
+  if (isLikelyFakeCustomerMarketing(subject, bodyText)) {
+    return {
+      type: "ignore",
+      reason: "Likely fake-customer marketing/prospecting message",
+    };
+  }
+
   try {
     const completion = await getClient().chat.completions.create({
       model: "gpt-4o-mini",
@@ -207,6 +238,8 @@ Rules:
 - "customer": real customer asking about their order, complaint, refund request, tracking question, product issue, or any human who bought or wants to buy something.
 - "alert": automated or business email that REQUIRES human attention: Shopify chargeback notification, Shopify payment/payout issue, Shopify account warning/suspension, fraud alert, legal threat, DMCA, dispute opened by payment provider, critical system alert.
 - "ignore": everything else — marketing emails, newsletters, promotional offers, SEO/agency proposals, cold sales outreach, partnership offers, service pitches, automated shipping notifications that need no action, social media notifications, any bulk/no-reply sender that is not critical.
+- Treat vague owner/business prospecting as "ignore" (common fake-customer marketing), e.g.: "Hey, is this store available?", "Is your business available?", "Are you the owner?", "Is this website for sale?".
+- If the message has no order details, no product question, and no post-purchase issue, prefer "ignore".
 
 When in doubt between "customer" and "ignore", choose "customer".
 When in doubt between "alert" and "ignore", choose "alert".`,
