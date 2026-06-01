@@ -6,6 +6,8 @@ import { EmailDoc } from "@/lib/types";
 
 interface AccountOption { id: string; label: string; email: string; }
 
+const ACCOUNT_FILTER_STORAGE_KEY = "replyflow.dashboard.accountFilter";
+
 const STATUS_CONFIG = {
   pending: { label: "Pendente", color: "bg-yellow-900 text-yellow-300 border-yellow-700" },
   processing: { label: "Processando", color: "bg-blue-900 text-blue-300 border-blue-700" },
@@ -72,14 +74,43 @@ export default function DashboardPage() {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
+  const [accountFilterReady, setAccountFilterReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState<"fetch" | "process" | null>(null);
   const [triggerMsg, setTriggerMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch("/api/accounts").then((r) => r.json()).then((d) => setAccounts(d.accounts ?? []));
+    fetch("/api/accounts")
+      .then((r) => r.json())
+      .then((d) => {
+        const fetchedAccounts = d.accounts ?? [];
+        setAccounts(fetchedAccounts);
+
+        const saved = typeof window !== "undefined"
+          ? window.localStorage.getItem(ACCOUNT_FILTER_STORAGE_KEY)
+          : null;
+
+        if (!saved || saved === "all") {
+          setAccountFilter("all");
+          return;
+        }
+
+        if (fetchedAccounts.some((a: AccountOption) => a.id === saved)) {
+          setAccountFilter(saved);
+          return;
+        }
+
+        window.localStorage.removeItem(ACCOUNT_FILTER_STORAGE_KEY);
+        setAccountFilter("all");
+      })
+      .finally(() => setAccountFilterReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!accountFilterReady) return;
+    window.localStorage.setItem(ACCOUNT_FILTER_STORAGE_KEY, accountFilter);
+  }, [accountFilter, accountFilterReady]);
 
   async function triggerCron(action: "fetch-emails" | "process-replies") {
     setTriggering(action === "fetch-emails" ? "fetch" : "process");
@@ -112,10 +143,11 @@ export default function DashboardPage() {
   }, [statusFilter, accountFilter]);
 
   useEffect(() => {
+    if (!accountFilterReady) return;
     fetchEmails();
     const id = setInterval(fetchEmails, 30000);
     return () => clearInterval(id);
-  }, [fetchEmails]);
+  }, [fetchEmails, accountFilterReady]);
 
   function toggleGroup(key: string) {
     setExpandedGroups(prev => {
@@ -182,20 +214,42 @@ export default function DashboardPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-4 items-center">
+      <div className="mb-4 space-y-3">
         {accounts.length > 0 && (
-          <select
-            value={accountFilter}
-            onChange={(e) => setAccountFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 border border-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="all">Todas as contas</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.label} ({a.email})</option>
-            ))}
-          </select>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Conta em visualizacao</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+              <button
+                onClick={() => setAccountFilter("all")}
+                className={`text-left rounded-xl border p-3 transition-colors ${
+                  accountFilter === "all"
+                    ? "border-indigo-600 bg-indigo-900/40"
+                    : "border-gray-700 bg-gray-900 hover:border-gray-500"
+                }`}
+              >
+                <p className="text-sm font-semibold text-gray-100">Todas as contas</p>
+                <p className="text-xs text-gray-400 mt-1">Exibe os e-mails de todas as caixas conectadas</p>
+              </button>
+
+              {accounts.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setAccountFilter(a.id)}
+                  className={`text-left rounded-xl border p-3 transition-colors ${
+                    accountFilter === a.id
+                      ? "border-indigo-600 bg-indigo-900/40"
+                      : "border-gray-700 bg-gray-900 hover:border-gray-500"
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-gray-100 truncate">{a.label}</p>
+                  <p className="text-xs text-gray-400 mt-1 truncate">{a.email}</p>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2 items-center">
           {["all", "pending", "sent", "failed", "cancelled"].map((f) => (
             <button
               key={f}
@@ -207,10 +261,10 @@ export default function DashboardPage() {
               {f === "all" ? "Todos" : STATUS_CONFIG[f as keyof typeof STATUS_CONFIG]?.label ?? f}
             </button>
           ))}
+          <button onClick={fetchEmails} className="ml-auto px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-400 hover:text-gray-100">
+            ↻ Atualizar
+          </button>
         </div>
-        <button onClick={fetchEmails} className="ml-auto px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-400 hover:text-gray-100">
-          ↻ Atualizar
-        </button>
       </div>
 
       {/* Grouped email list */}

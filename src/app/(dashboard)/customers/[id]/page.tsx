@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
+const ACCOUNT_VIEW_STORAGE_KEY = "replyflow.customers.viewAccount";
+
 interface FirestoreTimestamp {
   seconds?: number;
   _seconds?: number;
@@ -22,8 +24,15 @@ interface EmailEntry {
   from: string;
   status: string;
   receivedAt: FirestoreTimestamp;
+  accountId?: string;
+  accountEmail?: string;
   bodyText?: string;
   aiResponse?: string;
+}
+
+interface AccountViewOption {
+  id: string;
+  label: string;
 }
 
 interface CustomerDetail {
@@ -92,6 +101,8 @@ function TranslatableText({ text }: { text: string }) {
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
+  const [accountFilter, setAccountFilter] = useState("all");
+  const [accountFilterReady, setAccountFilterReady] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -103,6 +114,59 @@ export default function CustomerDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  const accountOptions: AccountViewOption[] = customer
+    ? Array.from(
+        new Map(
+          customer.emails_list
+            .map((email) => {
+              const id = email.accountId ?? email.accountEmail;
+              if (!id) return null;
+              return [id, { id, label: email.accountEmail ?? email.accountId ?? id }] as const;
+            })
+            .filter((entry): entry is readonly [string, AccountViewOption] => entry !== null)
+        ).values()
+      )
+    : [];
+
+  useEffect(() => {
+    if (!customer) return;
+
+    const availableAccountIds = new Set(
+      customer.emails_list
+        .map((email) => email.accountId ?? email.accountEmail)
+        .filter((value): value is string => Boolean(value))
+    );
+
+    const saved = window.localStorage.getItem(ACCOUNT_VIEW_STORAGE_KEY);
+    if (!saved || saved === "all") {
+      setAccountFilter("all");
+      setAccountFilterReady(true);
+      return;
+    }
+
+    if (availableAccountIds.has(saved)) {
+      setAccountFilter(saved);
+      setAccountFilterReady(true);
+      return;
+    }
+
+    window.localStorage.removeItem(ACCOUNT_VIEW_STORAGE_KEY);
+    setAccountFilter("all");
+    setAccountFilterReady(true);
+  }, [customer]);
+
+  useEffect(() => {
+    if (!accountFilterReady) return;
+    window.localStorage.setItem(ACCOUNT_VIEW_STORAGE_KEY, accountFilter);
+  }, [accountFilter, accountFilterReady]);
+
+  const visibleEmails = customer
+    ? customer.emails_list.filter((email) => {
+        if (accountFilter === "all") return true;
+        return (email.accountId ?? email.accountEmail) === accountFilter;
+      })
+    : [];
 
   if (loading) return <div className="p-6 text-gray-400">Carregando...</div>;
   if (!customer) return <div className="p-6 text-red-400">Cliente não encontrado</div>;
@@ -157,16 +221,49 @@ export default function CustomerDetailPage() {
         )}
       </div>
 
+      {accountOptions.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Conta em visualizacao</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+            <button
+              onClick={() => setAccountFilter("all")}
+              className={`text-left rounded-xl border p-3 transition-colors ${
+                accountFilter === "all"
+                  ? "border-indigo-600 bg-indigo-900/40"
+                  : "border-gray-700 bg-gray-900 hover:border-gray-500"
+              }`}
+            >
+              <p className="text-sm font-semibold text-gray-100">Todas as contas</p>
+              <p className="text-xs text-gray-400 mt-1">Mostra todos os e-mails deste cliente</p>
+            </button>
+
+            {accountOptions.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setAccountFilter(option.id)}
+                className={`text-left rounded-xl border p-3 transition-colors ${
+                  accountFilter === option.id
+                    ? "border-indigo-600 bg-indigo-900/40"
+                    : "border-gray-700 bg-gray-900 hover:border-gray-500"
+                }`}
+              >
+                <p className="text-sm font-semibold text-gray-100 truncate">{option.label}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Conversation timeline */}
       <h2 className="text-lg font-semibold text-gray-200 mb-4">
-        Conversa ({customer.emails_list.length} e-mail{customer.emails_list.length !== 1 ? "s" : ""})
+        Conversa ({visibleEmails.length} e-mail{visibleEmails.length !== 1 ? "s" : ""})
       </h2>
 
-      {customer.emails_list.length === 0 ? (
+      {visibleEmails.length === 0 ? (
         <p className="text-gray-500">Nenhum e-mail encontrado</p>
       ) : (
         <div className="space-y-6">
-          {customer.emails_list.map((email) => (
+          {visibleEmails.map((email) => (
             <div key={email.id} className="space-y-2">
               {/* Thread header */}
               <div className="flex items-center justify-between">
@@ -215,7 +312,7 @@ export default function CustomerDetailPage() {
                 </div>
               )}
 
-              {email !== customer.emails_list[customer.emails_list.length - 1] && (
+              {email !== visibleEmails[visibleEmails.length - 1] && (
                 <div className="border-t border-gray-800/60 pt-2" />
               )}
             </div>
