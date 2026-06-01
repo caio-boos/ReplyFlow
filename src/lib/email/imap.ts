@@ -26,9 +26,15 @@ export interface FetchedEmail {
   bodyHtml: string;
   uid: number;
   receivedAt: Date;
+  attachments: Array<{ filename: string; contentType: string; data: Buffer }>;
 }
 
-export async function fetchNewEmails(account: AccountCredentials): Promise<FetchedEmail[]> {
+// Emails larger than this are fetched but attachments are skipped to avoid timeout
+const MAX_EMAIL_BYTES = 15 * 1024 * 1024; // 15 MB
+
+export async function fetchNewEmails(
+  account: AccountCredentials,
+): Promise<FetchedEmail[]> {
   const options: ImapFlowOptions = {
     host: account.imapHost,
     port: account.imapPort,
@@ -50,7 +56,10 @@ export async function fetchNewEmails(account: AccountCredentials): Promise<Fetch
       // On first run (lastUid === 0), limit to emails since account creation date
       let uids: number[];
       if (account.lastUid > 0) {
-        const result = await client.search({ uid: `${account.lastUid + 1}:*` }, { uid: true });
+        const result = await client.search(
+          { uid: `${account.lastUid + 1}:*` },
+          { uid: true },
+        );
         uids = result || [];
       } else {
         const since = account.createdAt ?? new Date();
@@ -63,24 +72,33 @@ export async function fetchNewEmails(account: AccountCredentials): Promise<Fetch
 
       for await (const message of client.fetch(
         { uid: uids.join(",") },
-        { uid: true, source: true, envelope: true },
-        { uid: true }
+        { uid: true, source: true, envelope: true, size: true },
+        { uid: true },
       )) {
         try {
           if (!message.source) continue;
+
+          // Skip downloading attachments for oversized emails to prevent cron timeouts
+          const tooLarge = (message.size ?? 0) > MAX_EMAIL_BYTES;
           const parsed = await simpleParser(message.source);
 
           const headers = {
             from: parsed.from?.text ?? "",
             precedence: parsed.headers.get("precedence") as string | undefined,
-            listUnsubscribe: parsed.headers.get("list-unsubscribe") as string | undefined,
-            autoSubmitted: parsed.headers.get("auto-submitted") as string | undefined,
+            listUnsubscribe: parsed.headers.get("list-unsubscribe") as
+              | string
+              | undefined,
+            autoSubmitted: parsed.headers.get("auto-submitted") as
+              | string
+              | undefined,
             xAutoReply: parsed.headers.get("x-autoreply") as string | undefined,
           };
 
           if (isSpamOrAutomated(headers)) continue;
 
-          const msgId = (parsed.messageId ?? `uid-${message.uid}@${account.imapHost}`).trim();
+          const msgId = (
+            parsed.messageId ?? `uid-${message.uid}@${account.imapHost}`
+          ).trim();
           const inReplyTo = (parsed.inReplyTo ?? null)?.trim() ?? null;
           const references = parsed.references
             ? typeof parsed.references === "string"
@@ -102,6 +120,19 @@ export async function fetchNewEmails(account: AccountCredentials): Promise<Fetch
             bodyHtml: parsed.html || "",
             uid: message.uid,
             receivedAt: parsed.date ?? new Date(),
+            attachments: tooLarge
+              ? []
+              : (parsed.attachments ?? [])
+              .filter(
+                (a) =>
+                  a.contentType.startsWith("image/") &&
+                  a.content.byteLength <= 10 * 1024 * 1024,
+              )
+              .map((a) => ({
+                filename: a.filename ?? `image-${Date.now()}.jpg`,
+                contentType: a.contentType,
+                data: a.content,
+              })),
           });
         } catch {
           // Skip unparseable messages

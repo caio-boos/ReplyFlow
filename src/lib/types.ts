@@ -1,4 +1,15 @@
-export type EmailStatus = "pending" | "processing" | "sent" | "failed" | "cancelled";
+export type EmailStatus =
+  | "pending"
+  | "processing"
+  | "sent"
+  | "failed"
+  | "cancelled";
+
+export interface EmailAttachment {
+  filename: string;
+  contentType: string;
+  url: string;
+}
 
 export interface EmailDoc {
   id: string;
@@ -20,6 +31,7 @@ export interface EmailDoc {
   aiResponse: string | null;
   sentAt: { seconds: number; nanoseconds: number } | null;
   error: string | null;
+  attachments?: EmailAttachment[];
 }
 
 export interface AccountDoc {

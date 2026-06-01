@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -32,6 +32,163 @@ interface EmailDetail {
   error: string | null;
   accountEmail: string;
   customerId: string;
+  attachments?: Array<{ filename: string; contentType: string; url: string }>;
+}
+
+interface Attachment {
+  filename: string;
+  contentType: string;
+  url: string;
+}
+
+function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
+  const [current, setCurrent] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
+
+  const prev = useCallback(
+    () => setCurrent((c) => (c - 1 + attachments.length) % attachments.length),
+    [attachments.length],
+  );
+  const next = useCallback(
+    () => setCurrent((c) => (c + 1) % attachments.length),
+    [attachments.length],
+  );
+
+  useEffect(() => {
+    if (!lightbox) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setLightbox(false);
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, prev, next]);
+
+  const att = attachments[current];
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-600 uppercase tracking-wider">Imagens anexadas</p>
+        <p className="text-xs text-gray-600">
+          {current + 1} / {attachments.length}
+        </p>
+      </div>
+
+      {/* Carousel */}
+      <div className="relative rounded-lg overflow-hidden border border-white/6 bg-black/20 group">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={att.url}
+          alt={att.filename}
+          className="w-full max-h-64 object-contain cursor-zoom-in"
+          onClick={() => setLightbox(true)}
+        />
+
+        {attachments.length > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-opacity opacity-0 group-hover:opacity-100"
+              aria-label="Anterior"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-opacity opacity-0 group-hover:opacity-100"
+              aria-label="Próxima"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+              {attachments.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrent(i)}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    i === current ? "bg-white" : "bg-white/30 hover:bg-white/60"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="absolute top-2 right-2 p-1 rounded bg-black/50 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+          </svg>
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-600 truncate">{att.filename}</p>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightbox(false)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            onClick={() => setLightbox(false)}
+            aria-label="Fechar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {attachments.length > 1 && (
+            <>
+              <button
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                onClick={(e) => { e.stopPropagation(); prev(); }}
+                aria-label="Anterior"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 19.5L8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+              <button
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                onClick={(e) => { e.stopPropagation(); next(); }}
+                aria-label="Próxima"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+            </>
+          )}
+
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={att.url}
+            alt={att.filename}
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg cursor-zoom-out"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center">
+            <p className="text-xs text-gray-400">{att.filename}</p>
+            {attachments.length > 1 && (
+              <p className="text-xs text-gray-600 mt-0.5">
+                {current + 1} / {attachments.length} · ← → para navegar · Esc para fechar
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const STATUS_CONFIG: Record<
@@ -499,11 +656,22 @@ export default function EmailDetailPage() {
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
               E-mail do cliente
             </h2>
+            {!!email.attachments?.length && (
+              <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                </svg>
+                {email.attachments.length} imagem{email.attachments.length !== 1 ? "ns" : ""}
+              </span>
+            )}
           </div>
-          <div className="p-4">
+          <div className="p-4 space-y-4">
             <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
               {email.bodyText}
             </pre>
+            {!!email.attachments?.length && (
+              <ImageCarousel attachments={email.attachments} />
+            )}
           </div>
         </div>
 
@@ -538,11 +706,4 @@ export default function EmailDetailPage() {
       </div>
     </div>
   );
-}
-
-interface FirestoreTimestamp {
-  seconds?: number;
-  _seconds?: number;
-  nanoseconds?: number;
-  _nanoseconds?: number;
 }

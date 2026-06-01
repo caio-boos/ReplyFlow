@@ -240,6 +240,7 @@ function AccountForm({
             <Input
               required={!isEdit}
               type="email"
+              autoComplete="off"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="suporte@loja.com"
@@ -256,6 +257,7 @@ function AccountForm({
               <Input
                 required={!isEdit}
                 type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="pr-10"
