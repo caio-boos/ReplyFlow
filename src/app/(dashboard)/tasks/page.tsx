@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { TaskDoc, TaskPriority } from "@/lib/types";
 
@@ -172,37 +172,69 @@ function TaskRow({
   task,
   onToggle,
   onDelete,
+  onSaveNote,
+  isCompleting,
 }: {
   task: TaskDoc;
   onToggle: (t: TaskDoc) => void;
   onDelete: (id: string) => void;
+  onSaveNote: (id: string, note: string) => Promise<void>;
+  isCompleting: boolean;
 }) {
   const cfg = PRIORITY_CONFIG[task.priority];
   const activeFlags = task.flags
     ? Object.entries(task.flags).filter(([k, v]) => v && FLAG_CONFIG[k])
     : [];
 
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteValue, setNoteValue] = useState(task.note ?? "");
+  const [noteSaving, setNoteSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function openNote() {
+    setNoteValue(task.note ?? "");
+    setNoteOpen(true);
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  }
+
+  async function handleSaveNote() {
+    setNoteSaving(true);
+    await onSaveNote(task.id, noteValue.trim());
+    setNoteSaving(false);
+    setNoteOpen(false);
+  }
+
   return (
     <div
-      className={`px-4 py-3.5 flex gap-3 items-start group transition-colors hover:bg-white/2 ${task.completed ? "opacity-60" : ""}`}
+      className={`px-4 py-3.5 flex gap-3 items-start group transition-all duration-500 ${
+        isCompleting
+          ? "bg-emerald-500/8"
+          : task.completed
+          ? "opacity-55 hover:bg-white/2"
+          : "hover:bg-white/2"
+      }`}
     >
       {/* Priority bar */}
       <div
-        className={`w-0.5 self-stretch rounded-full shrink-0 ${task.completed ? "bg-gray-700" : cfg.bar}`}
+        className={`w-0.5 self-stretch rounded-full shrink-0 transition-colors duration-500 ${
+          isCompleting || task.completed ? "bg-gray-700" : cfg.bar
+        }`}
       />
 
       {/* Checkbox */}
       <button
         onClick={() => onToggle(task)}
-        className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all ${
-          task.completed
+        className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all duration-200 ${
+          isCompleting
+            ? "bg-emerald-500 border-emerald-400 scale-125 ring-4 ring-emerald-500/35"
+            : task.completed
             ? "bg-emerald-600/80 border-emerald-600"
             : "border-gray-600 hover:border-indigo-400 hover:bg-indigo-500/10"
         }`}
       >
-        {task.completed && (
+        {(task.completed || isCompleting) && (
           <svg
-            className="w-3 h-3 text-white"
+            className={`w-3 h-3 text-white transition-all duration-200 ${isCompleting ? "scale-110" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -219,10 +251,13 @@ function TaskRow({
 
       <div className="flex-1 min-w-0">
         <p
-          className={`text-sm font-medium leading-snug ${task.completed ? "line-through text-gray-600" : "text-gray-200"}`}
+          className={`text-sm font-medium leading-snug transition-all duration-500 ${
+            task.completed ? "line-through text-gray-600" : "text-gray-200"
+          }`}
         >
           {task.description}
         </p>
+
         <div className="flex flex-wrap items-center gap-1.5 mt-2">
           <span
             className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border ${cfg.color}`}
@@ -264,6 +299,74 @@ function TaskRow({
             {task.emailSubject}
           </Link>
         </div>
+
+        {/* Existing note display */}
+        {task.note && !noteOpen && (
+          <div className="mt-2.5 flex items-start gap-1.5 text-xs text-gray-500 bg-gray-800/40 border border-white/5 rounded-lg px-3 py-2">
+            <svg className="w-3 h-3 mt-0.5 shrink-0 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+            </svg>
+            <span className="leading-relaxed">{task.note}</span>
+            <button
+              onClick={openNote}
+              className="ml-auto shrink-0 text-gray-600 hover:text-gray-300 transition-colors"
+              title="Editar observação"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Note editor */}
+        {noteOpen ? (
+          <div className="mt-2.5 space-y-2">
+            <textarea
+              ref={textareaRef}
+              value={noteValue}
+              onChange={(e) => setNoteValue(e.target.value)}
+              placeholder="Adicione uma observação..."
+              rows={2}
+              className="w-full bg-gray-800/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/40 resize-none transition-all"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveNote}
+                disabled={noteSaving}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-md text-xs font-medium text-white transition-all"
+              >
+                {noteSaving ? (
+                  <>
+                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Salvando...
+                  </>
+                ) : "Salvar"}
+              </button>
+              <button
+                onClick={() => setNoteOpen(false)}
+                className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 bg-gray-800/60 border border-white/6 rounded-md transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          !task.note && (
+            <button
+              onClick={openNote}
+              className="mt-2 inline-flex items-center gap-1 text-xs text-gray-700 hover:text-gray-400 transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+              </svg>
+              Adicionar observação
+            </button>
+          )
+        )}
       </div>
 
       <button
@@ -292,10 +395,10 @@ function TaskRow({
 export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [completing, setCompleting] = useState<Set<string>>(new Set());
 
   async function loadTasks() {
     setLoading(true);
-    // Always load all tasks (including completed) for full history
     const res = await fetch("/api/tasks?completed=true");
     if (res.ok) {
       const data = await res.json();
@@ -309,18 +412,53 @@ export default function TasksPage() {
   }, []);
 
   async function toggleComplete(task: TaskDoc) {
-    await fetch(`/api/tasks/${task.id}`, {
+    const newCompleted = !task.completed;
+
+    if (newCompleted) {
+      // Start animation
+      setCompleting((prev) => new Set(prev).add(task.id));
+      // After animation settles, flip local state
+      setTimeout(() => {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task.id ? { ...t, completed: true } : t)),
+        );
+        setCompleting((prev) => {
+          const s = new Set(prev);
+          s.delete(task.id);
+          return s;
+        });
+      }, 550);
+    } else {
+      // Unchecking — instant
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, completed: false } : t)),
+      );
+    }
+
+    // Fire API (non-blocking)
+    fetch(`/api/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: !task.completed }),
+      body: JSON.stringify({ completed: newCompleted }),
     });
-    loadTasks();
+  }
+
+  async function saveNote(id: string, note: string) {
+    await fetch(`/api/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    });
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, note } : t)),
+    );
   }
 
   async function deleteTask(id: string) {
     if (!confirm("Remover esta tarefa?")) return;
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-    loadTasks();
+    // Optimistic remove
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    fetch(`/api/tasks/${id}`, { method: "DELETE" });
   }
 
   const groups = groupByCustomer(tasks);
@@ -548,6 +686,8 @@ export default function TasksPage() {
                         task={task}
                         onToggle={toggleComplete}
                         onDelete={deleteTask}
+                        onSaveNote={saveNote}
+                        isCompleting={completing.has(task.id)}
                       />
                     ))}
                   </div>
@@ -572,6 +712,8 @@ export default function TasksPage() {
                           task={task}
                           onToggle={toggleComplete}
                           onDelete={deleteTask}
+                          onSaveNote={saveNote}
+                          isCompleting={completing.has(task.id)}
                         />
                       ))}
                     </div>

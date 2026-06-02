@@ -19,6 +19,7 @@ export async function PATCH(
 
   const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
   if (typeof body.completed === "boolean") update.completed = body.completed;
+  if (typeof body.note === "string") update.note = body.note;
 
   await ref.update(update);
   return NextResponse.json({ ok: true });

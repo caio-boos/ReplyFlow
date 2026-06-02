@@ -83,6 +83,7 @@ export interface TaskDoc {
   description: string;
   priority: TaskPriority;
   completed: boolean;
+  note?: string;
   flags: {
     chargeback_risk?: boolean;
     manual_review?: boolean;
