@@ -64,7 +64,7 @@ async function uploadSingle(
   emailDocId: string,
 ): Promise<EmailAttachment | null> {
   const safeFilename = attachment.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `emails/${emailDocId}/${safeFilename}`;
+  const storagePath = `attachments/${emailDocId}_${safeFilename}`;
   const file = bucket.file(storagePath);
   const token = randomUUID();
 

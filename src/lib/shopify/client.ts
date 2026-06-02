@@ -7,6 +7,7 @@ export interface ShopifyOrder {
   financialStatus: string;
   createdAt: string;
   cancelledAt: string | null;
+  totalPrice: number | null;
   trackingNumber: string | null;
   trackingUrl: string | null;
   trackingCompany: string | null;
@@ -46,6 +47,7 @@ function parseOrder(order: Record<string, unknown>): ShopifyOrder {
     financialStatus: order.financial_status as string,
     createdAt: order.created_at as string,
     cancelledAt: (order.cancelled_at as string | null) ?? null,
+    totalPrice: order.total_price ? parseFloat(order.total_price as string) : null,
     trackingNumber: trackingInfo,
     trackingUrl,
     trackingCompany,

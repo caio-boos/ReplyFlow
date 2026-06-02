@@ -4,16 +4,24 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
 import { generateReply, extractFlags } from "@/lib/ai/openai";
 import { sendEmail } from "@/lib/email/smtp";
-import { getCustomerEmailHistory, extractOrderNumbers } from "@/lib/customer/identifier";
+import {
+  getCustomerEmailHistory,
+  extractOrderNumbers,
+} from "@/lib/customer/identifier";
 import { FieldValue } from "firebase-admin/firestore";
-import { getShopifyOrderByNumber, getShopifyOrdersByEmail, formatOrderForAI } from "@/lib/shopify/client";
+import {
+  getShopifyOrderByNumber,
+  getShopifyOrdersByEmail,
+  formatOrderForAI,
+} from "@/lib/shopify/client";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
 
@@ -21,13 +29,16 @@ export async function POST(
   try {
     const body = await req.json();
     resend = body?.resend === true;
-  } catch { /* no body */ }
+  } catch {
+    /* no body */
+  }
 
   const db = getAdminDb();
   const emailRef = db.collection("emails").doc(id);
   const emailDoc = await emailRef.get();
 
-  if (!emailDoc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!emailDoc.exists)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const emailData = emailDoc.data()!;
   const allowedStatuses = resend
@@ -37,14 +48,17 @@ export async function POST(
   if (!allowedStatuses.includes(emailData.status)) {
     return NextResponse.json(
       { error: `Cannot send email with status "${emailData.status}"` },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   await emailRef.update({ status: "processing" });
 
   try {
-    const accountDoc = await db.collection("accounts").doc(emailData.accountId).get();
+    const accountDoc = await db
+      .collection("accounts")
+      .doc(emailData.accountId)
+      .get();
     if (!accountDoc.exists) {
       await emailRef.update({ status: "failed", error: "Account not found" });
       return NextResponse.json({ error: "Account not found" }, { status: 400 });
@@ -62,25 +76,71 @@ export async function POST(
 
     // Lookup Shopify order if account has Shopify integration
     let orderInfo: string | null = null;
+    let shopifyOrder: import("@/lib/shopify/client").ShopifyOrder | null = null;
+    console.log(
+      "[send] Shopify integration check — domain:",
+      accountData.shopifyDomain,
+      "| hasToken:",
+      !!accountData.encryptedShopifyToken,
+    );
     if (accountData.shopifyDomain && accountData.encryptedShopifyToken) {
       try {
         const shopifyToken = decrypt(accountData.encryptedShopifyToken);
-        const orderNumbers = extractOrderNumbers(
-          (emailData.subject ?? "") + " " + (emailData.bodyText ?? "")
-        );
+        const searchText =
+          (emailData.subject ?? "") + " " + (emailData.bodyText ?? "");
+        const orderNumbers = extractOrderNumbers(searchText);
+        console.log("[send] Order numbers extracted from email:", orderNumbers);
         let order = null;
         for (const num of orderNumbers) {
-          order = await getShopifyOrderByNumber(accountData.shopifyDomain, shopifyToken, num);
+          console.log(`[send] Looking up order #${num} by number...`);
+          order = await getShopifyOrderByNumber(
+            accountData.shopifyDomain,
+            shopifyToken,
+            num,
+          );
+          console.log(
+            `[send] Order #${num} result:`,
+            order ? `found (id=${order.id}, name=${order.name})` : "not found",
+          );
           if (order) break;
         }
         if (!order) {
-          const orders = await getShopifyOrdersByEmail(accountData.shopifyDomain, shopifyToken, emailData.from);
+          console.log(
+            `[send] No order found by number — trying by email: ${emailData.from}`,
+          );
+          const orders = await getShopifyOrdersByEmail(
+            accountData.shopifyDomain,
+            shopifyToken,
+            emailData.from,
+          );
+          console.log(
+            `[send] Orders found by email (${emailData.from}):`,
+            orders.length,
+            orders.map((o) => o.name),
+          );
           if (orders.length > 0) order = orders[0];
         }
-        if (order) orderInfo = formatOrderForAI(order);
+        if (order) {
+          orderInfo = formatOrderForAI(order);
+          shopifyOrder = order;
+          console.log(
+            "[send] Using order:",
+            order.name,
+            "| totalPrice:",
+            order.totalPrice,
+            "| financial:",
+            order.financialStatus,
+          );
+        } else {
+          console.log("[send] No Shopify order found for this email.");
+        }
       } catch (shopifyErr) {
-        console.error("Shopify lookup failed (non-fatal):", shopifyErr);
+        console.error("[send] Shopify lookup failed (non-fatal):", shopifyErr);
       }
+    } else {
+      console.log(
+        "[send] Skipping Shopify lookup — integration not configured for this account.",
+      );
     }
 
     // Use existing aiResponse if available and not a resend, otherwise regenerate
@@ -114,7 +174,7 @@ export async function POST(
         text: aiResponse,
         inReplyTo: emailData.messageId,
         references: [...(emailData.references ?? []), emailData.messageId],
-      }
+      },
     );
 
     await emailRef.update({
@@ -128,11 +188,27 @@ export async function POST(
 
     // Extract flags (non-blocking)
     try {
-      const lastAiResponse = emailHistory.length > 0
-        ? emailHistory[emailHistory.length - 1]?.aiResponse
-        : undefined;
-      const flags = await extractFlags(emailData.bodyText, aiResponse, lastAiResponse ?? undefined);
-      await emailRef.update({ flags });
+      const lastAiResponse =
+        emailHistory.length > 0
+          ? emailHistory[emailHistory.length - 1]?.aiResponse
+          : undefined;
+      const flags = await extractFlags(
+        emailData.bodyText,
+        aiResponse,
+        lastAiResponse ?? undefined,
+      );
+      const flagUpdate: Record<string, unknown> = { flags };
+      if (flags.chargeback_risk) {
+        flagUpdate.chargebackRisk = true;
+        flagUpdate.orderValue = shopifyOrder?.totalPrice ?? null;
+      }
+      if (flags.refund_pending) {
+        flagUpdate.refundResolved = true;
+        if (!flagUpdate.orderValue) {
+          flagUpdate.orderValue = shopifyOrder?.totalPrice ?? null;
+        }
+      }
+      await emailRef.update(flagUpdate);
 
       if (flags.tasks && flags.tasks.length > 0) {
         for (const taskDesc of flags.tasks) {
@@ -158,9 +234,14 @@ export async function POST(
           });
         }
       }
-    } catch { /* flags are non-critical */ }
+    } catch {
+      /* flags are non-critical */
+    }
 
-    return NextResponse.json({ ok: true, smtpResponse: sendResult.smtpResponse });
+    return NextResponse.json({
+      ok: true,
+      smtpResponse: sendResult.smtpResponse,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await emailRef.update({ status: "failed", error: message.slice(0, 500) });

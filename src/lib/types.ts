@@ -32,6 +32,8 @@ export interface EmailDoc {
   sentAt: { seconds: number; nanoseconds: number } | null;
   error: string | null;
   attachments?: EmailAttachment[];
+  chargebackRisk?: boolean;
+  orderValue?: number | null;
 }
 
 export interface AccountDoc {

@@ -746,7 +746,7 @@ export default function EmailDetailPage() {
             )}
           </div>
           <div className="p-4 space-y-4">
-            <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+            <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed" suppressHydrationWarning>
               {email.bodyText}
             </pre>
             {!!email.attachments?.length && (
@@ -771,7 +771,7 @@ export default function EmailDetailPage() {
           </div>
           <div className="p-4">
             {email.aiResponse ? (
-              <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+              <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed" suppressHydrationWarning>
                 {email.aiResponse}
               </pre>
             ) : (

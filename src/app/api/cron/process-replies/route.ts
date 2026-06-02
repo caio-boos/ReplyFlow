@@ -3,9 +3,16 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { generateReply, extractFlags } from "@/lib/ai/openai";
 import { sendEmail } from "@/lib/email/smtp";
 import { decrypt } from "@/lib/crypto/encryption";
-import { getCustomerEmailHistory, extractOrderNumbers } from "@/lib/customer/identifier";
+import {
+  getCustomerEmailHistory,
+  extractOrderNumbers,
+} from "@/lib/customer/identifier";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
-import { getShopifyOrderByNumber, getShopifyOrdersByEmail, formatOrderForAI } from "@/lib/shopify/client";
+import {
+  getShopifyOrderByNumber,
+  getShopifyOrdersByEmail,
+  formatOrderForAI,
+} from "@/lib/shopify/client";
 
 // Allow up to 5 minutes on Vercel Pro (cron processes 5/run × every minute = handles any volume)
 export const maxDuration = 300;
@@ -29,7 +36,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     force = body?.force === true;
-  } catch { /* no body = normal cron call */ }
+  } catch {
+    /* no body = normal cron call */
+  }
 
   const db = getAdminDb();
   const now = Timestamp.now();
@@ -37,9 +46,10 @@ export async function POST(req: NextRequest) {
   // Find emails due for reply. When force=true, skip the scheduledReplyAt filter.
   const batchSize = force ? BATCH_SIZE_FORCE : BATCH_SIZE_CRON;
   const baseQuery = db.collection("emails").where("status", "==", "pending");
-  const dueSnap = await (force
-    ? baseQuery.limit(batchSize)
-    : baseQuery.where("scheduledReplyAt", "<=", now).limit(batchSize)
+  const dueSnap = await (
+    force
+      ? baseQuery.limit(batchSize)
+      : baseQuery.where("scheduledReplyAt", "<=", now).limit(batchSize)
   ).get();
 
   if (dueSnap.empty) {
@@ -65,7 +75,10 @@ export async function POST(req: NextRequest) {
 
     try {
       // Get account credentials
-      const accountDoc = await db.collection("accounts").doc(emailData.accountId).get();
+      const accountDoc = await db
+        .collection("accounts")
+        .doc(emailData.accountId)
+        .get();
       if (!accountDoc.exists) {
         await emailRef.update({ status: "failed", error: "Account not found" });
         failed++;
@@ -80,22 +93,46 @@ export async function POST(req: NextRequest) {
 
       // Lookup Shopify order if account has Shopify integration
       let orderInfo: string | null = null;
+      let shopifyOrder: import("@/lib/shopify/client").ShopifyOrder | null = null;
+
+      console.log(accountData.shopifyDomain, accountData.encryptedShopifyToken);
+
       if (accountData.shopifyDomain && accountData.encryptedShopifyToken) {
         try {
           const shopifyToken = decrypt(accountData.encryptedShopifyToken);
           const orderNumbers = extractOrderNumbers(
-            (emailData.subject ?? "") + " " + (emailData.bodyText ?? "")
+            (emailData.subject ?? "") + " " + (emailData.bodyText ?? ""),
           );
+
+          console.log(`orderNumbers: ${orderNumbers}`);
+
           let order = null;
           for (const num of orderNumbers) {
-            order = await getShopifyOrderByNumber(accountData.shopifyDomain, shopifyToken, num);
+            order = await getShopifyOrderByNumber(
+              accountData.shopifyDomain,
+              shopifyToken,
+              num,
+            );
+
+            console.log(`order lookup for ${num} returned:`, order);
+
             if (order) break;
           }
           if (!order) {
-            const orders = await getShopifyOrdersByEmail(accountData.shopifyDomain, shopifyToken, emailData.from);
+            const orders = await getShopifyOrdersByEmail(
+              accountData.shopifyDomain,
+              shopifyToken,
+              emailData.from,
+            );
             if (orders.length > 0) order = orders[0];
           }
-          if (order) orderInfo = formatOrderForAI(order);
+          if (order) {
+            orderInfo = formatOrderForAI(order);
+
+            console.log("Found Shopify order for email:", orderInfo);
+
+            shopifyOrder = order;
+          }
         } catch (shopifyErr) {
           console.error("Shopify lookup failed (non-fatal):", shopifyErr);
         }
@@ -131,7 +168,7 @@ export async function POST(req: NextRequest) {
           text: aiResponse,
           inReplyTo: emailData.messageId,
           references: [...(emailData.references ?? []), emailData.messageId],
-        }
+        },
       );
 
       await emailRef.update({
@@ -145,9 +182,27 @@ export async function POST(req: NextRequest) {
 
       // Extract flags and create tasks (non-blocking)
       try {
-        const lastAiResponse = emailHistory.length > 0 ? emailHistory[emailHistory.length - 1]?.aiResponse : undefined;
-        const flags = await extractFlags(emailData.bodyText, aiResponse, lastAiResponse ?? undefined);
-        await emailRef.update({ flags });
+        const lastAiResponse =
+          emailHistory.length > 0
+            ? emailHistory[emailHistory.length - 1]?.aiResponse
+            : undefined;
+        const flags = await extractFlags(
+          emailData.bodyText,
+          aiResponse,
+          lastAiResponse ?? undefined,
+        );
+        const flagUpdate: Record<string, unknown> = { flags };
+        if (flags.chargeback_risk) {
+          flagUpdate.chargebackRisk = true;
+          flagUpdate.orderValue = shopifyOrder?.totalPrice ?? null;
+        }
+        if (flags.refund_pending) {
+          flagUpdate.refundResolved = true;
+          if (!flagUpdate.orderValue) {
+            flagUpdate.orderValue = shopifyOrder?.totalPrice ?? null;
+          }
+        }
+        await emailRef.update(flagUpdate);
 
         if (flags.tasks && flags.tasks.length > 0) {
           for (const taskDesc of flags.tasks) {
