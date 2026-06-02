@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { generateReply, extractFlags } from "@/lib/ai/openai";
 import { sendEmail } from "@/lib/email/smtp";
+import { renderEmailHtml } from "@/lib/email/html-template";
 import { decrypt } from "@/lib/crypto/encryption";
 import {
   getCustomerEmailHistory,
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
           to: emailData.from,
           subject: emailData.subject,
           text: aiResponse,
+          html: renderEmailHtml(aiResponse, accountData.label || accountData.email),
           inReplyTo: emailData.messageId,
           references: [...(emailData.references ?? []), emailData.messageId],
         },

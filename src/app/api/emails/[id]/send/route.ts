@@ -4,6 +4,7 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
 import { generateReply, extractFlags } from "@/lib/ai/openai";
 import { sendEmail } from "@/lib/email/smtp";
+import { renderEmailHtml } from "@/lib/email/html-template";
 import {
   getCustomerEmailHistory,
   extractOrderNumbers,
@@ -172,6 +173,7 @@ export async function POST(
         to: emailData.from,
         subject: emailData.subject,
         text: aiResponse,
+        html: renderEmailHtml(aiResponse, accountData.label || accountData.email),
         inReplyTo: emailData.messageId,
         references: [...(emailData.references ?? []), emailData.messageId],
       },
