@@ -105,13 +105,16 @@ export async function getShopifyOrdersByEmail(
   return orders.map(parseOrder);
 }
 
-export function formatOrderForAI(order: ShopifyOrder): string {
+export function formatOrderForAI(order: ShopifyOrder, trackingUrlTemplate?: string | null): string {
   const lines: string[] = [];
   lines.push(`Order: ${order.name}`);
   lines.push(`Status: ${order.fulfillmentStatus ?? "unfulfilled"} / Payment: ${order.financialStatus}`);
   if (order.cancelledAt) lines.push(`Cancelled at: ${new Date(order.cancelledAt).toLocaleDateString("en-US")}`);
   if (order.trackingNumber) lines.push(`Tracking: ${order.trackingNumber} (${order.trackingCompany ?? "carrier unknown"})`);
-  if (order.trackingUrl) lines.push(`Tracking URL: ${order.trackingUrl}`);
+  const trackingLink = trackingUrlTemplate && order.trackingNumber
+    ? trackingUrlTemplate.replace("{{tracking_number}}", order.trackingNumber)
+    : order.trackingUrl;
+  if (trackingLink) lines.push(`Tracking URL: ${trackingLink}`);
   if (order.daysInTransit != null) lines.push(`Days in transit: ${order.daysInTransit}`);
   if (order.lineItems.length > 0) {
     lines.push(`Items: ${order.lineItems.map((i) => `${i.quantity}x ${i.title}`).join(", ")}`);

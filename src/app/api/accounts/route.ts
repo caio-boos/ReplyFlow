@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
     shopifyDomain,
     shopifyClientId,
     shopifyClientSecret,
+    trackingUrlTemplate,
   } = body;
 
   if (!label || !email || !password || !provider) {
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
     encryptedPassword: encrypt(password),
     shopifyDomain: shopifyDomain?.trim() || null,
     shopifyClientId: shopifyClientId?.trim() || null,
+    trackingUrlTemplate: trackingUrlTemplate?.trim() || null,
     encryptedShopifyClientSecret: shopifyClientSecret?.trim()
       ? encrypt(shopifyClientSecret.trim())
       : null,

@@ -121,7 +121,7 @@ export async function POST(
           if (orders.length > 0) order = orders[0];
         }
         if (order) {
-          orderInfo = formatOrderForAI(order);
+          orderInfo = formatOrderForAI(order, accountData.trackingUrlTemplate);
           shopifyOrder = order;
           console.log(
             "[send] Using order:",

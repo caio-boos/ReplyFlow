@@ -38,6 +38,7 @@ interface Account {
   shopifyDomain: string | null;
   shopifyClientId: string | null;
   shopifyConnected: boolean;
+  trackingUrlTemplate: string | null;
   active: boolean;
 }
 
@@ -78,6 +79,7 @@ const EMPTY_ADD = {
   shopifyDomain: "",
   shopifyClientId: "",
   shopifyClientSecret: "",
+  trackingUrlTemplate: "",
 };
 
 type FormState = typeof EMPTY_ADD;
@@ -446,6 +448,21 @@ function AccountForm({
             </div>
           </div>
         </div>
+
+        {/* Tracking URL template */}
+        <div>
+          <FieldLabel>URL de rastreio</FieldLabel>
+          <Input
+            value={form.trackingUrlTemplate}
+            onChange={(e) =>
+              setForm({ ...form, trackingUrlTemplate: e.target.value })
+            }
+            placeholder="https://minhaloja.shop/apps/17TRACK?nums={{tracking_number}}"
+          />
+          <p className="text-xs text-gray-600 mt-1.5">
+            Use <code className="bg-gray-800 px-1 rounded text-gray-400">{"{{tracking_number}}"}</code> como marcador. Se vazio, usa o link padrão da Shopify.
+          </p>
+        </div>
       </div>
 
       {/* Form footer */}
@@ -566,6 +583,7 @@ export default function AccountsPage() {
       shopifyDomain: acc.shopifyDomain ?? "",
       shopifyClientId: acc.shopifyClientId ?? "",
       shopifyClientSecret: "",
+      trackingUrlTemplate: acc.trackingUrlTemplate ?? "",
     });
     setShowEditPassword(false);
     setShowAddForm(false);
@@ -586,6 +604,7 @@ export default function AccountsPage() {
         shopifyDomain: addForm.shopifyDomain || undefined,
         shopifyClientId: addForm.shopifyClientId || undefined,
         shopifyClientSecret: addForm.shopifyClientSecret || undefined,
+        trackingUrlTemplate: addForm.trackingUrlTemplate || undefined,
       }),
     });
     if (res.ok) {
@@ -612,6 +631,7 @@ export default function AccountsPage() {
       smtpPort: editForm.smtpPort ? parseInt(editForm.smtpPort) : undefined,
       shopifyDomain: editForm.shopifyDomain || null,
       shopifyClientId: editForm.shopifyClientId || null,
+      trackingUrlTemplate: editForm.trackingUrlTemplate || null,
     };
     if (editForm.password) body.password = editForm.password;
     if (editForm.shopifyClientSecret)

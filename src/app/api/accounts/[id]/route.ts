@@ -29,6 +29,7 @@ export async function PATCH(
     "smtpPort",
     "shopifyDomain",
     "shopifyClientId",
+    "trackingUrlTemplate",
   ];
   const update: Record<string, unknown> = {
     updatedAt: FieldValue.serverTimestamp(),

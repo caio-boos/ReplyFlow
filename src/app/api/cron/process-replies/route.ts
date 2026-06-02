@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
             if (orders.length > 0) order = orders[0];
           }
           if (order) {
-            orderInfo = formatOrderForAI(order);
+            orderInfo = formatOrderForAI(order, accountData.trackingUrlTemplate);
 
             console.log("Found Shopify order for email:", orderInfo);
 
