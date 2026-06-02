@@ -36,6 +36,8 @@ interface Account {
   smtpHost: string;
   smtpPort: number;
   shopifyDomain: string | null;
+  shopifyClientId: string | null;
+  shopifyConnected: boolean;
   active: boolean;
 }
 
@@ -74,7 +76,8 @@ const EMPTY_ADD = {
   smtpHost: "smtpout.secureserver.net",
   smtpPort: "465",
   shopifyDomain: "",
-  shopifyToken: "",
+  shopifyClientId: "",
+  shopifyClientSecret: "",
 };
 
 type FormState = typeof EMPTY_ADD;
@@ -313,7 +316,7 @@ function AccountForm({
 
         {/* Shopify section */}
         <div className="border-t border-white/5 pt-5">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-4">
             <svg
               className="w-3.5 h-3.5 text-emerald-500"
               viewBox="0 0 24 24"
@@ -325,8 +328,75 @@ function AccountForm({
               Shopify (opcional)
             </p>
           </div>
+
+          {/* Instructions */}
+          <div className="mb-4 bg-emerald-500/5 border border-emerald-500/15 rounded-lg p-4 text-xs text-gray-400 space-y-2.5">
+            <p className="font-medium text-emerald-400">
+              Como criar seu App no Dev Dashboard da Shopify:
+            </p>
+            <ol className="space-y-1.5 list-none">
+              <li className="flex gap-2">
+                <span className="text-emerald-500 font-bold shrink-0">1.</span>
+                <span>
+                  Acesse{" "}
+                  <span className="text-gray-300 font-mono">
+                    admin.shopify.com
+                  </span>{" "}
+                  → Configurações → Apps →{" "}
+                  <strong className="text-gray-300">Desenvolver apps</strong>
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-500 font-bold shrink-0">2.</span>
+                <span>
+                  Clique em <strong className="text-gray-300">Criar app</strong>{" "}
+                  → dê um nome (ex: ReplyFlow) → desmarque{" "}
+                  <em>Embed app in Shopify admin</em>
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-500 font-bold shrink-0">3.</span>
+                <span>
+                  Em <strong className="text-gray-300">App URL</strong> cole:{" "}
+                  <code className="bg-gray-800 px-1 rounded">
+                    {typeof window !== "undefined"
+                      ? window.location.origin
+                      : ""}
+                    /api/shopify/callback
+                  </code>
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-500 font-bold shrink-0">4.</span>
+                <span>
+                  Em <strong className="text-gray-300">Access scopes</strong>{" "}
+                  cole:{" "}
+                  <code className="bg-gray-800 px-1 rounded">
+                    read_orders,read_customers
+                  </code>
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-500 font-bold shrink-0">5.</span>
+                <span>
+                  Em <strong className="text-gray-300">Settings</strong> copie o{" "}
+                  <em>Client ID</em> e <em>Client secret</em> e cole nos campos
+                  abaixo
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-500 font-bold shrink-0">6.</span>
+                <span>
+                  Salve a conta e clique em{" "}
+                  <strong className="text-gray-300">Conectar Shopify</strong>{" "}
+                  para autorizar
+                </span>
+              </li>
+            </ol>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="col-span-2">
               <FieldLabel>Domínio da loja</FieldLabel>
               <Input
                 value={form.shopifyDomain}
@@ -337,8 +407,19 @@ function AccountForm({
               />
             </div>
             <div>
+              <FieldLabel>Client ID</FieldLabel>
+              <Input
+                value={form.shopifyClientId}
+                onChange={(e) =>
+                  setForm({ ...form, shopifyClientId: e.target.value })
+                }
+                placeholder="abc123def456..."
+                autoComplete="off"
+              />
+            </div>
+            <div>
               <FieldLabel>
-                Admin API Token{" "}
+                Client Secret{" "}
                 {isEdit && (
                   <span className="text-gray-600">(vazio = manter)</span>
                 )}
@@ -346,12 +427,13 @@ function AccountForm({
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
-                  value={form.shopifyToken}
+                  value={form.shopifyClientSecret}
                   onChange={(e) =>
-                    setForm({ ...form, shopifyToken: e.target.value })
+                    setForm({ ...form, shopifyClientSecret: e.target.value })
                   }
                   className="pr-10"
-                  placeholder="shpat_..."
+                  placeholder="shpss_..."
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -425,6 +507,7 @@ export default function AccountsPage() {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testQuery, setTestQuery] = useState("");
   const [testResult, setTestResult] = useState<{
@@ -481,7 +564,8 @@ export default function AccountsPage() {
       smtpHost: acc.smtpHost,
       smtpPort: String(acc.smtpPort),
       shopifyDomain: acc.shopifyDomain ?? "",
-      shopifyToken: "",
+      shopifyClientId: acc.shopifyClientId ?? "",
+      shopifyClientSecret: "",
     });
     setShowEditPassword(false);
     setShowAddForm(false);
@@ -500,7 +584,8 @@ export default function AccountsPage() {
         imapPort: addForm.imapPort ? parseInt(addForm.imapPort) : undefined,
         smtpPort: addForm.smtpPort ? parseInt(addForm.smtpPort) : undefined,
         shopifyDomain: addForm.shopifyDomain || undefined,
-        shopifyToken: addForm.shopifyToken || undefined,
+        shopifyClientId: addForm.shopifyClientId || undefined,
+        shopifyClientSecret: addForm.shopifyClientSecret || undefined,
       }),
     });
     if (res.ok) {
@@ -526,9 +611,11 @@ export default function AccountsPage() {
       smtpHost: editForm.smtpHost,
       smtpPort: editForm.smtpPort ? parseInt(editForm.smtpPort) : undefined,
       shopifyDomain: editForm.shopifyDomain || null,
+      shopifyClientId: editForm.shopifyClientId || null,
     };
     if (editForm.password) body.password = editForm.password;
-    if (editForm.shopifyToken) body.shopifyToken = editForm.shopifyToken;
+    if (editForm.shopifyClientSecret)
+      body.shopifyClientSecret = editForm.shopifyClientSecret;
     const res = await fetch(`/api/accounts/${editingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -542,6 +629,23 @@ export default function AccountsPage() {
       setError(data.error ?? "Erro ao editar conta");
     }
     setSaving(false);
+  }
+
+  async function handleDisconnectShopify(id: string) {
+    if (
+      !confirm(
+        "Desconectar a integração Shopify desta conta? O token OAuth será removido.",
+      )
+    )
+      return;
+    setDisconnectingId(id);
+    await fetch(`/api/accounts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ disconnectShopify: true }),
+    });
+    setDisconnectingId(null);
+    loadAccounts();
   }
 
   async function handleToggle(id: string, active: boolean) {
@@ -770,9 +874,14 @@ export default function AccountsPage() {
                             Inativa
                           </span>
                         )}
-                        {acc.shopifyDomain && (
+                        {acc.shopifyConnected && (
                           <span className="text-xs px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md">
-                            Shopify
+                            Shopify ✓
+                          </span>
+                        )}
+                        {acc.shopifyClientId && !acc.shopifyConnected && (
+                          <span className="text-xs px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md">
+                            Shopify: pendente
                           </span>
                         )}
                       </div>
@@ -787,30 +896,45 @@ export default function AccountsPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {acc.shopifyDomain && (
+                      {acc.shopifyClientId && (
                         <>
                           <a
-                            href={`/api/shopify/install?accountId=${acc.id}&shop=${acc.shopifyDomain}`}
+                            href={`/api/shopify/install?accountId=${acc.id}`}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                           >
-                            Reconectar
+                            {acc.shopifyConnected
+                              ? "Reconectar"
+                              : "Conectar Shopify"}
                           </a>
-                          <button
-                            onClick={() => {
-                              setTestingId(
-                                testingId === acc.id ? null : acc.id,
-                              );
-                              setTestQuery("");
-                              setTestResult(null);
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                              testingId === acc.id
-                                ? "bg-violet-500/20 text-violet-300 border-violet-500/30"
-                                : "bg-gray-800/60 text-gray-400 border-white/6 hover:text-gray-200 hover:bg-gray-800"
-                            }`}
-                          >
-                            Testar
-                          </button>
+                          {acc.shopifyConnected && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setTestingId(
+                                    testingId === acc.id ? null : acc.id,
+                                  );
+                                  setTestQuery("");
+                                  setTestResult(null);
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                                  testingId === acc.id
+                                    ? "bg-violet-500/20 text-violet-300 border-violet-500/30"
+                                    : "bg-gray-800/60 text-gray-400 border-white/6 hover:text-gray-200 hover:bg-gray-800"
+                                }`}
+                              >
+                                Testar
+                              </button>
+                              <button
+                                onClick={() => handleDisconnectShopify(acc.id)}
+                                disabled={disconnectingId === acc.id}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 disabled:opacity-50 transition-colors"
+                              >
+                                {disconnectingId === acc.id
+                                  ? "..."
+                                  : "Desconectar"}
+                              </button>
+                            </>
+                          )}
                         </>
                       )}
                       <button

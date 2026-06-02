@@ -46,6 +46,9 @@ export interface AccountDoc {
   encryptedPassword: string;
   lastUid: number;
   active: boolean;
+  shopifyDomain?: string | null;
+  shopifyClientId?: string | null;
+  shopifyConnected?: boolean;
   createdAt: { seconds: number; nanoseconds: number };
 }
 

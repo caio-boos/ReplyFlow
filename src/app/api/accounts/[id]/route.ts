@@ -6,28 +6,58 @@ import { FieldValue } from "firebase-admin/firestore";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const body = await req.json();
   const db = getAdminDb();
   const ref = db.collection("accounts").doc(id);
   const doc = await ref.get();
-  if (!doc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!doc.exists)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const allowedFields = ["label", "active", "imapHost", "imapPort", "smtpHost", "smtpPort", "shopifyDomain"];
-  const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+  const allowedFields = [
+    "label",
+    "active",
+    "imapHost",
+    "imapPort",
+    "smtpHost",
+    "smtpPort",
+    "shopifyDomain",
+    "shopifyClientId",
+  ];
+  const update: Record<string, unknown> = {
+    updatedAt: FieldValue.serverTimestamp(),
+  };
   for (const field of allowedFields) {
     if (field in body) update[field] = body[field];
   }
-  if (body.password && typeof body.password === "string" && body.password.trim()) {
+  if (
+    body.password &&
+    typeof body.password === "string" &&
+    body.password.trim()
+  ) {
     update.encryptedPassword = encrypt(body.password.trim());
   }
-  if (body.shopifyToken && typeof body.shopifyToken === "string" && body.shopifyToken.trim()) {
-    update.encryptedShopifyToken = encrypt(body.shopifyToken.trim());
+  if (
+    body.shopifyClientSecret &&
+    typeof body.shopifyClientSecret === "string" &&
+    body.shopifyClientSecret.trim()
+  ) {
+    update.encryptedShopifyClientSecret = encrypt(
+      body.shopifyClientSecret.trim(),
+    );
+  }
+  // Disconnect Shopify: clear token, credentials and domain
+  if (body.disconnectShopify === true) {
+    update.encryptedShopifyToken = null;
+    update.encryptedShopifyClientSecret = null;
+    update.shopifyClientId = null;
+    update.shopifyDomain = null;
   }
 
   await ref.update(update);
@@ -36,10 +66,11 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
