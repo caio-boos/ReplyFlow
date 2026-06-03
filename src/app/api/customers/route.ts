@@ -3,12 +3,15 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { searchParams } = new URL(req.url);
+  const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 500);
+
   const db = getAdminDb();
-  const snap = await db.collection("customers").orderBy("updatedAt", "desc").limit(100).get();
+  const snap = await db.collection("customers").orderBy("updatedAt", "desc").limit(limit).get();
   const customers = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
   return NextResponse.json({ customers });

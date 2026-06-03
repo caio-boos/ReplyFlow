@@ -104,10 +104,11 @@ interface CustomerGroup {
   customerId: string;
   fromName: string;
   from: string;
+  blocked: boolean;
   emails: EmailDoc[];
 }
 
-function groupByCustomer(emails: EmailDoc[]): CustomerGroup[] {
+function groupByCustomer(emails: EmailDoc[], blockedSet: Set<string>): CustomerGroup[] {
   const map = new Map<string, CustomerGroup>();
   for (const e of emails) {
     const key = e.customerId || e.from;
@@ -116,6 +117,7 @@ function groupByCustomer(emails: EmailDoc[]): CustomerGroup[] {
         customerId: key,
         fromName: e.fromName || e.from,
         from: e.from,
+        blocked: blockedSet.has(key),
         emails: [],
       });
     }
@@ -230,6 +232,7 @@ const STATS_CONFIG = [
 
 export default function DashboardPage() {
   const [emails, setEmails] = useState<EmailDoc[]>([]);
+  const [blockedSet, setBlockedSet] = useState<Set<string>>(new Set());
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
@@ -298,10 +301,22 @@ export default function DashboardPage() {
     const p = new URLSearchParams();
     if (statusFilter !== "all") p.set("status", statusFilter);
     if (accountFilter !== "all") p.set("accountId", accountFilter);
-    const res = await fetch(`/api/emails${p.toString() ? `?${p}` : ""}`);
-    if (res.ok) {
-      const data = await res.json();
+    const [emailsRes, customersRes] = await Promise.all([
+      fetch(`/api/emails${p.toString() ? `?${p}` : ""}`),
+      fetch("/api/customers?limit=500"),
+    ]);
+    if (emailsRes.ok) {
+      const data = await emailsRes.json();
       setEmails(data.emails);
+    }
+    if (customersRes.ok) {
+      const data = await customersRes.json();
+      const blocked = new Set<string>(
+        (data.customers as Array<{ id: string; blocked?: boolean }>)
+          .filter((c) => c.blocked === true)
+          .map((c) => c.id),
+      );
+      setBlockedSet(blocked);
     }
     setLoading(false);
   }, [statusFilter, accountFilter]);
@@ -328,7 +343,7 @@ export default function DashboardPage() {
     failed: emails.filter((e) => e.status === "failed").length,
   };
 
-  const groups = groupByCustomer(emails);
+  const groups = groupByCustomer(emails, blockedSet);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -663,16 +678,31 @@ export default function DashboardPage() {
                   className="w-full px-4 py-3.5 flex items-center gap-3 text-left"
                 >
                   {/* Avatar */}
-                  <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm">
-                    {initials}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm ${
+                    group.blocked
+                      ? "bg-linear-to-br from-gray-600 to-gray-700"
+                      : "bg-linear-to-br from-indigo-500 to-violet-600"
+                  }`}>
+                    {group.blocked ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    ) : initials}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-gray-200 truncate">
+                      <span className={`text-sm font-medium truncate ${
+                        group.blocked ? "text-gray-500" : "text-gray-200"
+                      }`}>
                         {group.fromName}
                       </span>
+                      {group.blocked && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 shrink-0">
+                          bloqueado
+                        </span>
+                      )}
                       <span className="text-xs text-gray-600 truncate hidden sm:block">
                         {group.from}
                       </span>
