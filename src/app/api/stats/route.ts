@@ -8,60 +8,82 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getAdminDb();
+  const { Timestamp } = await import("firebase-admin/firestore");
   const thirtyDaysAgoMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
-  // Emails with explicit chargeback threat
+  // Fetch accounts (to get label + Shopify connection status)
+  const accountsSnap = await db.collection("accounts").orderBy("createdAt", "asc").get();
+  const accounts = accountsSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      label: data.label || data.email || d.id,
+      email: data.email || "",
+      shopifyConnected: !!data.encryptedShopifyToken,
+    };
+  });
+
+  // All chargeback-risk emails (sent)
   const cbSnap = await db
     .collection("emails")
     .where("chargebackRisk", "==", true)
     .where("status", "==", "sent")
     .get();
 
-  // Emails where customer accepted a refund (conflict resolved proactively)
+  // All refund-resolved emails (sent)
   const refundSnap = await db
     .collection("emails")
     .where("refundResolved", "==", true)
     .where("status", "==", "sent")
     .get();
 
-  // All emails received in last 30 days (for rate calculation)
-  const { Timestamp } = await import("firebase-admin/firestore");
+  // Recent emails for rate calculation
   const recentSnap = await db
     .collection("emails")
     .where("receivedAt", ">=", Timestamp.fromMillis(thirtyDaysAgoMs))
     .get();
 
-  const allCbDocs = cbSnap.docs.map((d) => d.data());
-  const cb30 = allCbDocs.filter(
-    (d) => d.sentAt && d.sentAt.seconds * 1000 >= thirtyDaysAgoMs,
-  );
+  const allSentSnap = await db
+    .collection("emails")
+    .where("status", "==", "sent")
+    .get();
 
-  const allRefundDocs = refundSnap.docs.map((d) => d.data());
-  const refund30 = allRefundDocs.filter(
-    (d) => d.sentAt && d.sentAt.seconds * 1000 >= thirtyDaysAgoMs,
-  );
+  // Helper to aggregate per group of docs
+  function aggregate(cbDocs: FirebaseFirestore.QueryDocumentSnapshot[], refundDocs: FirebaseFirestore.QueryDocumentSnapshot[], sinceMs?: number) {
+    const cbFiltered = sinceMs
+      ? cbDocs.filter((d) => (d.data().sentAt?.seconds ?? 0) * 1000 >= sinceMs)
+      : cbDocs;
+    const refundFiltered = sinceMs
+      ? refundDocs.filter((d) => (d.data().sentAt?.seconds ?? 0) * 1000 >= sinceMs)
+      : refundDocs;
 
-  // Avoid double-counting: emails that have both flags count only once for value
-  const allProtectedDocs = [
-    ...allCbDocs,
-    ...allRefundDocs.filter((d) => !d.chargebackRisk),
-  ];
-  const protected30 = [...cb30, ...refund30.filter((d) => !d.chargebackRisk)];
+    // Avoid double-counting
+    const refundOnly = refundFiltered.filter((d) => !d.data().chargebackRisk);
+    const combined = [...cbFiltered, ...refundOnly];
 
-  const chargebacksAllTime = allCbDocs.length;
-  const chargebacksMonth = cb30.length;
-  const refundsAllTime = allRefundDocs.length;
-  const refundsMonth = refund30.length;
+    const valueAtRisk = combined.reduce(
+      (sum, d) => sum + (typeof d.data().orderValue === "number" ? d.data().orderValue : 0),
+      0,
+    );
+    const ordersWithValue = combined.filter(
+      (d) => typeof d.data().orderValue === "number" && d.data().orderValue > 0,
+    ).length;
 
-  const valueSavedAllTime = allProtectedDocs.reduce(
-    (sum, d) => sum + (typeof d.orderValue === "number" ? d.orderValue : 0),
-    0,
-  );
-  const valueSavedMonth = protected30.reduce(
-    (sum, d) => sum + (typeof d.orderValue === "number" ? d.orderValue : 0),
-    0,
-  );
+    return {
+      chargebacksAvoided: cbFiltered.length,
+      refundsResolved: refundFiltered.length,
+      valueAtRisk,
+      ordersWithValue,
+    };
+  }
 
+  const cbDocs = cbSnap.docs;
+  const refundDocs = refundSnap.docs;
+
+  const allTimeGlobal = aggregate(cbDocs, refundDocs);
+  const monthGlobal = aggregate(cbDocs, refundDocs, thirtyDaysAgoMs);
+
+  // Auto-reply rate (last 30 days)
   const recentEmails = recentSnap.docs.map((d) => d.data());
   const sentMonth = recentEmails.filter((e) => e.status === "sent").length;
   const processedMonth = recentEmails.filter((e) =>
@@ -70,36 +92,40 @@ export async function GET() {
   const autoReplyRate =
     processedMonth > 0 ? Math.round((sentMonth / processedMonth) * 100) : 0;
 
-  // Count orders where value is known (for disclosure in UI)
-  const ordersWithValue = allProtectedDocs.filter(
-    (d) => typeof d.orderValue === "number" && d.orderValue > 0,
-  ).length;
-  const ordersWithValueMonth = protected30.filter(
-    (d) => typeof d.orderValue === "number" && d.orderValue > 0,
-  ).length;
+  // Per-account breakdown
+  const perAccount = accounts.map((acc) => {
+    const accCbDocs = cbDocs.filter((d) => d.data().accountId === acc.id);
+    const accRefundDocs = refundDocs.filter((d) => d.data().accountId === acc.id);
 
-  // All sent emails (all time) for total processed count
-  const allSentSnap = await db
-    .collection("emails")
-    .where("status", "==", "sent")
-    .get();
-  const emailsProcessedAllTime = allSentSnap.size;
+    const allTime = aggregate(accCbDocs, accRefundDocs);
+    const month = aggregate(accCbDocs, accRefundDocs, thirtyDaysAgoMs);
+
+    // Emails processed for this account
+    const accSentAll = allSentSnap.docs.filter((d) => d.data().accountId === acc.id).length;
+    const accSentMonth = recentSnap.docs.filter(
+      (d) => d.data().accountId === acc.id && d.data().status === "sent",
+    ).length;
+
+    return {
+      id: acc.id,
+      label: acc.label,
+      email: acc.email,
+      shopifyConnected: acc.shopifyConnected,
+      allTime: { ...allTime, emailsProcessed: accSentAll },
+      month: { ...month, emailsProcessed: accSentMonth },
+    };
+  });
 
   return NextResponse.json({
     month: {
-      chargebacksAvoided: chargebacksMonth,
-      refundsResolved: refundsMonth,
-      valueSaved: valueSavedMonth,
+      ...monthGlobal,
       emailsProcessed: sentMonth,
       autoReplyRate,
-      ordersWithValue: ordersWithValueMonth,
     },
     allTime: {
-      chargebacksAvoided: chargebacksAllTime,
-      refundsResolved: refundsAllTime,
-      valueSaved: valueSavedAllTime,
-      emailsProcessed: emailsProcessedAllTime,
-      ordersWithValue,
+      ...allTimeGlobal,
+      emailsProcessed: allSentSnap.size,
     },
+    perAccount,
   });
 }

@@ -27,9 +27,11 @@ export async function POST(
   const { id } = await params;
 
   let resend = false;
+  let manualReply: string | null = null;
   try {
     const body = await req.json();
     resend = body?.resend === true;
+    manualReply = typeof body?.manualReply === "string" && body.manualReply.trim() ? body.manualReply.trim() : null;
   } catch {
     /* no body */
   }
@@ -42,9 +44,10 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const emailData = emailDoc.data()!;
-  const allowedStatuses = resend
-    ? ["sent", "failed", "cancelled", "pending"]
-    : ["pending", "failed", "cancelled"];
+  const allowedStatuses =
+    manualReply || resend
+      ? ["sent", "failed", "cancelled", "pending", "processing"]
+      : ["pending", "failed", "cancelled"];
 
   if (!allowedStatuses.includes(emailData.status)) {
     return NextResponse.json(
@@ -144,9 +147,9 @@ export async function POST(
       );
     }
 
-    // Use existing aiResponse if available and not a resend, otherwise regenerate
-    let aiResponse: string = emailData.aiResponse ?? "";
-    if (!aiResponse || resend) {
+    // Use manualReply if provided, else existing aiResponse, else regenerate
+    let aiResponse: string = manualReply ?? emailData.aiResponse ?? "";
+    if (!aiResponse || (!manualReply && resend)) {
       aiResponse = await generateReply({
         systemContext,
         storeName: accountData.label || accountData.email,
