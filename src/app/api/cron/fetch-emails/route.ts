@@ -230,9 +230,15 @@ export async function POST(req: NextRequest) {
         emailDocId: emailRef.id,
       });
 
-      // For alerts: save but mark as cancelled (no auto-reply) and create a task
-      const emailStatus =
-        classification.type === "alert" ? "cancelled" : "pending";
+      // For alerts or blocked customers: save but mark as cancelled (no auto-reply)
+      let emailStatus: string;
+      if (classification.type === "alert") {
+        emailStatus = "cancelled";
+      } else {
+        // Check if the customer is blocked
+        const customerDoc = await db.collection("customers").doc(matchResult.customerId).get();
+        emailStatus = customerDoc.data()?.blocked === true ? "cancelled" : "pending";
+      }
 
       await emailRef.set({
         accountId: email.accountId,

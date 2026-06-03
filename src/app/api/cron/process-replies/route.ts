@@ -89,6 +89,16 @@ export async function POST(req: NextRequest) {
       const accountData = accountDoc.data()!;
       const password = decrypt(accountData.encryptedPassword);
 
+      // Check if customer is blocked — if so, cancel without sending
+      if (emailData.customerId) {
+        const customerDoc = await db.collection("customers").doc(emailData.customerId).get();
+        if (customerDoc.data()?.blocked === true) {
+          await emailRef.update({ status: "cancelled", error: "Customer blocked" });
+          processed++;
+          continue;
+        }
+      }
+
       // Get full customer history
       const emailHistory = await getCustomerEmailHistory(emailData.customerId);
 

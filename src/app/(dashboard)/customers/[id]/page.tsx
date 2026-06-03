@@ -63,6 +63,7 @@ interface CustomerDetail {
   name: string;
   emails: string[];
   orderNumbers: string[];
+  blocked?: boolean;
   suggestedLinks: Array<{
     reason: string;
     incomingEmail: string;
@@ -166,6 +167,25 @@ export default function CustomerDetailPage() {
   const [accountFilter, setAccountFilter] = useState("all");
   const [accountFilterReady, setAccountFilterReady] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [blocking, setBlocking] = useState(false);
+
+  async function toggleBlock() {
+    if (!customer) return;
+    const newBlocked = !customer.blocked;
+    setBlocking(true);
+    try {
+      const res = await fetch(`/api/customers/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocked: newBlocked }),
+      });
+      if (res.ok) {
+        setCustomer((c) => c ? { ...c, blocked: newBlocked } : c);
+      }
+    } finally {
+      setBlocking(false);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/customers/${id}`, { credentials: "include" })
@@ -320,13 +340,30 @@ export default function CustomerDetailPage() {
               ))}
             </div>
           </div>
-          <div className="shrink-0 text-right">
-            <p className="text-xl font-semibold text-gray-100">
-              {customer.emails_list.length}
-            </p>
-            <p className="text-xs text-gray-600 mt-0.5">
-              e-mail{customer.emails_list.length !== 1 ? "s" : ""}
-            </p>
+          <div className="shrink-0 flex flex-col items-end gap-2">
+            <div className="text-right">
+              <p className="text-xl font-semibold text-gray-100">
+                {customer.emails_list.length}
+              </p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                e-mail{customer.emails_list.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleBlock}
+              disabled={blocking}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all disabled:opacity-50 ${
+                customer.blocked
+                  ? "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                  : "bg-gray-800/60 text-gray-500 border-white/6 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/10"
+              }`}
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+              {customer.blocked ? "Bloqueado" : "Bloquear"}
+            </button>
           </div>
         </div>
 

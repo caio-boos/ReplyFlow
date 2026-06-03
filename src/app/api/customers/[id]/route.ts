@@ -27,3 +27,25 @@ export async function GET(
 
   return NextResponse.json({ id: customerDoc.id, ...customerDoc.data(), emailsList: emails });
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const { blocked } = await req.json();
+  if (typeof blocked !== "boolean") {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+
+  const db = getAdminDb();
+  const ref = db.collection("customers").doc(id);
+  const doc = await ref.get();
+  if (!doc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await ref.update({ blocked });
+  return NextResponse.json({ ok: true, blocked });
+}
