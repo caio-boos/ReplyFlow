@@ -9,6 +9,24 @@ import type { EmailAttachment } from "@/lib/types";
 import { randomUUID } from "crypto";
 
 const REPLY_DELAY_MINUTES = 10;
+const SHOPIFY_MAILER = "mailer@shopify.com";
+
+/**
+ * When Shopify sends a contact form notification, the real customer's
+ * name and email are embedded in the body text, e.g.:
+ *   Name:\nRoy mohamad\n\nEmail:\nroymo2007@gmail.com
+ * Extract them so we can identify/contact the actual customer.
+ */
+function extractShopifyContactInfo(bodyText: string): { email: string; name: string } | null {
+  const emailMatch = bodyText.match(/\bEmail:\s*\r?\n([^\r\n@\s]+@[^\r\n@\s]+)/i);
+  const nameMatch = bodyText.match(/\bName:\s*\r?\n([^\r\n]+)/i);
+  if (!emailMatch) return null;
+  return {
+    email: emailMatch[1].trim(),
+    name: nameMatch ? nameMatch[1].trim() : "",
+  };
+}
+
 // Firestore field limit is ~1 MB. Strip inline base64 images which are the main culprit,
 // then hard-truncate as a safety net.
 const FIRESTORE_FIELD_BYTE_LIMIT = 800_000;
@@ -222,10 +240,22 @@ export async function POST(req: NextRequest) {
         emailRef.id,
       );
 
+      // When the email is a Shopify contact form notification, the real
+      // customer info is embedded in the body — extract it.
+      let effectiveFrom = email.from;
+      let effectiveFromName = email.fromName;
+      if (email.from.toLowerCase().includes(SHOPIFY_MAILER)) {
+        const shopifyContact = extractShopifyContactInfo(email.bodyText);
+        if (shopifyContact) {
+          effectiveFrom = shopifyContact.email;
+          effectiveFromName = shopifyContact.name || email.fromName;
+        }
+      }
+
       // Identify/create customer
       const matchResult = await matchOrCreateCustomer({
-        fromEmail: email.from,
-        fromName: email.fromName,
+        fromEmail: effectiveFrom,
+        fromName: effectiveFromName,
         bodyText: email.bodyText,
         emailDocId: emailRef.id,
       });
@@ -247,8 +277,8 @@ export async function POST(req: NextRequest) {
         messageId: email.messageId,
         inReplyTo: email.inReplyTo,
         references: email.references,
-        from: email.from,
-        fromName: email.fromName,
+        from: effectiveFrom,
+        fromName: effectiveFromName,
         to: email.to,
         subject: email.subject,
         bodyText: email.bodyText,
@@ -270,7 +300,7 @@ export async function POST(req: NextRequest) {
           customerId: matchResult.customerId,
           accountId: email.accountId,
           accountEmail: email.accountEmail,
-          customerName: email.fromName || email.from,
+          customerName: effectiveFromName || effectiveFrom,
           emailSubject: email.subject,
           description: classification.taskDescription,
           priority: "high",
