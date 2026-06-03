@@ -404,7 +404,7 @@ export default function EmailDetailPage() {
       const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: textToTranslate }),
+        body: JSON.stringify({ text: textToTranslate, emailId: email.id }),
       });
       const data = await res.json();
       if (res.ok && data.translated) {
@@ -438,7 +438,7 @@ export default function EmailDetailPage() {
       const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, emailId: email?.id }),
       });
       const data = await res.json();
       if (res.ok && data.translated) {

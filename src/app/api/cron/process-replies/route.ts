@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
-import { generateReply, extractFlags } from "@/lib/ai/openai";
+import { generateReply, extractFlags, computeCostUsd } from "@/lib/ai/openai";
 import { sendEmail } from "@/lib/email/smtp";
 import { renderEmailHtml } from "@/lib/email/html-template";
 import { decrypt } from "@/lib/crypto/encryption";
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Generate AI reply
-      const aiResponse = await generateReply({
+      const { text: aiResponse, usage: replyUsage } = await generateReply({
         systemContext,
         storeName: accountData.label || accountData.email,
         customerName: emailData.fromName || emailData.from,
@@ -154,6 +154,10 @@ export async function POST(req: NextRequest) {
       if (!aiResponse) {
         throw new Error("OpenAI returned empty response");
       }
+
+      // Track AI cost for the reply generation
+      const replyCost = computeCostUsd("gpt-4o", replyUsage);
+      await emailRef.update({ aiCostUsd: replyCost });
 
       // Send the email
       const sendResult = await sendEmail(
@@ -188,12 +192,16 @@ export async function POST(req: NextRequest) {
           emailHistory.length > 0
             ? emailHistory[emailHistory.length - 1]?.aiResponse
             : undefined;
-        const flags = await extractFlags(
+        const { flags, usage: flagsUsage } = await extractFlags(
           emailData.bodyText,
           aiResponse,
           lastAiResponse ?? undefined,
         );
-        const flagUpdate: Record<string, unknown> = { flags };
+        const flagsCost = computeCostUsd("gpt-4o-mini", flagsUsage);
+        const flagUpdate: Record<string, unknown> = {
+          flags,
+          aiCostUsd: FieldValue.increment(flagsCost),
+        };
         if (flags.chargeback_risk) {
           flagUpdate.chargebackRisk = true;
           flagUpdate.orderValue = shopifyOrder?.totalPrice ?? null;

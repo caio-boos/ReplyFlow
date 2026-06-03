@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 
 const NAV = [
@@ -138,25 +139,16 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside className="w-60 flex flex-col shrink-0 border-r border-white/6 bg-gray-900/60">
         {/* Brand */}
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600/20 border border-indigo-500/20">
-            <svg
-              className="h-4 w-4 text-indigo-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.75}
-                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
-              />
-            </svg>
-          </div>
-          <span className="font-semibold text-gray-100 tracking-tight">
-            ReplyFlow
-          </span>
+        <div className="flex items-center gap-2.5 px-5 py-0 ">
+          <Image
+            src="/images/logo-com-texto-branco.png"
+            alt="ReplyFlow"
+            width={200}
+            height={20}
+            className="object-contain"
+            priority
+            unoptimized
+          />
         </div>
 
         <nav className="flex-1 px-3 pb-3 space-y-0.5">

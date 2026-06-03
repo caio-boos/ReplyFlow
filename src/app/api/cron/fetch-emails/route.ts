@@ -3,7 +3,7 @@ import { getAdminDb, getAdminStorage } from "@/lib/firebase/admin";
 import { fetchNewEmails } from "@/lib/email/imap";
 import { decrypt } from "@/lib/crypto/encryption";
 import { matchOrCreateCustomer } from "@/lib/customer/identifier";
-import { classifyEmail } from "@/lib/ai/openai";
+import { classifyEmail, computeCostUsd } from "@/lib/ai/openai";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type { EmailAttachment } from "@/lib/types";
 import { randomUUID } from "crypto";
@@ -191,6 +191,7 @@ export async function POST(req: NextRequest) {
         email.subject,
         email.bodyText,
       );
+      const classifyCost = computeCostUsd("gpt-4o-mini", classification.usage);
 
       if (classification.type === "ignore") {
         console.log(
@@ -253,6 +254,7 @@ export async function POST(req: NextRequest) {
         sentAt: null,
         error: null,
         attachments: storedAttachments,
+        aiCostUsd: classifyCost,
         createdAt: FieldValue.serverTimestamp(),
       });
 

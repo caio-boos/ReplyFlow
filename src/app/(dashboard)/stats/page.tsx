@@ -9,6 +9,7 @@ interface StatsPeriod {
   emailsProcessed: number;
   ordersWithValue: number;
   autoReplyRate?: number;
+  aiCostUsd: number;
 }
 
 interface AccountStat {
@@ -156,6 +157,7 @@ function AccountsTable({
     { label: "E-mails enviados" },
     { label: "Chargebacks bloqueados" },
     { label: "Reembolsos resolvidos" },
+    { label: "Custo IA (est.)" },
     { label: "Valor em risco (Shopify)" },
   ];
 
@@ -185,6 +187,11 @@ function AccountsTable({
         <td className="px-4 py-3 text-right">
           <span className={`text-sm font-semibold ${s.refundsResolved > 0 ? "text-amber-300" : "text-gray-600"}`}>
             {s.refundsResolved}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-right">
+          <span className={`text-sm font-mono ${s.aiCostUsd > 0 ? "text-violet-300" : "text-gray-600"}`}>
+            {s.aiCostUsd > 0 ? `$${s.aiCostUsd.toFixed(4)}` : "—"}
           </span>
         </td>
         <td className="px-4 py-3 text-right">

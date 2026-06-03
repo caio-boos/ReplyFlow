@@ -8,6 +8,8 @@ import {
   getShopifyOrdersByEmail,
   formatOrderForAI,
 } from "@/lib/shopify/client";
+import { computeCostUsd } from "@/lib/ai/openai";
+import { FieldValue } from "firebase-admin/firestore";
 import OpenAI from "openai";
 
 let _client: OpenAI | null = null;
@@ -118,5 +120,10 @@ Write the final polished reply in ENGLISH based on the agent's draft above.`;
   });
 
   const enhanced = completion.choices[0]?.message?.content?.trim() ?? "";
+  const cost = computeCostUsd("gpt-4o", {
+    promptTokens: completion.usage?.prompt_tokens ?? 0,
+    completionTokens: completion.usage?.completion_tokens ?? 0,
+  });
+  await db.collection("emails").doc(id).update({ aiCostUsd: FieldValue.increment(cost) });
   return NextResponse.json({ enhanced });
 }

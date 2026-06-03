@@ -9,6 +9,25 @@ function getClient(): OpenAI {
   return _client;
 }
 
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+}
+
+// Pricing per 1M tokens (USD) — update when OpenAI changes rates
+const COST_PER_1M: Record<string, { input: number; output: number }> = {
+  "gpt-4o":      { input: 2.50, output: 10.00 },
+  "gpt-4o-mini": { input: 0.15, output:  0.60 },
+};
+
+export function computeCostUsd(model: string, usage: TokenUsage): number {
+  const rates = COST_PER_1M[model] ?? COST_PER_1M["gpt-4o"];
+  return (
+    (usage.promptTokens     / 1_000_000) * rates.input +
+    (usage.completionTokens / 1_000_000) * rates.output
+  );
+}
+
 /**
  * Strips quoted reply lines from an email body so the AI only sees the
  * customer's NEW text, not the full thread history pasted by the email client.
@@ -46,7 +65,7 @@ export interface GenerateReplyParams {
   }>;
 }
 
-export async function generateReply(params: GenerateReplyParams): Promise<string> {
+export async function generateReply(params: GenerateReplyParams): Promise<{ text: string; usage: TokenUsage }> {
   const {
     systemContext,
     storeName,
@@ -119,7 +138,13 @@ Write a professional and empathetic reply in ENGLISH.`;
     max_tokens: 800,
   });
 
-  return completion.choices[0]?.message?.content?.trim() ?? "";
+  return {
+    text: completion.choices[0]?.message?.content?.trim() ?? "",
+    usage: {
+      promptTokens: completion.usage?.prompt_tokens ?? 0,
+      completionTokens: completion.usage?.completion_tokens ?? 0,
+    },
+  };
 }
 
 export interface ExtractedFlags {
@@ -133,7 +158,7 @@ export interface ExtractedFlags {
   tasks: string[];
 }
 
-export async function extractFlags(emailBody: string, aiResponse: string, previousAiResponse?: string): Promise<ExtractedFlags> {
+export async function extractFlags(emailBody: string, aiResponse: string, previousAiResponse?: string): Promise<{ flags: ExtractedFlags; usage: TokenUsage }> {
   const defaultFlags: ExtractedFlags = {
     chargeback_risk: false, manual_review: false, refund_pending: false,
     photos_received: false, carrier_problem: false, address_problem: false,
@@ -157,9 +182,15 @@ export async function extractFlags(emailBody: string, aiResponse: string, previo
       max_tokens: 400,
     });
     const parsed = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
-    return { ...defaultFlags, ...parsed };
+    return {
+      flags: { ...defaultFlags, ...parsed },
+      usage: {
+        promptTokens: completion.usage?.prompt_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens ?? 0,
+      },
+    };
   } catch {
-    return defaultFlags;
+    return { flags: defaultFlags, usage: { promptTokens: 0, completionTokens: 0 } };
   }
 }
 
@@ -204,11 +235,13 @@ export async function classifyEmail(
   from: string,
   subject: string,
   bodyText: string
-): Promise<EmailClassification> {
+): Promise<EmailClassification & { usage: TokenUsage }> {
+  const zeroUsage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
   if (isLikelyFakeCustomerMarketing(subject, bodyText)) {
     return {
       type: "ignore",
       reason: "Likely fake-customer marketing/prospecting message",
+      usage: zeroUsage,
     };
   }
 
@@ -255,9 +288,12 @@ When in doubt between "alert" and "ignore", choose "alert".`,
       type: parsed.type ?? "customer",
       reason: parsed.reason ?? "",
       taskDescription: parsed.taskDescription ?? undefined,
+      usage: {
+        promptTokens: completion.usage?.prompt_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens ?? 0,
+      },
     };
   } catch {
-    // On any error, default to customer so we don't accidentally drop real emails
-    return { type: "customer", reason: "Classification failed — defaulting to customer" };
+    return { type: "customer", reason: "Classification failed — defaulting to customer", usage: zeroUsage };
   }
 }

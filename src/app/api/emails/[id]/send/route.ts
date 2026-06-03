@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
-import { generateReply, extractFlags } from "@/lib/ai/openai";
+import { generateReply, extractFlags, computeCostUsd } from "@/lib/ai/openai";
 import { sendEmail } from "@/lib/email/smtp";
 import { renderEmailHtml } from "@/lib/email/html-template";
 import {
@@ -149,8 +149,9 @@ export async function POST(
 
     // Use manualReply if provided, else existing aiResponse, else regenerate
     let aiResponse: string = manualReply ?? emailData.aiResponse ?? "";
+    let aiGenerateCost = 0;
     if (!aiResponse || (!manualReply && resend)) {
-      aiResponse = await generateReply({
+      const { text, usage: replyUsage } = await generateReply({
         systemContext,
         storeName: accountData.label || accountData.email,
         customerName: emailData.fromName || emailData.from,
@@ -160,6 +161,8 @@ export async function POST(
         orderInfo,
         emailHistory,
       });
+      aiResponse = text;
+      aiGenerateCost = computeCostUsd("gpt-4o", replyUsage);
       if (!aiResponse) {
         throw new Error("OpenAI returned empty response");
       }
@@ -189,6 +192,7 @@ export async function POST(
       smtpMessageId: sendResult.messageId,
       smtpResponse: sendResult.smtpResponse,
       error: null,
+      ...(aiGenerateCost > 0 ? { aiCostUsd: FieldValue.increment(aiGenerateCost) } : {}),
     });
 
     // Extract flags (non-blocking)
@@ -197,12 +201,16 @@ export async function POST(
         emailHistory.length > 0
           ? emailHistory[emailHistory.length - 1]?.aiResponse
           : undefined;
-      const flags = await extractFlags(
+      const { flags, usage: flagsUsage } = await extractFlags(
         emailData.bodyText,
         aiResponse,
         lastAiResponse ?? undefined,
       );
-      const flagUpdate: Record<string, unknown> = { flags };
+      const flagsCost = computeCostUsd("gpt-4o-mini", flagsUsage);
+      const flagUpdate: Record<string, unknown> = {
+        flags,
+        aiCostUsd: FieldValue.increment(flagsCost),
+      };
       if (flags.chargeback_risk) {
         flagUpdate.chargebackRisk = true;
         flagUpdate.orderValue = shopifyOrder?.totalPrice ?? null;

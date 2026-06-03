@@ -106,25 +106,43 @@ export async function GET() {
       (d) => d.data().accountId === acc.id && d.data().status === "sent",
     ).length;
 
+    // AI cost aggregation — sum aiCostUsd from all/recent docs for this account
+    const accAiCostAllTime = allSentSnap.docs
+      .filter((d) => d.data().accountId === acc.id)
+      .reduce((sum, d) => sum + (typeof d.data().aiCostUsd === "number" ? d.data().aiCostUsd : 0), 0);
+    const accAiCostMonth = recentSnap.docs
+      .filter((d) => d.data().accountId === acc.id)
+      .reduce((sum, d) => sum + (typeof d.data().aiCostUsd === "number" ? d.data().aiCostUsd : 0), 0);
+
     return {
       id: acc.id,
       label: acc.label,
       email: acc.email,
       shopifyConnected: acc.shopifyConnected,
-      allTime: { ...allTime, emailsProcessed: accSentAll },
-      month: { ...month, emailsProcessed: accSentMonth },
+      allTime: { ...allTime, emailsProcessed: accSentAll, aiCostUsd: accAiCostAllTime },
+      month: { ...month, emailsProcessed: accSentMonth, aiCostUsd: accAiCostMonth },
     };
   });
+
+  // Global AI cost totals
+  const aiCostAllTime = allSentSnap.docs.reduce(
+    (sum, d) => sum + (typeof d.data().aiCostUsd === "number" ? d.data().aiCostUsd : 0), 0,
+  );
+  const aiCostMonth = recentSnap.docs.reduce(
+    (sum, d) => sum + (typeof d.data().aiCostUsd === "number" ? d.data().aiCostUsd : 0), 0,
+  );
 
   return NextResponse.json({
     month: {
       ...monthGlobal,
       emailsProcessed: sentMonth,
       autoReplyRate,
+      aiCostUsd: aiCostMonth,
     },
     allTime: {
       ...allTimeGlobal,
       emailsProcessed: allSentSnap.size,
+      aiCostUsd: aiCostAllTime,
     },
     perAccount,
   });
