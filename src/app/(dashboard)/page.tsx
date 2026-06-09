@@ -248,6 +248,7 @@ export default function DashboardPage() {
   } | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [viewedGroups, setViewedGroups] = useState<Record<string, number>>({});
+  const [highlightedGroup, setHighlightedGroup] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/accounts")
@@ -278,6 +279,21 @@ export default function DashboardPage() {
     const raw = localStorage.getItem(VIEWED_GROUPS_STORAGE_KEY);
     if (!raw) return;
     try { setViewedGroups(JSON.parse(raw)); } catch {}
+  }, []);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('dashboardNavCtx');
+    if (raw) {
+      sessionStorage.removeItem('dashboardNavCtx');
+      try {
+        const { groupId } = JSON.parse(raw);
+        if (groupId) {
+          setExpandedGroups(prev => new Set(prev).add(groupId));
+          setHighlightedGroup(groupId);
+          setTimeout(() => setHighlightedGroup(null), 4000);
+        }
+      } catch {}
+    }
   }, []);
 
   useEffect(() => {
@@ -336,6 +352,13 @@ export default function DashboardPage() {
     const id = setInterval(fetchEmails, 30000);
     return () => clearInterval(id);
   }, [fetchEmails, accountFilterReady]);
+
+  // Scroll to highlighted group once emails have finished loading
+  useEffect(() => {
+    if (loading || !highlightedGroup) return;
+    const el = document.getElementById(`group-${highlightedGroup}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [loading, highlightedGroup]);
 
   function toggleGroup(key: string) {
     setExpandedGroups((prev) => {
@@ -693,7 +716,12 @@ export default function DashboardPage() {
             return (
               <div
                 key={group.customerId}
-                className="border border-white/6 rounded-xl overflow-hidden bg-gray-900/40 hover:bg-gray-900/60 transition-colors"
+                id={`group-${group.customerId}`}
+                className={`border rounded-xl overflow-hidden transition-all duration-700 ${
+                  highlightedGroup === group.customerId
+                    ? 'border-indigo-500/40 bg-indigo-500/8 shadow-[0_0_24px_rgba(99,102,241,0.12)]'
+                    : 'border-white/6 bg-gray-900/40 hover:bg-gray-900/60'
+                }`}
               >
                 {/* Customer row */}
                 <button
@@ -787,6 +815,9 @@ export default function DashboardPage() {
                         <div className="flex-1 min-w-0">
                           <Link
                             href={`/emails/${email.id}`}
+                            onClick={() => {
+                              sessionStorage.setItem('dashboardNavCtx', JSON.stringify({ groupId: group.customerId }));
+                            }}
                             className="group flex items-center gap-1.5 min-w-0"
                           >
                             <p className="text-sm text-gray-300 truncate group-hover:text-indigo-400 transition-colors">

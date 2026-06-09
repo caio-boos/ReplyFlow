@@ -352,15 +352,27 @@ export default function EmailDetailPage() {
   const [backHref, setBackHref] = useState('/');
   const [backLabel, setBackLabel] = useState('Dashboard');
   const [backTaskId, setBackTaskId] = useState<string | null>(null);
+  const [backIsTask, setBackIsTask] = useState(false);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('taskNavCtx');
-    if (raw) {
+    const taskRaw = sessionStorage.getItem('taskNavCtx');
+    if (taskRaw) {
       try {
-        const { taskId } = JSON.parse(raw);
+        const { taskId } = JSON.parse(taskRaw);
         setBackHref('/tasks');
         setBackLabel('Tarefas');
         setBackTaskId(taskId ?? null);
+        setBackIsTask(true);
+      } catch {}
+      return;
+    }
+    const dashRaw = sessionStorage.getItem('dashboardNavCtx');
+    if (dashRaw) {
+      try {
+        const { groupId } = JSON.parse(dashRaw);
+        setBackHref('/');
+        setBackLabel('Dashboard');
+        setBackTaskId(groupId ?? null); // reuse field to carry the groupId
       } catch {}
     }
   }, []);
@@ -583,8 +595,12 @@ export default function EmailDetailPage() {
         <button
           onClick={() => {
             if (backTaskId) {
-              sessionStorage.removeItem('taskNavCtx');
-              sessionStorage.setItem('highlightTask', backTaskId);
+              if (backIsTask) {
+                sessionStorage.removeItem('taskNavCtx');
+                sessionStorage.setItem('highlightTask', backTaskId);
+              } else {
+                sessionStorage.setItem('dashboardNavCtx', JSON.stringify({ groupId: backTaskId }));
+              }
             }
             router.push(backHref);
           }}
