@@ -425,13 +425,16 @@ export default function TasksPage() {
     if (raw) {
       sessionStorage.removeItem('highlightTask');
       setHighlightedTaskId(raw);
-      setTimeout(() => {
-        const el = document.getElementById(`task-${raw}`);
-        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
       setTimeout(() => setHighlightedTaskId(null), 4000);
     }
   }, []);
+
+  // Scroll to highlighted task once tasks have finished loading
+  useEffect(() => {
+    if (loading || !highlightedTaskId) return;
+    const el = document.getElementById(`task-${highlightedTaskId}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [loading, highlightedTaskId]);
 
   async function toggleComplete(task: TaskDoc) {
     const newCompleted = !task.completed;
