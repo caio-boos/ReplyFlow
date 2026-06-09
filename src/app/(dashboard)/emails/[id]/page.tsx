@@ -349,6 +349,21 @@ export default function EmailDetailPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [backHref, setBackHref] = useState('/');
+  const [backLabel, setBackLabel] = useState('Dashboard');
+  const [backTaskId, setBackTaskId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('taskNavCtx');
+    if (raw) {
+      try {
+        const { taskId } = JSON.parse(raw);
+        setBackHref('/tasks');
+        setBackLabel('Tarefas');
+        setBackTaskId(taskId ?? null);
+      } catch {}
+    }
+  }, []);
 
   useEffect(() => {
     fetch(`/api/emails/${id}`)
@@ -565,8 +580,14 @@ export default function EmailDetailPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-5">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
-        <Link
-          href="/"
+        <button
+          onClick={() => {
+            if (backTaskId) {
+              sessionStorage.removeItem('taskNavCtx');
+              sessionStorage.setItem('highlightTask', backTaskId);
+            }
+            router.push(backHref);
+          }}
           className="flex items-center gap-1.5 text-gray-500 hover:text-gray-300 transition-colors"
         >
           <svg
@@ -582,8 +603,8 @@ export default function EmailDetailPage() {
               d="M15.75 19.5L8.25 12l7.5-7.5"
             />
           </svg>
-          Dashboard
-        </Link>
+          {backLabel}
+        </button>
         <span className="text-gray-700">/</span>
         <span className="text-gray-400 truncate max-w-xs">{email.subject}</span>
       </nav>

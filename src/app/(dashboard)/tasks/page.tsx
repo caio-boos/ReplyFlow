@@ -174,12 +174,14 @@ function TaskRow({
   onDelete,
   onSaveNote,
   isCompleting,
+  isHighlighted,
 }: {
   task: TaskDoc;
   onToggle: (t: TaskDoc) => void;
   onDelete: (id: string) => void;
   onSaveNote: (id: string, note: string) => Promise<void>;
   isCompleting: boolean;
+  isHighlighted?: boolean;
 }) {
   const cfg = PRIORITY_CONFIG[task.priority];
   const activeFlags = task.flags
@@ -206,8 +208,11 @@ function TaskRow({
 
   return (
     <div
-      className={`px-4 py-3.5 flex gap-3 items-start group transition-all duration-500 ${
-        isCompleting
+      id={`task-${task.id}`}
+      className={`px-4 py-3.5 flex gap-3 items-start group transition-all duration-700 ${
+        isHighlighted
+          ? "bg-indigo-500/10 ring-1 ring-inset ring-indigo-500/40 shadow-[inset_0_0_24px_rgba(99,102,241,0.12)]"
+          : isCompleting
           ? "bg-emerald-500/8"
           : task.completed
           ? "opacity-55 hover:bg-white/2"
@@ -281,6 +286,9 @@ function TaskRow({
           })}
           <Link
             href={`/emails/${task.emailId}`}
+            onClick={() => {
+              sessionStorage.setItem('taskNavCtx', JSON.stringify({ taskId: task.id }));
+            }}
             className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-indigo-400 transition-colors truncate max-w-xs"
           >
             <svg
@@ -396,6 +404,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<Set<string>>(new Set());
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
 
   async function loadTasks() {
     setLoading(true);
@@ -409,6 +418,19 @@ export default function TasksPage() {
 
   useEffect(() => {
     loadTasks();
+  }, []);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('highlightTask');
+    if (raw) {
+      sessionStorage.removeItem('highlightTask');
+      setHighlightedTaskId(raw);
+      setTimeout(() => {
+        const el = document.getElementById(`task-${raw}`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      setTimeout(() => setHighlightedTaskId(null), 4000);
+    }
   }, []);
 
   async function toggleComplete(task: TaskDoc) {
@@ -688,6 +710,7 @@ export default function TasksPage() {
                         onDelete={deleteTask}
                         onSaveNote={saveNote}
                         isCompleting={completing.has(task.id)}
+                        isHighlighted={highlightedTaskId === task.id}
                       />
                     ))}
                   </div>
@@ -714,6 +737,7 @@ export default function TasksPage() {
                           onDelete={deleteTask}
                           onSaveNote={saveNote}
                           isCompleting={completing.has(task.id)}
+                          isHighlighted={highlightedTaskId === task.id}
                         />
                       ))}
                     </div>

@@ -11,6 +11,7 @@ interface AccountOption {
 }
 
 const ACCOUNT_FILTER_STORAGE_KEY = "replyflow.dashboard.accountFilter";
+const VIEWED_GROUPS_STORAGE_KEY = "replyflow.dashboard.viewedGroups";
 
 const STATUS_CONFIG = {
   pending: {
@@ -246,6 +247,7 @@ export default function DashboardPage() {
     ok: boolean;
   } | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [viewedGroups, setViewedGroups] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetch("/api/accounts")
@@ -269,6 +271,13 @@ export default function DashboardPage() {
         setAccountFilter("all");
       })
       .finally(() => setAccountFilterReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const raw = localStorage.getItem(VIEWED_GROUPS_STORAGE_KEY);
+    if (!raw) return;
+    try { setViewedGroups(JSON.parse(raw)); } catch {}
   }, []);
 
   useEffect(() => {
@@ -332,6 +341,18 @@ export default function DashboardPage() {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
       next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+    // Mark group as viewed when expanded
+    const groupEmails = emails.filter(e => (e.customerId || e.from) === key);
+    const latestTs = groupEmails.length > 0
+      ? Math.max(...groupEmails.map(e => e.receivedAt?.seconds ?? 0))
+      : Date.now() / 1000;
+    setViewedGroups(prev => {
+      const next = { ...prev, [key]: latestTs };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(VIEWED_GROUPS_STORAGE_KEY, JSON.stringify(next));
+      }
       return next;
     });
   }
@@ -659,6 +680,8 @@ export default function DashboardPage() {
             const isExpanded = expandedGroups.has(group.customerId);
             const hasPending = group.emails.some((e) => e.status === "pending");
             const hasFailed = group.emails.some((e) => e.status === "failed");
+            const latestEmailTs = Math.max(...group.emails.map(e => e.receivedAt?.seconds ?? 0));
+            const isUnread = viewedGroups[group.customerId] === undefined || latestEmailTs > (viewedGroups[group.customerId] ?? 0);
             const latestEmail = group.emails[0];
             const initials = group.fromName
               .split(" ")
@@ -716,6 +739,12 @@ export default function DashboardPage() {
 
                   {/* Right side */}
                   <div className="flex items-center gap-2 shrink-0">
+                    {isUnread && (
+                      <span
+                        className="w-2 h-2 rounded-full bg-sky-400 shrink-0"
+                        title="Não visualizado"
+                      />
+                    )}
                     {hasFailed && (
                       <span
                         className="w-2 h-2 rounded-full bg-red-500 shrink-0"
