@@ -28,10 +28,20 @@ export async function POST(
 
   let resend = false;
   let manualReply: string | null = null;
+  let manualAttachments: Array<{ filename: string; contentType: string; data: string }> = [];
   try {
     const body = await req.json();
     resend = body?.resend === true;
     manualReply = typeof body?.manualReply === "string" && body.manualReply.trim() ? body.manualReply.trim() : null;
+    if (Array.isArray(body?.manualAttachments)) {
+      manualAttachments = body.manualAttachments.filter(
+        (a: unknown) =>
+          a &&
+          typeof (a as Record<string, unknown>).filename === "string" &&
+          typeof (a as Record<string, unknown>).contentType === "string" &&
+          typeof (a as Record<string, unknown>).data === "string",
+      );
+    }
   } catch {
     /* no body */
   }
@@ -182,6 +192,7 @@ export async function POST(
         html: renderEmailHtml(aiResponse, accountData.label || accountData.email),
         inReplyTo: emailData.messageId,
         references: [...(emailData.references ?? []), emailData.messageId],
+        ...(manualAttachments.length > 0 ? { attachments: manualAttachments } : {}),
       },
     );
 

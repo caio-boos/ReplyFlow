@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -40,6 +40,16 @@ interface Attachment {
   contentType: string;
   url: string;
 }
+
+interface ManualAttachment {
+  filename: string;
+  contentType: string;
+  data: string; // base64
+}
+
+// 20 MB — most restrictive common provider (Outlook). Raw bytes before base64 encoding.
+const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
+const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
   const [current, setCurrent] = useState(0);
@@ -345,6 +355,9 @@ export default function EmailDetailPage() {
   const [manualSending, setManualSending] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSuccess, setManualSuccess] = useState(false);
+  const [attachments, setAttachments] = useState<ManualAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -520,6 +533,58 @@ export default function EmailDetailPage() {
     }
   }
 
+  function totalAttachmentBytes(list: ManualAttachment[]) {
+    return list.reduce((sum, a) => sum + Math.ceil((a.data.length * 3) / 4), 0);
+  }
+
+  function addFiles(files: FileList | File[]) {
+    setAttachmentError(null);
+    const arr = Array.from(files);
+    const readers = arr.map(
+      (file) =>
+        new Promise<ManualAttachment | string>((resolve) => {
+          if (file.size > MAX_FILE_BYTES) {
+            resolve(`"${file.name}" excede o limite de 15 MB por arquivo.`);
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            const base64 = dataUrl.split(",")[1];
+            resolve({ filename: file.name, contentType: file.type || "application/octet-stream", data: base64 });
+          };
+          reader.readAsDataURL(file);
+        }),
+    );
+    Promise.all(readers).then((results) => {
+      const errors: string[] = [];
+      const valid: ManualAttachment[] = [];
+      for (const r of results) {
+        if (typeof r === "string") errors.push(r);
+        else valid.push(r);
+      }
+      setAttachments((prev) => {
+        const next = [...prev, ...valid];
+        const totalBytes = totalAttachmentBytes(next);
+        if (totalBytes > MAX_TOTAL_BYTES) {
+          setAttachmentError("Total dos anexos ultrapassa 20 MB (limite dos provedores de e-mail).");
+          return prev;
+        }
+        if (errors.length > 0) setAttachmentError(errors.join(" "));
+        return next;
+      });
+    });
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = Array.from(e.clipboardData.items);
+    const imageItems = items.filter((item) => item.kind === "file" && item.type.startsWith("image/"));
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    const files = imageItems.map((item) => item.getAsFile()).filter(Boolean) as File[];
+    addFiles(files);
+  }
+
   async function handleManualSend() {
     if (!draft.trim()) return;
     const confirmed = window.confirm("Tem certeza que deseja enviar esta resposta?");
@@ -531,12 +596,17 @@ export default function EmailDetailPage() {
       const res = await fetch(`/api/emails/${id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ manualReply: draft }),
+        body: JSON.stringify({
+          manualReply: draft,
+          ...(attachments.length > 0 ? { manualAttachments: attachments } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
       setManualSuccess(true);
       setDraft("");
+      setAttachments([]);
+      setAttachmentError(null);
       const updated = await fetch(`/api/emails/${id}`).then((r) => r.json());
       setEmail(updated);
     } catch (err) {
@@ -1346,10 +1416,70 @@ export default function EmailDetailPage() {
               setManualSuccess(false);
               setManualError(null);
             }}
-            placeholder="Escreva sua resposta aqui... A IA pode aperfeiçoar seu rascunho mantendo seu raciocínio."
+            onPaste={handlePaste}
+            placeholder="Escreva sua resposta aqui... A IA pode aperfeiçoar seu rascunho mantendo seu raciocínio. Cole imagens (Ctrl+V) para anexar."
             rows={6}
             className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 resize-y focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-colors leading-relaxed"
           />
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+
+          {/* Attachment list */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((att, i) => {
+                const isImage = att.contentType.startsWith("image/");
+                return (
+                  <div key={i} className="relative group flex items-center gap-2 bg-gray-800/80 border border-white/8 rounded-lg px-2.5 py-2 max-w-45">
+                    {isImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`data:${att.contentType};base64,${att.data}`}
+                        alt={att.filename}
+                        className="w-8 h-8 object-cover rounded shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center shrink-0">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                        </svg>
+                      </div>
+                    )}
+                    <span className="text-xs text-gray-400 truncate flex-1">{att.filename}</span>
+                    <button
+                      onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="ml-1 shrink-0 text-gray-600 hover:text-red-400 transition-colors"
+                      aria-label="Remover anexo"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {attachmentError && (
+            <p className="flex items-center gap-1.5 text-xs text-amber-400">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              {attachmentError}
+            </p>
+          )}
 
           {manualError && (
             <p className="flex items-center gap-1.5 text-xs text-red-400">
@@ -1369,6 +1499,22 @@ export default function EmailDetailPage() {
           )}
 
           <div className="flex items-center gap-2 justify-end">
+            {/* Attach file button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 border border-white/8 rounded-lg text-xs font-medium text-gray-400 transition-colors"
+              title="Anexar arquivo (imagem, PDF, etc.)"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+              </svg>
+              Anexar
+              {attachments.length > 0 && (
+                <span className="ml-0.5 bg-indigo-500/30 text-indigo-300 rounded-full px-1.5 py-px text-[10px] font-semibold">{attachments.length}</span>
+              )}
+            </button>
+
             <button
               onClick={handleEnhance}
               disabled={enhancing || !draft.trim()}

@@ -7,6 +7,13 @@ export interface SmtpCredentials {
   password: string;
 }
 
+export interface AttachmentItem {
+  filename: string;
+  contentType: string;
+  /** Base64-encoded file content */
+  data: string;
+}
+
 export interface SendOptions {
   to: string;
   subject: string;
@@ -15,6 +22,7 @@ export interface SendOptions {
   inReplyTo?: string;
   references?: string[];
   messageId?: string;
+  attachments?: AttachmentItem[];
 }
 
 export interface SendResult {
@@ -47,6 +55,15 @@ export async function sendEmail(creds: SmtpCredentials, opts: SendOptions): Prom
       html: opts.html,
       ...(opts.inReplyTo && { inReplyTo: opts.inReplyTo }),
       ...(allRefs.length > 0 && { references: allRefs.join(" ") }),
+      ...(opts.attachments?.length
+        ? {
+            attachments: opts.attachments.map((a) => ({
+              filename: a.filename,
+              content: Buffer.from(a.data, "base64"),
+              contentType: a.contentType,
+            })),
+          }
+        : {}),
     });
     return {
       messageId: info.messageId ?? "",
