@@ -50,7 +50,9 @@ export async function sendEmail(creds: SmtpCredentials, opts: SendOptions): Prom
     const info = await transporter.sendMail({
       from: creds.email,
       to: opts.to,
-      subject: opts.subject.startsWith("Re:") ? opts.subject : `Re: ${opts.subject}`,
+      subject: opts.inReplyTo
+        ? opts.subject.startsWith("Re:") ? opts.subject : `Re: ${opts.subject}`
+        : opts.subject,
       text: opts.text,
       html: opts.html,
       ...(opts.inReplyTo && { inReplyTo: opts.inReplyTo }),
