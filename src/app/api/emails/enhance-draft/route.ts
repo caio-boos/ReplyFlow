@@ -65,7 +65,7 @@ STORE CONTEXT:
 ${resolvedContext}
 
 RULES:
-- Always reply in ENGLISH unless the draft is clearly written in another language, in which case match that language.
+- ALWAYS write the final email in ENGLISH, regardless of the language the draft was written in.
 - Be professional and empathetic.
 - Never reveal you are an AI.
 - Always end with "Best regards,\n${storeName}".`;
@@ -76,7 +76,7 @@ Subject: ${subject ?? "(no subject)"}
 --- AGENT'S DRAFT ---
 ${draft.slice(0, 1500)}
 
-Polish and complete the draft into a professional outbound email. Keep the intent and tone, improve clarity and professionalism. Return only the email body text, without any subject line or headers.`;
+Polish and complete the draft into a professional outbound email IN ENGLISH. Keep the intent and tone, improve clarity and professionalism. Return only the email body text in English, without any subject line or headers.`;
 
   const completion = await getClient().chat.completions.create({
     model: "gpt-4o",
