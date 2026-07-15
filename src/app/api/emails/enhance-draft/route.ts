@@ -40,22 +40,19 @@ export async function POST(req: NextRequest) {
   const db = getAdminDb();
 
   let storeName = "a loja";
+  let systemContext = "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
   if (accountId) {
     try {
       const accountDoc = await db.collection("accounts").doc(accountId).get();
       if (accountDoc.exists) {
         const accountData = accountDoc.data()!;
         storeName = accountData.label || accountData.email;
+        systemContext = accountData.systemPrompt ?? systemContext;
       }
     } catch {
       /* non-fatal */
     }
   }
-
-  const contextDoc = await db.collection("config").doc("context").get();
-  const systemContext =
-    contextDoc.data()?.systemPrompt ??
-    "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
   const resolvedContext = systemContext.replaceAll("{{STORE_NAME}}", storeName);
 

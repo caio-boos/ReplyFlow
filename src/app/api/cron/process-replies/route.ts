@@ -57,11 +57,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "No emails due", processed: 0 });
   }
 
-  // Fetch AI context
-  const contextDoc = await db.collection("config").doc("context").get();
-  const systemContext =
-    contextDoc.data()?.systemPrompt ??
-    "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
+  const DEFAULT_CONTEXT = "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
   let processed = 0;
   let failed = 0;
@@ -151,7 +147,7 @@ export async function POST(req: NextRequest) {
 
       // Generate AI reply
       const { text: aiResponse, usage: replyUsage } = await generateReply({
-        systemContext,
+        systemContext: accountData.systemPrompt ?? DEFAULT_CONTEXT,
         storeName: accountData.label || accountData.email,
         customerName: emailData.fromName || emailData.from,
         customerEmail: emailData.from,

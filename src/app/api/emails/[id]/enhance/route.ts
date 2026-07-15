@@ -41,9 +41,8 @@ export async function POST(
   if (!accountDoc.exists) return NextResponse.json({ error: "Account not found" }, { status: 400 });
   const accountData = accountDoc.data()!;
 
-  const contextDoc = await db.collection("config").doc("context").get();
   const systemContext =
-    contextDoc.data()?.systemPrompt ??
+    accountData.systemPrompt ??
     "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
   const storeName = accountData.label || accountData.email;

@@ -2,31 +2,57 @@
 
 import { useEffect, useState } from "react";
 
+interface Account {
+  id: string;
+  label: string;
+  email: string;
+}
+
 export default function ContextPage() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [text, setText] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Load accounts on mount
   useEffect(() => {
-    fetch("/api/context")
+    fetch("/api/accounts")
+      .then((r) => r.json())
+      .then((d) => {
+        const list: Account[] = d.accounts ?? [];
+        setAccounts(list);
+        if (list.length > 0) setSelectedAccountId(list[0].id);
+      });
+  }, []);
+
+  // Load context when account changes
+  useEffect(() => {
+    if (!selectedAccountId) return;
+    setLoading(true);
+    setText("");
+    fetch(`/api/context?accountId=${selectedAccountId}`)
       .then((r) => r.json())
       .then((d) => setText(d.text ?? ""))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedAccountId]);
 
   async function handleSave() {
+    if (!selectedAccountId) return;
     setSaving(true);
     setSaved(false);
     await fetch("/api/context", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ accountId: selectedAccountId, text }),
     });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
+
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-5">
@@ -34,10 +60,28 @@ export default function ContextPage() {
       <div>
         <h1 className="text-xl font-semibold text-gray-100">Contexto da IA</h1>
         <p className="text-gray-500 text-sm mt-0.5">
-          Este texto é usado pelo GPT-4o para entender sua loja e gerar
-          respostas adequadas aos clientes.
+          Cada conta de e-mail possui seu próprio contexto. A IA usará o
+          contexto da conta que recebeu a mensagem para gerar a resposta.
         </p>
       </div>
+
+      {/* Account selector */}
+      {accounts.length > 0 && (
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-gray-400 shrink-0">Conta:</label>
+          <select
+            value={selectedAccountId}
+            onChange={(e) => setSelectedAccountId(e.target.value)}
+            className="flex-1 bg-gray-900/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
+          >
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label} — {a.email}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Info banner */}
       <div className="flex gap-3 p-4 bg-indigo-500/[0.07] border border-indigo-500/20 rounded-xl">
@@ -82,7 +126,7 @@ export default function ContextPage() {
                 d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
               />
             </svg>
-            system_prompt.txt
+            {selectedAccount ? `${selectedAccount.label} — system_prompt.txt` : "system_prompt.txt"}
           </div>
           <span className="text-xs text-gray-600 tabular-nums">
             {text.length.toLocaleString("pt-BR")} caracteres

@@ -52,6 +52,7 @@ export interface AccountDoc {
   shopifyClientId?: string | null;
   shopifyConnected?: boolean;
   trackingUrlTemplate?: string | null;
+  systemPrompt?: string | null;
   createdAt: { seconds: number; nanoseconds: number };
 }
 

@@ -30,6 +30,7 @@ export async function PATCH(
     "shopifyDomain",
     "shopifyClientId",
     "trackingUrlTemplate",
+    "systemPrompt",
   ];
   const update: Record<string, unknown> = {
     updatedAt: FieldValue.serverTimestamp(),
