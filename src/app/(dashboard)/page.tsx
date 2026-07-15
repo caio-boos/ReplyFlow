@@ -8,6 +8,7 @@ interface AccountOption {
   id: string;
   label: string;
   email: string;
+  logoUrl?: string | null;
 }
 
 const ACCOUNT_FILTER_STORAGE_KEY = "replyflow.dashboard.accountFilter";
@@ -606,10 +607,19 @@ export default function DashboardPage() {
                       : "border-white/6 bg-gray-900/40 hover:border-white/12 hover:bg-gray-900/70"
                   }`}
                 >
-                  <p className="text-sm font-semibold text-gray-100 truncate">
-                    {a.label}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">
+                  <div className="flex items-center gap-2">
+                    {a.logoUrl ? (
+                      <img src={a.logoUrl} alt={a.label} className="w-5 h-5 rounded object-contain shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center shrink-0">
+                        <span className="text-indigo-400 text-xs font-bold leading-none">{a.label[0]?.toUpperCase()}</span>
+                      </div>
+                    )}
+                    <p className="text-sm font-semibold text-gray-100 truncate">
+                      {a.label}
+                    </p>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate pl-7">
                     {a.email}
                   </p>
                 </button>

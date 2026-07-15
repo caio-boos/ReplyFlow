@@ -39,6 +39,7 @@ interface Account {
   shopifyClientId: string | null;
   shopifyConnected: boolean;
   trackingUrlTemplate: string | null;
+  logoUrl?: string | null;
   active: boolean;
 }
 
@@ -80,6 +81,7 @@ const EMPTY_ADD = {
   shopifyClientId: "",
   shopifyClientSecret: "",
   trackingUrlTemplate: "",
+  logoUrl: "",
 };
 
 type FormState = typeof EMPTY_ADD;
@@ -235,6 +237,65 @@ function AccountForm({
               <option value="hostinger">Hostinger</option>
               <option value="other">Outro (Gmail, etc.)</option>
             </select>
+          </div>
+        </div>
+
+        {/* Logo upload */}
+        <div>
+          <FieldLabel>Logo da loja (ícone)</FieldLabel>
+          <div className="flex items-center gap-3">
+            {form.logoUrl ? (
+              <img
+                src={form.logoUrl}
+                alt="Logo"
+                className="w-10 h-10 rounded-lg object-contain bg-gray-800 border border-white/6 shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-gray-800 border border-white/6 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                </svg>
+              </div>
+            )}
+            <div className="flex-1">
+              <label className="flex items-center gap-2 px-3 py-2 bg-gray-800/60 border border-white/6 rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:border-white/12 cursor-pointer transition-all">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+                {form.logoUrl ? "Trocar logo" : "Carregar logo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 300 * 1024) {
+                      alert("Imagem muito grande. Máximo 300KB.");
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      setForm({ ...form, logoUrl: ev.target?.result as string });
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+              <p className="text-xs text-gray-600 mt-1">PNG, JPG ou SVG — máx. 300KB. Recomendado: 64×64px.</p>
+            </div>
+            {form.logoUrl && (
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, logoUrl: "" })}
+                className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
+                title="Remover logo"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -584,6 +645,7 @@ export default function AccountsPage() {
       shopifyClientId: acc.shopifyClientId ?? "",
       shopifyClientSecret: "",
       trackingUrlTemplate: acc.trackingUrlTemplate ?? "",
+      logoUrl: acc.logoUrl ?? "",
     });
     setShowEditPassword(false);
     setShowAddForm(false);
@@ -605,6 +667,7 @@ export default function AccountsPage() {
         shopifyClientId: addForm.shopifyClientId || undefined,
         shopifyClientSecret: addForm.shopifyClientSecret || undefined,
         trackingUrlTemplate: addForm.trackingUrlTemplate || undefined,
+        logoUrl: addForm.logoUrl || null,
       }),
     });
     if (res.ok) {
@@ -632,6 +695,7 @@ export default function AccountsPage() {
       shopifyDomain: editForm.shopifyDomain || null,
       shopifyClientId: editForm.shopifyClientId || null,
       trackingUrlTemplate: editForm.trackingUrlTemplate || null,
+      logoUrl: editForm.logoUrl || null,
     };
     if (editForm.password) body.password = editForm.password;
     if (editForm.shopifyClientSecret)
@@ -863,21 +927,25 @@ export default function AccountsPage() {
                   <div className="flex items-center gap-4 px-5 py-4">
                     {/* Icon */}
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${acc.active ? "bg-indigo-500/10" : "bg-gray-800"}`}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${acc.active ? "bg-indigo-500/10" : "bg-gray-800"}`}
                     >
-                      <svg
-                        className={`w-5 h-5 ${acc.active ? "text-indigo-400" : "text-gray-600"}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.75}
-                          d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
-                        />
-                      </svg>
+                      {acc.logoUrl ? (
+                        <img src={acc.logoUrl} alt={acc.label} className="w-full h-full object-contain" />
+                      ) : (
+                        <svg
+                          className={`w-5 h-5 ${acc.active ? "text-indigo-400" : "text-gray-600"}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.75}
+                            d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+                          />
+                        </svg>
+                      )}
                     </div>
 
                     {/* Info */}

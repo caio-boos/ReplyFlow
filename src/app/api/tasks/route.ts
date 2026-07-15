@@ -10,8 +10,11 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const showCompleted = searchParams.get("completed") === "true";
 
+  const accountId = searchParams.get("accountId");
+
   let query: FirebaseFirestore.Query = db.collection("tasks").orderBy("createdAt", "desc");
   if (!showCompleted) query = query.where("completed", "==", false);
+  if (accountId) query = query.where("accountId", "==", accountId);
 
   const snap = await query.limit(100).get();
   const tasks = snap.docs.map((d) => {
