@@ -40,6 +40,7 @@ interface Account {
   shopifyConnected: boolean;
   trackingUrlTemplate: string | null;
   logoUrl?: string | null;
+  replyLanguage?: string;
   active: boolean;
 }
 
@@ -82,6 +83,7 @@ const EMPTY_ADD = {
   shopifyClientSecret: "",
   trackingUrlTemplate: "",
   logoUrl: "",
+  replyLanguage: "en",
 };
 
 type FormState = typeof EMPTY_ADD;
@@ -237,6 +239,29 @@ function AccountForm({
               <option value="hostinger">Hostinger</option>
               <option value="other">Outro (Gmail, etc.)</option>
             </select>
+          </div>
+        </div>
+
+        {/* Reply language */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <FieldLabel>Idioma das respostas</FieldLabel>
+            <select
+              value={form.replyLanguage}
+              onChange={(e) => setForm({ ...form, replyLanguage: e.target.value })}
+              className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+            >
+              <option value="en">English</option>
+              <option value="pt">Português</option>
+              <option value="es">Español</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="it">Italiano</option>
+              <option value="nl">Nederlands</option>
+              <option value="ja">日本語</option>
+              <option value="zh">中文（简体）</option>
+            </select>
+            <p className="text-xs text-gray-600 mt-1.5">Idioma em que o ReplyFlow vai responder os clientes desta conta.</p>
           </div>
         </div>
 
@@ -646,6 +671,7 @@ export default function AccountsPage() {
       shopifyClientSecret: "",
       trackingUrlTemplate: acc.trackingUrlTemplate ?? "",
       logoUrl: acc.logoUrl ?? "",
+      replyLanguage: acc.replyLanguage ?? "en",
     });
     setShowEditPassword(false);
     setShowAddForm(false);
@@ -696,6 +722,7 @@ export default function AccountsPage() {
       shopifyClientId: editForm.shopifyClientId || null,
       trackingUrlTemplate: editForm.trackingUrlTemplate || null,
       logoUrl: editForm.logoUrl || null,
+      replyLanguage: editForm.replyLanguage || "en",
     };
     if (editForm.password) body.password = editForm.password;
     if (editForm.shopifyClientSecret)

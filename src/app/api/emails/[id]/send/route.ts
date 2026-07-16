@@ -169,6 +169,7 @@ export async function POST(
         currentSubject: emailData.subject,
         currentEmailBody: emailData.bodyText,
         orderInfo,
+        replyLanguage: accountData.replyLanguage,
         emailHistory,
       });
       aiResponse = text;

@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
     shopifyClientId,
     shopifyClientSecret,
     trackingUrlTemplate,
+    replyLanguage,
   } = body;
 
   if (!label || !email || !password || !provider) {
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
     shopifyDomain: shopifyDomain?.trim() || null,
     shopifyClientId: shopifyClientId?.trim() || null,
     trackingUrlTemplate: trackingUrlTemplate?.trim() || null,
+    replyLanguage: typeof replyLanguage === "string" && replyLanguage.trim() ? replyLanguage.trim() : "en",
     encryptedShopifyClientSecret: shopifyClientSecret?.trim()
       ? encrypt(shopifyClientSecret.trim())
       : null,

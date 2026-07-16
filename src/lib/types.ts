@@ -54,6 +54,7 @@ export interface AccountDoc {
   trackingUrlTemplate?: string | null;
   systemPrompt?: string | null;
   logoUrl?: string | null;
+  replyLanguage?: string;
   createdAt: { seconds: number; nanoseconds: number };
 }
 

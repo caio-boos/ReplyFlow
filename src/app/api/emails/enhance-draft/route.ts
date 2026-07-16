@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
 
   let storeName = "a loja";
   let systemContext = "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
+  let replyLanguage = "en";
   if (accountId) {
     try {
       const accountDoc = await db.collection("accounts").doc(accountId).get();
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
         const accountData = accountDoc.data()!;
         storeName = accountData.label || accountData.email;
         systemContext = accountData.systemPrompt ?? systemContext;
+        replyLanguage = accountData.replyLanguage ?? "en";
       }
     } catch {
       /* non-fatal */
@@ -56,13 +58,19 @@ export async function POST(req: NextRequest) {
 
   const resolvedContext = systemContext.replaceAll("{{STORE_NAME}}", storeName);
 
+  const LANGUAGE_NAMES: Record<string, string> = {
+    en: "English", pt: "Portuguese", es: "Spanish", fr: "French",
+    de: "German", it: "Italian", nl: "Dutch", ja: "Japanese", zh: "Chinese (Simplified)",
+  };
+  const targetLanguage = LANGUAGE_NAMES[replyLanguage] ?? "English";
+
   const systemPrompt = `You are a customer support agent for the store "${storeName}".
 
 STORE CONTEXT:
 ${resolvedContext}
 
 RULES:
-- ALWAYS write the final email in ENGLISH, regardless of the language the draft was written in.
+- ALWAYS write the final email in ${targetLanguage}, regardless of the language the draft was written in.
 - Be professional and empathetic.
 - Never reveal you are an AI.
 - Always end with "Best regards,\n${storeName}".`;
@@ -73,7 +81,7 @@ Subject: ${subject ?? "(no subject)"}
 --- AGENT'S DRAFT ---
 ${draft.slice(0, 1500)}
 
-Polish and complete the draft into a professional outbound email IN ENGLISH. Keep the intent and tone, improve clarity and professionalism. Return only the email body text in English, without any subject line or headers.`;
+Polish and complete the draft into a professional outbound email IN ${targetLanguage}. Keep the intent and tone, improve clarity and professionalism. Return only the email body text in ${targetLanguage}, without any subject line or headers.`;
 
   const completion = await getClient().chat.completions.create({
     model: "gpt-4o",

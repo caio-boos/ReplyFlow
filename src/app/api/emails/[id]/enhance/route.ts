@@ -83,13 +83,19 @@ export async function POST(
 
   const resolvedContext = systemContext.replaceAll("{{STORE_NAME}}", storeName);
 
+  const LANGUAGE_NAMES: Record<string, string> = {
+    en: "English", pt: "Portuguese", es: "Spanish", fr: "French",
+    de: "German", it: "Italian", nl: "Dutch", ja: "Japanese", zh: "Chinese (Simplified)",
+  };
+  const targetLanguage = LANGUAGE_NAMES[accountData.replyLanguage ?? "en"] ?? "English";
+
   const systemPrompt = `You are a customer support agent for the store "${storeName}".
 
 STORE CONTEXT:
 ${resolvedContext}
 
 RULES:
-- Always reply in ENGLISH.
+- Always reply in ${targetLanguage}.
 - Be professional and empathetic.
 - Never reveal you are an AI.
 - Always end with "Best regards,\n${storeName}".`;
@@ -106,7 +112,7 @@ ${emailData.bodyText?.slice(0, 1200) ?? ""}
 --- AGENT'S DRAFT (use this as the base — keep the intent and tone, polish and complete it into a professional reply) ---
 ${draft.slice(0, 1000)}
 
-Write the final polished reply in ENGLISH based on the agent's draft above.`;
+Write the final polished reply in ${targetLanguage} based on the agent's draft above.`;
 
   const completion = await getClient().chat.completions.create({
     model: "gpt-4o",

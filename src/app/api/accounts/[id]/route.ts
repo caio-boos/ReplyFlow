@@ -32,6 +32,7 @@ export async function PATCH(
     "trackingUrlTemplate",
     "systemPrompt",
     "logoUrl",
+    "replyLanguage",
   ];
   const update: Record<string, unknown> = {
     updatedAt: FieldValue.serverTimestamp(),

@@ -48,6 +48,18 @@ function stripQuotedText(body: string): string {
   return clean.join("\n").trim() || body.trim();
 }
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  pt: "Portuguese",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  it: "Italian",
+  nl: "Dutch",
+  ja: "Japanese",
+  zh: "Chinese (Simplified)",
+};
+
 export interface GenerateReplyParams {
   systemContext: string;
   storeName: string;
@@ -56,6 +68,7 @@ export interface GenerateReplyParams {
   currentSubject: string;
   currentEmailBody: string;
   orderInfo?: string | null;
+  replyLanguage?: string;
   emailHistory: Array<{
     subject: string;
     bodyText: string;
@@ -74,8 +87,11 @@ export async function generateReply(params: GenerateReplyParams): Promise<{ text
     currentSubject,
     currentEmailBody,
     orderInfo,
+    replyLanguage,
     emailHistory,
   } = params;
+
+  const targetLanguage = LANGUAGE_NAMES[replyLanguage ?? "en"] ?? "English";
 
   const historyBlock =
     emailHistory.length > 1
@@ -95,7 +111,7 @@ export async function generateReply(params: GenerateReplyParams): Promise<{ text
 
   const systemPrompt = `You are a customer support agent for the store "${storeName}".
 
-⚠️ LANGUAGE RULE (highest priority): Always reply in ENGLISH, regardless of the language the customer used. No exceptions.
+⚠️ LANGUAGE RULE (highest priority): Always reply in ${targetLanguage}, regardless of the language the customer used. No exceptions.
 
 STORE CONTEXT (use as behavior guide only):
 ${resolvedContext}
@@ -109,7 +125,7 @@ IMPORTANT RULES:
 - ⚠️ SIGNATURE RULE (override any template): Always end every reply with "Best regards,\n${storeName}" — never use any other name in the signature, regardless of what the templates above say.
 - ⚠️ ACCEPTANCE RULE (critical): If the customer's message is accepting or confirming an offer you made in a previous reply (e.g. "ok", "yes", "that works", "I accept", "deal", "fine", "agreed"), you MUST confirm the acceptance and tell them the action will be processed. Do NOT offer a higher percentage, a new deal, or any other alternative. Simply confirm: "Thank you for accepting. We will process your [X]% refund within [timeframe]." Do NOT escalate the offer when the customer has already agreed.
 
-⚠️ REMINDER: Always reply in ENGLISH. Ignore the language of the customer's email and the store context above — reply only in English.`;
+⚠️ REMINDER: Always reply in ${targetLanguage}. Ignore the language of the customer's email and the store context above — reply only in ${targetLanguage}.`;
 
   const cleanBody = stripQuotedText(currentEmailBody);
   const bodyDisplay = cleanBody.trim()
@@ -125,7 +141,7 @@ Subject: ${currentSubject}
 Message:
 ${bodyDisplay}
 
-Write a professional and empathetic reply in ENGLISH.`;
+Write a professional and empathetic reply in ${targetLanguage}.`;
 
 
   const completion = await getClient().chat.completions.create({

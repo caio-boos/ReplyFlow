@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
         currentSubject: emailData.subject,
         currentEmailBody: emailData.bodyText,
         orderInfo,
+        replyLanguage: accountData.replyLanguage,
         emailHistory,
       });
 
