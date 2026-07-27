@@ -12,19 +12,28 @@ export async function GET(req: NextRequest) {
 
   const accountId = searchParams.get("accountId");
 
-  let query: FirebaseFirestore.Query = db.collection("tasks").orderBy("createdAt", "desc");
+  // Avoid composite index requirements by using only equality filters.
+  // orderBy("createdAt") + where("accountId" / "completed") would need a composite index.
+  let query: FirebaseFirestore.Query = db.collection("tasks");
   if (!showCompleted) query = query.where("completed", "==", false);
   if (accountId) query = query.where("accountId", "==", accountId);
 
-  const snap = await query.limit(100).get();
-  const tasks = snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      ...data,
-      createdAt: data.createdAt ? { seconds: data.createdAt.seconds ?? data.createdAt._seconds, nanoseconds: 0 } : null,
-    };
-  });
+  const snap = await query.limit(200).get();
+  const tasks = snap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        createdAt: data.createdAt ? { seconds: data.createdAt.seconds ?? data.createdAt._seconds, nanoseconds: 0 } : null,
+      };
+    })
+    .sort((a, b) => {
+      const aS = (a.createdAt as { seconds: number } | null)?.seconds ?? 0;
+      const bS = (b.createdAt as { seconds: number } | null)?.seconds ?? 0;
+      return bS - aS;
+    })
+    .slice(0, 100);
 
   return NextResponse.json({ tasks });
 }
