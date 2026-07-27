@@ -714,6 +714,7 @@ export default function AccountsPage() {
     setError("");
     const body: Record<string, unknown> = {
       label: editForm.label,
+      provider: editForm.provider,
       imapHost: editForm.imapHost,
       imapPort: editForm.imapPort ? parseInt(editForm.imapPort) : undefined,
       smtpHost: editForm.smtpHost,

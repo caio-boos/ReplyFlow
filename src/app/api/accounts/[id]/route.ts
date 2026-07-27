@@ -22,6 +22,7 @@ export async function PATCH(
 
   const allowedFields = [
     "label",
+    "provider",
     "active",
     "imapHost",
     "imapPort",
