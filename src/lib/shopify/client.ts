@@ -59,19 +59,16 @@ function parseOrder(order: Record<string, unknown>): ShopifyOrder {
 async function shopifyFetch(
   domain: string,
   token: string,
-  endpoint: string,
-  options?: { method?: string; body?: string },
+  endpoint: string
 ): Promise<Record<string, unknown> | null> {
   const base = domain.includes("myshopify.com") ? domain : `${domain}.myshopify.com`;
   const url = `https://${base}/admin/api/${SHOPIFY_API_VERSION}/${endpoint}`;
 
   const res = await fetch(url, {
-    method: options?.method ?? "GET",
     headers: {
       "X-Shopify-Access-Token": token,
       "Content-Type": "application/json",
     },
-    body: options?.body,
   });
 
   if (!res.ok) {
@@ -87,7 +84,6 @@ export interface AbandonedCheckoutLineItem {
   quantity: number;
   price: number;
   imageUrl?: string;
-  variantId?: number | null;
 }
 
 export interface AbandonedCheckout {
@@ -130,7 +126,6 @@ export async function getAbandonedCheckouts(
             quantity: item.quantity as number,
             price: parseFloat((item.price as string) ?? "0"),
             imageUrl,
-            variantId: (item.variant_id as number | null) ?? null,
           };
         },
       );
@@ -157,50 +152,6 @@ export async function getAbandonedCheckouts(
       };
     })
     .filter((c) => c.totalPrice > 0);
-}
-
-export async function createDraftOrder(
-  domain: string,
-  token: string,
-  opts: {
-    lineItems: Array<{ variantId: number; quantity: number }>;
-    email: string;
-    discountPercent: number;
-    discountTitle: string;
-    note?: string;
-  },
-): Promise<{ id: number; invoiceUrl: string } | null> {
-  try {
-    const body = JSON.stringify({
-      draft_order: {
-        line_items: opts.lineItems.map((item) => ({
-          variant_id: item.variantId,
-          quantity: item.quantity,
-        })),
-        applied_discount: {
-          description: opts.discountTitle,
-          value_type: "percentage",
-          value: String(opts.discountPercent),
-          title: opts.discountTitle,
-        },
-        email: opts.email,
-        send_receipt: false,
-        note: opts.note ?? "",
-      },
-    });
-
-    const data = await shopifyFetch(domain, token, "draft_orders.json", {
-      method: "POST",
-      body,
-    });
-
-    const draft = data?.draft_order as Record<string, unknown> | undefined;
-    if (!draft?.invoice_url) return null;
-
-    return { id: draft.id as number, invoiceUrl: draft.invoice_url as string };
-  } catch {
-    return null;
-  }
 }
 
 export async function getShopifyOrderByNumber(

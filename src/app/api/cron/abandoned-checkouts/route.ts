@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
-import { getAbandonedCheckouts, createDraftOrder } from "@/lib/shopify/client";
+import { getAbandonedCheckouts } from "@/lib/shopify/client";
 import { sendEmail } from "@/lib/email/smtp";
 import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
 import { FieldValue } from "firebase-admin/firestore";
@@ -173,30 +173,6 @@ async function run(req: NextRequest) {
         currency: checkout.currency,
       }));
 
-      // Try draft order (invisible discount) — fall back to ?discount=CODE if not possible
-      let finalCheckoutUrl = checkoutUrl;
-      let couponCodeUsed = COUPON_CODE;
-      let draftOrderId: number | null = null;
-
-      const variantLineItems = checkout.lineItems
-        .filter((item) => item.variantId != null)
-        .map((item) => ({ variantId: item.variantId!, quantity: item.quantity }));
-
-      if (variantLineItems.length === checkout.lineItems.length && variantLineItems.length > 0) {
-        const draft = await createDraftOrder(data.shopifyDomain, shopifyToken, {
-          lineItems: variantLineItems,
-          email: checkout.email,
-          discountPercent: DISCOUNT_PERCENT,
-          discountTitle: "Oferta exclusiva",
-          note: `Carrinho abandonado — ReplyFlow ${new Date().toISOString()}`,
-        });
-        if (draft) {
-          finalCheckoutUrl = draft.invoiceUrl;
-          couponCodeUsed = `${DISCOUNT_PERCENT}% OFF`;
-          draftOrderId = draft.id;
-        }
-      }
-
       const emailHtml = renderRemarketingEmailHtml({
         customerName: checkout.customerName,
         storeName,
@@ -204,7 +180,7 @@ async function run(req: NextRequest) {
         totalPrice: checkout.totalPrice,
         currency: checkout.currency,
         discountPercent: DISCOUNT_PERCENT,
-        checkoutUrl: finalCheckoutUrl,
+        checkoutUrl,
         language,
       });
 
@@ -215,7 +191,7 @@ async function run(req: NextRequest) {
         checkout.totalPrice,
         checkout.currency,
         DISCOUNT_PERCENT,
-        finalCheckoutUrl,
+        checkoutUrl,
         language,
       );
 
@@ -253,9 +229,8 @@ async function run(req: NextRequest) {
           cartValue: checkout.totalPrice,
           currency: checkout.currency,
           lineItems: sanitizedLineItems,
-          abandonedCheckoutUrl: finalCheckoutUrl,
-          couponCode: couponCodeUsed,
-          draftOrderId,
+          abandonedCheckoutUrl: checkoutUrl,
+          couponCode: COUPON_CODE,
           sentMessageId: sendResult.messageId,
           status: "sent",
           repliedEmailId: null,
@@ -277,9 +252,8 @@ async function run(req: NextRequest) {
           cartValue: checkout.totalPrice,
           currency: checkout.currency,
           lineItems: sanitizedLineItems,
-          abandonedCheckoutUrl: finalCheckoutUrl,
-          couponCode: couponCodeUsed,
-          draftOrderId,
+          abandonedCheckoutUrl: checkoutUrl,
+          couponCode: COUPON_CODE,
           sentMessageId: "",
           status: "failed",
           errorMessage: err instanceof Error ? err.message : String(err),

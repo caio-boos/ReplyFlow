@@ -477,7 +477,7 @@ function AccountForm({
                   Em <strong className="text-gray-300">Access scopes</strong>{" "}
                   cole:{" "}
                   <code className="bg-gray-800 px-1 rounded">
-                    read_orders,read_customers,write_draft_orders
+                    read_orders,read_customers
                   </code>
                 </span>
               </li>
