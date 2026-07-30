@@ -203,6 +203,25 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      // Check if this email is a reply to a remarketing campaign
+      let remarketingDocId: string | null = null;
+      const candidateMessageIds = [
+        ...(email.inReplyTo ? [email.inReplyTo] : []),
+        ...email.references,
+      ];
+      for (const msgId of candidateMessageIds) {
+        if (!msgId) continue;
+        const rmSnap = await db
+          .collection("remarketing")
+          .where("sentMessageId", "==", msgId)
+          .limit(1)
+          .get();
+        if (!rmSnap.empty) {
+          remarketingDocId = rmSnap.docs[0].id;
+          break;
+        }
+      }
+
       // Classify email before saving — drop marketing/spam, flag critical alerts
       const classification = await classifyEmail(
         email.from,
@@ -262,7 +281,10 @@ export async function POST(req: NextRequest) {
 
       // For alerts or blocked customers: save but mark as cancelled (no auto-reply)
       let emailStatus: string;
-      if (classification.type === "alert") {
+      if (remarketingDocId) {
+        // Replies to remarketing emails are saved as cancelled — user handles them manually
+        emailStatus = "cancelled";
+      } else if (classification.type === "alert") {
         emailStatus = "cancelled";
       } else {
         // Check if the customer is blocked
@@ -291,8 +313,17 @@ export async function POST(req: NextRequest) {
         error: null,
         attachments: storedAttachments,
         aiCostUsd: classifyCost,
+        ...(remarketingDocId ? { remarketing: true, remarketingId: remarketingDocId } : {}),
         createdAt: FieldValue.serverTimestamp(),
       });
+
+      // If this is a reply to a remarketing email, update the remarketing doc
+      if (remarketingDocId) {
+        await db.collection("remarketing").doc(remarketingDocId).update({
+          status: "replied",
+          repliedEmailId: emailRef.id,
+        });
+      }
 
       if (classification.type === "alert" && classification.taskDescription) {
         await db.collection("tasks").add({

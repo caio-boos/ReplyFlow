@@ -34,6 +34,9 @@ export async function PATCH(
     "systemPrompt",
     "logoUrl",
     "replyLanguage",
+    "remarketingEnabled",
+    "testEmail",
+    "fantasyName",
   ];
   const update: Record<string, unknown> = {
     updatedAt: FieldValue.serverTimestamp(),

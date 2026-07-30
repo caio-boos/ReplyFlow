@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { action, force } = await req.json();
-  if (action !== "fetch-emails" && action !== "process-replies") {
+  if (action !== "fetch-emails" && action !== "process-replies" && action !== "abandoned-checkouts") {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 

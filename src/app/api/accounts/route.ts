@@ -104,6 +104,9 @@ export async function POST(req: NextRequest) {
     encryptedShopifyToken: null,
     lastUid: 0,
     active: true,
+    fantasyName: null,
+    remarketingEnabled: false,
+    testEmail: null,
     createdAt: FieldValue.serverTimestamp(),
   });
 

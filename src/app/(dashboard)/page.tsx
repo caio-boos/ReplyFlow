@@ -333,7 +333,7 @@ export default function DashboardPage() {
     ]);
     if (emailsRes.ok) {
       const data = await emailsRes.json();
-      setEmails(data.emails);
+      setEmails((data.emails as EmailDoc[]).filter((e) => !e.remarketing));
     }
     if (customersRes.ok) {
       const data = await customersRes.json();

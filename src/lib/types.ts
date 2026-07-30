@@ -34,6 +34,8 @@ export interface EmailDoc {
   attachments?: EmailAttachment[];
   chargebackRisk?: boolean;
   orderValue?: number | null;
+  remarketing?: boolean;
+  remarketingId?: string | null;
 }
 
 export interface AccountDoc {
@@ -71,6 +73,32 @@ export interface CustomerDoc {
   }>;
   createdAt: { seconds: number; nanoseconds: number };
   updatedAt: { seconds: number; nanoseconds: number };
+}
+
+export interface RemarketingLineItem {
+  title: string;
+  quantity: number;
+  price: number;
+}
+
+export interface RemarketingDoc {
+  id: string;
+  accountId: string;
+  shopDomain: string;
+  checkoutId: string;
+  customerEmail: string;
+  customerName: string;
+  cartValue: number;
+  currency: string;
+  lineItems: RemarketingLineItem[];
+  abandonedCheckoutUrl: string;
+  couponCode: string;
+  sentMessageId: string;
+  status: "sent" | "failed" | "replied";
+  errorMessage?: string;
+  repliedEmailId: string | null;
+  sentAt: { seconds: number; nanoseconds: number } | null;
+  createdAt: { seconds: number; nanoseconds: number };
 }
 
 export type TaskPriority = "high" | "medium" | "low";

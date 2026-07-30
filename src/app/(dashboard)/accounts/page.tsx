@@ -42,6 +42,9 @@ interface Account {
   logoUrl?: string | null;
   replyLanguage?: string;
   active: boolean;
+  remarketingEnabled?: boolean;
+  testEmail?: string | null;
+  fantasyName?: string | null;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -84,6 +87,7 @@ const EMPTY_ADD = {
   trackingUrlTemplate: "",
   logoUrl: "",
   replyLanguage: "en",
+  fantasyName: "",
 };
 
 type FormState = typeof EMPTY_ADD;
@@ -240,6 +244,19 @@ function AccountForm({
               <option value="other">Outro (Gmail, etc.)</option>
             </select>
           </div>
+        </div>
+
+        {/* Fantasy name */}
+        <div>
+          <FieldLabel>Nome fantasia (para emails)</FieldLabel>
+          <Input
+            value={form.fantasyName}
+            onChange={(e) => setForm({ ...form, fantasyName: e.target.value })}
+            placeholder="Ex: Kenbi™ — nome exibido nos e-mails de remarketing"
+          />
+          <p className="text-xs text-gray-600 mt-1.5">
+            Nome público da loja exibido nos e-mails. Se vazio, usa o nome da conta.
+          </p>
         </div>
 
         {/* Reply language */}
@@ -460,7 +477,7 @@ function AccountForm({
                   Em <strong className="text-gray-300">Access scopes</strong>{" "}
                   cole:{" "}
                   <code className="bg-gray-800 px-1 rounded">
-                    read_orders,read_customers
+                    read_orders,read_customers,write_draft_orders
                   </code>
                 </span>
               </li>
@@ -619,6 +636,9 @@ export default function AccountsPage() {
     error?: string;
   } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+  const [remarketingTogglingId, setRemarketingTogglingId] = useState<string | null>(null);
+  const [remarketingEditId, setRemarketingEditId] = useState<string | null>(null);
+  const [remarketingTestInput, setRemarketingTestInput] = useState("");
   const [shopifyMsg, setShopifyMsg] = useState<{
     type: "success" | "error";
     reason?: string;
@@ -672,6 +692,7 @@ export default function AccountsPage() {
       trackingUrlTemplate: acc.trackingUrlTemplate ?? "",
       logoUrl: acc.logoUrl ?? "",
       replyLanguage: acc.replyLanguage ?? "en",
+      fantasyName: acc.fantasyName ?? "",
     });
     setShowEditPassword(false);
     setShowAddForm(false);
@@ -694,6 +715,7 @@ export default function AccountsPage() {
         shopifyClientSecret: addForm.shopifyClientSecret || undefined,
         trackingUrlTemplate: addForm.trackingUrlTemplate || undefined,
         logoUrl: addForm.logoUrl || null,
+        fantasyName: addForm.fantasyName || null,
       }),
     });
     if (res.ok) {
@@ -724,6 +746,7 @@ export default function AccountsPage() {
       trackingUrlTemplate: editForm.trackingUrlTemplate || null,
       logoUrl: editForm.logoUrl || null,
       replyLanguage: editForm.replyLanguage || "en",
+      fantasyName: editForm.fantasyName || null,
     };
     if (editForm.password) body.password = editForm.password;
     if (editForm.shopifyClientSecret)
@@ -772,6 +795,27 @@ export default function AccountsPage() {
   async function handleDelete(id: string) {
     if (!confirm("Remover esta conta?")) return;
     await fetch(`/api/accounts/${id}`, { method: "DELETE" });
+    loadAccounts();
+  }
+
+  async function handleToggleRemarketing(id: string, current: boolean) {
+    setRemarketingTogglingId(id);
+    await fetch(`/api/accounts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ remarketingEnabled: !current }),
+    });
+    setRemarketingTogglingId(null);
+    loadAccounts();
+  }
+
+  async function handleSaveTestEmail(id: string) {
+    await fetch(`/api/accounts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ testEmail: remarketingTestInput.trim() || null }),
+    });
+    setRemarketingEditId(null);
     loadAccounts();
   }
 
@@ -1077,6 +1121,66 @@ export default function AccountsPage() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Remarketing config row */}
+                  {acc.shopifyConnected && (
+                    <div className="flex items-center gap-4 px-5 py-3 border-t border-white/5 bg-black/10 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRemarketing(acc.id, acc.remarketingEnabled ?? false)}
+                          disabled={remarketingTogglingId === acc.id}
+                          className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                            acc.remarketingEnabled ? "bg-indigo-600" : "bg-gray-700"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              acc.remarketingEnabled ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                        <span className="text-xs text-gray-400">
+                          Recuperação de carrinho
+                          {!acc.remarketingEnabled && (
+                            <span className="ml-1 text-gray-600">(desabilitado)</span>
+                          )}
+                        </span>
+                      </div>
+
+                      {acc.remarketingEnabled && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 shrink-0">E-mail de teste:</span>
+                          <input
+                            value={remarketingEditId === acc.id ? remarketingTestInput : (acc.testEmail ?? "")}
+                            onFocus={() => {
+                              setRemarketingEditId(acc.id);
+                              setRemarketingTestInput(acc.testEmail ?? "");
+                            }}
+                            onChange={(e) => setRemarketingTestInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSaveTestEmail(acc.id)}
+                            className="bg-gray-800/60 border border-white/6 rounded-md px-2.5 py-1 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-56"
+                            placeholder="vazio = envia para todos (ex: a@b.com, c@d.com)"
+                          />
+                          {remarketingEditId === acc.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleSaveTestEmail(acc.id)}
+                              className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shrink-0"
+                            >
+                              Salvar
+                            </button>
+                          )}
+                          {acc.testEmail && remarketingEditId !== acc.id && (
+                            <span className="text-xs text-amber-400 font-mono">{acc.testEmail}</span>
+                          )}
+                          {!acc.testEmail && remarketingEditId !== acc.id && (
+                            <span className="text-xs text-gray-600">todos os clientes</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Shopify test panel */}
                   {testingId === acc.id && (

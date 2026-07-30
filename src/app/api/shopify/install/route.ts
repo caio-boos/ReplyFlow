@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
 
   const authUrl = new URL(`https://${shop}/admin/oauth/authorize`);
   authUrl.searchParams.set("client_id", clientId);
-  authUrl.searchParams.set("scope", "read_orders,read_customers");
+  authUrl.searchParams.set("scope", "read_orders,read_customers,write_draft_orders");
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("state", state);
 
