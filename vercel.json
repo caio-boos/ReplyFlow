@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/abandoned-checkouts",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/check-recovery",
+      "schedule": "0 */3 * * *"
     }
   ]
 }

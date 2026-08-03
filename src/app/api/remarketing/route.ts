@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
         status: d.status as string,
         errorMessage: d.errorMessage as string | undefined,
         repliedEmailId: (d.repliedEmailId as string | null) ?? null,
+        recoveredOrderName: (d.recoveredOrderName as string | null) ?? null,
         sentAt: d.sentAt?.toDate?.()?.toISOString() ?? null,
         createdAt: d.createdAt?.toDate?.()?.toISOString() ?? null,
       };

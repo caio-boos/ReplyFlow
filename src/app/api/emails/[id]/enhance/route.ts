@@ -46,7 +46,7 @@ export async function POST(
     "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
   const storeName = accountData.label || accountData.email;
-  const emailHistory = await getCustomerEmailHistory(emailData.customerId);
+  const emailHistory = await getCustomerEmailHistory(emailData.customerId, emailData.accountId);
 
   // Shopify lookup (best-effort)
   let orderInfo: string | null = null;

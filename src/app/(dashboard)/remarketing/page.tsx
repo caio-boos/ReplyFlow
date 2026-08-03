@@ -22,9 +22,10 @@ interface RemarketingItem {
   lineItems: Array<{ title: string; quantity: number; price: number }>;
   abandonedCheckoutUrl: string;
   couponCode: string;
-  status: "sent" | "failed" | "replied";
+  status: "sent" | "failed" | "replied" | "recovered";
   errorMessage?: string;
   repliedEmailId: string | null;
+  recoveredOrderName?: string | null;
   sentAt: string | null;
   createdAt: string | null;
 }
@@ -44,6 +45,11 @@ const STATUS_CONFIG = {
     label: "Respondido",
     color: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     dot: "bg-blue-400",
+  },
+  recovered: {
+    label: "Recuperado ✓",
+    color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    dot: "bg-yellow-400",
   },
 };
 
@@ -80,6 +86,8 @@ export default function RemarketingPage() {
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [checkingRecovery, setCheckingRecovery] = useState(false);
+  const [recoveryMsg, setRecoveryMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
 
@@ -145,6 +153,35 @@ export default function RemarketingPage() {
     setTriggering(false);
   }
 
+  async function checkRecovery() {
+    setCheckingRecovery(true);
+    setRecoveryMsg(null);
+    try {
+      const res = await fetch("/api/admin/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check-recovery" }),
+      });
+      const data = await res.json();
+      const recovered = data.recovered ?? 0;
+      let text: string;
+      if (!res.ok) {
+        text = data.error ?? "Erro";
+      } else if (recovered === 0) {
+        text = data.message ?? "Nenhuma recuperação nova encontrada.";
+      } else if (accountFilter !== "all") {
+        text = `${recovered} carrinho(s) recuperado(s) no total. Selecione "Todas as lojas" para ver todos.`;
+      } else {
+        text = `${recovered} carrinho(s) recuperado(s)!`;
+      }
+      setRecoveryMsg({ text, ok: res.ok });
+      if (res.ok) fetchData();
+    } catch {
+      setRecoveryMsg({ text: "Erro de conexão", ok: false });
+    }
+    setCheckingRecovery(false);
+  }
+
   function toggleExpand(id: string) {
     setExpandedItems((prev) => {
       const next = new Set(prev);
@@ -157,7 +194,8 @@ export default function RemarketingPage() {
 
   const stats = {
     total: items.length,
-    sent: items.filter((i) => i.status === "sent" || i.status === "replied").length,
+    sent: items.filter((i) => i.status === "sent" || i.status === "replied" || i.status === "recovered").length,
+    recovered: items.filter((i) => i.status === "recovered").length,
     replied: items.filter((i) => i.status === "replied").length,
     failed: items.filter((i) => i.status === "failed").length,
   };
@@ -202,39 +240,58 @@ export default function RemarketingPage() {
             Carrinhos abandonados — cupom de 20% de desconto enviado automaticamente
           </p>
         </div>
-        <button
-          onClick={triggerCron}
-          disabled={triggering}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-md transition-colors"
-        >
-          {triggering ? (
-            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-          ) : (
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          )}
-          Buscar carrinhos agora
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={checkRecovery}
+            disabled={checkingRecovery}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-yellow-600/20 hover:bg-yellow-600/30 disabled:opacity-50 text-yellow-400 border border-yellow-500/30 rounded-md transition-colors"
+          >
+            {checkingRecovery ? (
+              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            Verificar recuperações
+          </button>
+          <button
+            onClick={triggerCron}
+            disabled={triggering}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-md transition-colors"
+          >
+            {triggering ? (
+              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            )}
+            Buscar carrinhos agora
+          </button>
+        </div>
       </div>
 
       {triggerMsg && (
@@ -249,11 +306,24 @@ export default function RemarketingPage() {
         </div>
       )}
 
+      {recoveryMsg && (
+        <div
+          className={`mb-4 px-4 py-2.5 rounded-md text-sm border ${
+            recoveryMsg.ok
+              ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+              : "bg-red-500/10 border-red-500/20 text-red-400"
+          }`}
+        >
+          {recoveryMsg.text}
+        </div>
+      )}
+
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {[
           { label: "Total processados", value: stats.total, color: "text-gray-100" },
           { label: "Enviados com sucesso", value: stats.sent, color: "text-emerald-400" },
+          { label: "Recuperados", value: stats.recovered, color: "text-yellow-400" },
           { label: "Respondidos", value: stats.replied, color: "text-blue-400" },
           { label: "Falhos", value: stats.failed, color: "text-red-400" },
         ].map((s) => (
@@ -464,10 +534,18 @@ export default function RemarketingPage() {
                               </Link>
                             </div>
                           )}
+                          {item.status === "recovered" && (
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-500">Pedido gerado:</span>
+                              <span className="font-semibold text-yellow-400">
+                                {item.recoveredOrderName ?? "—"}
+                              </span>
+                            </div>
+                          )}
                           {item.status === "failed" && item.errorMessage && (
                             <p className="text-xs text-red-400/80">{item.errorMessage}</p>
                           )}
-                          {(item.status === "sent" || item.status === "replied") && (
+                          {(item.status === "sent" || item.status === "replied" || item.status === "recovered") && (
                             <button
                               onClick={() => setPreviewId(item.id)}
                               className="inline-flex items-center gap-1.5 text-xs bg-gray-800 border border-white/8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 px-2.5 py-1 rounded-md transition-colors"

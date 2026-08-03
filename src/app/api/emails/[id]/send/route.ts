@@ -86,7 +86,7 @@ export async function POST(
       contextDoc.data()?.systemPrompt ??
       "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
-    const emailHistory = await getCustomerEmailHistory(emailData.customerId);
+    const emailHistory = await getCustomerEmailHistory(emailData.customerId, emailData.accountId);
 
     // Lookup Shopify order if account has Shopify integration
     let orderInfo: string | null = null;

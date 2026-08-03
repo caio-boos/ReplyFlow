@@ -46,6 +46,7 @@ function normalizeName(name: string): string {
 
 export interface CustomerDoc {
   id: string;
+  accountId: string;
   name: string;
   emails: string[];
   orderNumbers: string[];
@@ -67,51 +68,54 @@ export async function matchOrCreateCustomer(params: {
   fromName: string;
   bodyText: string;
   emailDocId: string;
+  accountId: string;
 }): Promise<MatchResult> {
   const db = getAdminDb();
   const customersRef = db.collection("customers");
-  const { fromEmail, fromName, bodyText, emailDocId } = params;
+  const { fromEmail, fromName, bodyText, emailDocId, accountId } = params;
 
   const emailNorm = fromEmail.toLowerCase().trim();
   const nameNorm = normalizeName(fromName);
   const orderNumbers = extractOrderNumbers(bodyText);
 
-  // 1. Exact email match
-  const byEmail = await customersRef.where("emails", "array-contains", emailNorm).limit(1).get();
-  if (!byEmail.empty) {
-    const doc = byEmail.docs[0];
-    await doc.ref.update({
+  // 1. Exact email match — scoped to this account
+  const byEmail = await customersRef.where("emails", "array-contains", emailNorm).get();
+  const emailMatch = byEmail.docs.find((d) => (d.data() as CustomerDoc).accountId === accountId);
+  if (emailMatch) {
+    await emailMatch.ref.update({
       linkedEmailIds: FieldValue.arrayUnion(emailDocId),
       orderNumbers: FieldValue.arrayUnion(...(orderNumbers.length > 0 ? orderNumbers : ["__noop__"])),
       updatedAt: FieldValue.serverTimestamp(),
     });
     if (orderNumbers.length > 0) {
-      await doc.ref.update({ orderNumbers: FieldValue.arrayUnion(...orderNumbers) });
+      await emailMatch.ref.update({ orderNumbers: FieldValue.arrayUnion(...orderNumbers) });
     }
-    return { customerId: doc.id, confidence: "exact", isNewCustomer: false };
+    return { customerId: emailMatch.id, confidence: "exact", isNewCustomer: false };
   }
 
-  // 2. Order number match
+  // 2. Order number match — scoped to this account
   if (orderNumbers.length > 0) {
     const byOrder = await customersRef
       .where("orderNumbers", "array-contains-any", orderNumbers)
-      .limit(1)
       .get();
-    if (!byOrder.empty) {
-      const doc = byOrder.docs[0];
-      await doc.ref.update({
+    const orderMatch = byOrder.docs.find((d) => (d.data() as CustomerDoc).accountId === accountId);
+    if (orderMatch) {
+      await orderMatch.ref.update({
         emails: FieldValue.arrayUnion(emailNorm),
         linkedEmailIds: FieldValue.arrayUnion(emailDocId),
         updatedAt: FieldValue.serverTimestamp(),
       });
-      return { customerId: doc.id, confidence: "order", isNewCustomer: false };
+      return { customerId: orderMatch.id, confidence: "order", isNewCustomer: false };
     }
   }
 
-  // 3. Fuzzy name match (only if name is meaningful)
+  // 3. Fuzzy name match (only if name is meaningful) — scoped to this account
   let suggestedLinkCustomerId: string | undefined;
   if (nameNorm.length > 3) {
-    const allCustomers = await customersRef.limit(200).get();
+    const allCustomers = await customersRef
+      .where("accountId", "==", accountId)
+      .limit(200)
+      .get();
     for (const doc of allCustomers.docs) {
       const existing = normalizeName((doc.data() as CustomerDoc).name ?? "");
       if (existing.length > 3 && levenshtein(nameNorm, existing) <= 2) {
@@ -130,8 +134,9 @@ export async function matchOrCreateCustomer(params: {
     }
   }
 
-  // 4. Create new customer
+  // 4. Create new customer — always scoped to this account
   const newCustomer = await customersRef.add({
+    accountId,
     name: fromName,
     emails: [emailNorm],
     orderNumbers,
@@ -149,7 +154,7 @@ export async function matchOrCreateCustomer(params: {
   };
 }
 
-export async function getCustomerEmailHistory(customerId: string): Promise<
+export async function getCustomerEmailHistory(customerId: string, accountId: string): Promise<
   Array<{ subject: string; bodyText: string; from: string; receivedAt: Date; aiResponse?: string }>
 > {
   const db = getAdminDb();
@@ -179,6 +184,8 @@ export async function getCustomerEmailHistory(customerId: string): Promise<
 
     for (const doc of snap.docs) {
       const d = doc.data();
+      // Only include emails from the same account to avoid cross-store context mixing
+      if (d.accountId !== accountId) continue;
       history.push({
         subject: d.subject,
         bodyText: d.bodyText,

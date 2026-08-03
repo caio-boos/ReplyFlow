@@ -95,8 +95,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Get full customer history
-      const emailHistory = await getCustomerEmailHistory(emailData.customerId);
+      // Get full customer history — scoped to this account to prevent cross-store mixing
+      const emailHistory = await getCustomerEmailHistory(emailData.customerId, emailData.accountId);
 
       // Lookup Shopify order if account has Shopify integration
       let orderInfo: string | null = null;

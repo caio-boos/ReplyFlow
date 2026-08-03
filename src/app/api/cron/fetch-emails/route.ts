@@ -271,12 +271,13 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Identify/create customer
+      // Identify/create customer — scoped to this account to prevent cross-store mixing
       const matchResult = await matchOrCreateCustomer({
         fromEmail: effectiveFrom,
         fromName: effectiveFromName,
         bodyText: email.bodyText,
         emailDocId: emailRef.id,
+        accountId: email.accountId,
       });
 
       // For alerts or blocked customers: save but mark as cancelled (no auto-reply)

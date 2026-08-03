@@ -154,6 +154,25 @@ export async function getAbandonedCheckouts(
     .filter((c) => c.totalPrice > 0);
 }
 
+/**
+ * Returns the order that was placed from a specific checkout token, or null
+ * if the checkout was never completed. Used to detect recovered carts.
+ */
+export async function getOrderByCheckoutToken(
+  domain: string,
+  token: string,
+  checkoutToken: string,
+): Promise<ShopifyOrder | null> {
+  const data = await shopifyFetch(
+    domain,
+    token,
+    `orders.json?checkout_token=${encodeURIComponent(checkoutToken)}&status=any`,
+  );
+  const orders = (data?.orders as Record<string, unknown>[]) ?? [];
+  if (orders.length === 0) return null;
+  return parseOrder(orders[0]);
+}
+
 export async function getShopifyOrderByNumber(
   domain: string,
   token: string,
