@@ -4,8 +4,9 @@ import { decrypt } from "@/lib/crypto/encryption";
 import { getOrderByCheckoutToken } from "@/lib/shopify/client";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
-// Only check remarketing emails sent within the last 7 days
-const LOOKBACK_DAYS = 7;
+// Global max window for the Firestore query — per-account window is applied after grouping
+const MAX_LOOKBACK_DAYS = 60;
+const DEFAULT_LOOKBACK_DAYS = 7;
 
 export async function GET(req: NextRequest) {
   return run(req);
@@ -24,7 +25,7 @@ async function run(req: NextRequest) {
   const db = getAdminDb();
 
   const since = Timestamp.fromDate(
-    new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000),
+    new Date(Date.now() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000),
   );
 
   // Fetch remarketing docs that were sent but not yet confirmed as recovered
@@ -63,7 +64,17 @@ async function run(req: NextRequest) {
       continue;
     }
 
+    const accountLookbackDays: number =
+      typeof accountData.recoveryLookbackDays === "number" && accountData.recoveryLookbackDays > 0
+        ? accountData.recoveryLookbackDays
+        : DEFAULT_LOOKBACK_DAYS;
+    const accountSince = new Date(Date.now() - accountLookbackDays * 24 * 60 * 60 * 1000);
+
     for (const doc of docs) {
+      // Skip docs older than this account's specific lookback window
+      const sentAt = doc.data().sentAt?.toDate?.() as Date | undefined;
+      if (sentAt && sentAt < accountSince) continue;
+
       const checkoutToken = doc.data().checkoutId as string;
       if (!checkoutToken) continue;
 

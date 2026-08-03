@@ -260,6 +260,7 @@ function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }
                       width={40}
                       height={12}
                       className="opacity-70"
+                      style={{ height: "auto" }}
                       unoptimized
                     />
                   </div>
@@ -317,7 +318,7 @@ function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }
                     className="flex items-center gap-4 p-4 border border-dashed border-white/10 rounded-xl hover:border-[#96BF48]/40 hover:bg-[#96BF48]/5 transition-all group"
                   >
                     <div className="w-14 h-14 rounded-xl bg-[#96BF48]/10 border border-[#96BF48]/20 flex items-center justify-center shrink-0">
-                      <Image src="/images/shopify-logo.png" alt="Shopify" width={36} height={11} unoptimized className="opacity-60 group-hover:opacity-90 transition-opacity" />
+                      <Image src="/images/shopify-logo.png" alt="Shopify" width={36} height={11} unoptimized style={{ height: "auto" }} className="opacity-60 group-hover:opacity-90 transition-opacity" />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">Conectar nova loja</p>
@@ -409,11 +410,12 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
         {/* Brand */}
         <div className="flex items-center gap-2.5 px-4 pt-4 pb-3 mb-1">
           <Image
-            src="images/logo-com-texto-branco-simples.png"
+            src="/images/logo-com-texto-branco-simples.png"
             alt="ReplyFlow"
             width={120}
             height={14}
             className="object-contain"
+            style={{ height: "auto" }}
             priority
             unoptimized
           />

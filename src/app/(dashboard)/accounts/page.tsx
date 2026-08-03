@@ -45,6 +45,7 @@ interface Account {
   remarketingEnabled?: boolean;
   testEmail?: string | null;
   fantasyName?: string | null;
+  recoveryLookbackDays?: number | null;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -639,6 +640,8 @@ export default function AccountsPage() {
   const [remarketingTogglingId, setRemarketingTogglingId] = useState<string | null>(null);
   const [remarketingEditId, setRemarketingEditId] = useState<string | null>(null);
   const [remarketingTestInput, setRemarketingTestInput] = useState("");
+  const [recoveryDaysEditId, setRecoveryDaysEditId] = useState<string | null>(null);
+  const [recoveryDaysInput, setRecoveryDaysInput] = useState("7");
   const [shopifyMsg, setShopifyMsg] = useState<{
     type: "success" | "error";
     reason?: string;
@@ -816,6 +819,18 @@ export default function AccountsPage() {
       body: JSON.stringify({ testEmail: remarketingTestInput.trim() || null }),
     });
     setRemarketingEditId(null);
+    loadAccounts();
+  }
+
+  async function handleSaveRecoveryDays(id: string) {
+    const days = parseInt(recoveryDaysInput, 10);
+    if (!days || days < 1 || days > 365) return;
+    await fetch(`/api/accounts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recoveryLookbackDays: days }),
+    });
+    setRecoveryDaysEditId(null);
     loadAccounts();
   }
 
@@ -1148,6 +1163,34 @@ export default function AccountsPage() {
                         </span>
                       </div>
 
+                      {acc.remarketingEnabled && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 shrink-0">Janela de recuperação:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={recoveryDaysEditId === acc.id ? recoveryDaysInput : String(acc.recoveryLookbackDays ?? 7)}
+                            onFocus={() => {
+                              setRecoveryDaysEditId(acc.id);
+                              setRecoveryDaysInput(String(acc.recoveryLookbackDays ?? 7));
+                            }}
+                            onChange={(e) => setRecoveryDaysInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSaveRecoveryDays(acc.id)}
+                            className="bg-gray-800/60 border border-white/6 rounded-md px-2 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-14 text-center"
+                          />
+                          <span className="text-xs text-gray-600">dias</span>
+                          {recoveryDaysEditId === acc.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleSaveRecoveryDays(acc.id)}
+                              className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shrink-0"
+                            >
+                              Salvar
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {acc.remarketingEnabled && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500 shrink-0">E-mail de teste:</span>

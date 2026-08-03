@@ -37,6 +37,7 @@ export async function PATCH(
     "remarketingEnabled",
     "testEmail",
     "fantasyName",
+    "recoveryLookbackDays",
   ];
   const update: Record<string, unknown> = {
     updatedAt: FieldValue.serverTimestamp(),
