@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useStoreContext } from "../store-context";
 
 interface AccountOption {
   id: string;
@@ -76,13 +77,11 @@ function formatDate(iso: string | null) {
   });
 }
 
-const ACCOUNT_FILTER_KEY = "replyflow.remarketing.accountFilter";
+const ACCOUNT_FILTER_KEY = "replyflow.remarketing.accountFilter"; // kept for localStorage migration only
 
 export default function RemarketingPage() {
+  const { selectedAccountId, loading: storeLoading } = useStoreContext();
   const [items, setItems] = useState<RemarketingItem[]>([]);
-  const [accounts, setAccounts] = useState<AccountOption[]>([]);
-  const [accountFilter, setAccountFilter] = useState("all");
-  const [accountFilterReady, setAccountFilterReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -91,46 +90,21 @@ export default function RemarketingPage() {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/accounts")
-      .then((r) => r.json())
-      .then((d) => {
-        const fetched: AccountOption[] = d.accounts ?? [];
-        setAccounts(fetched);
-        const saved =
-          typeof window !== "undefined"
-            ? window.localStorage.getItem(ACCOUNT_FILTER_KEY)
-            : null;
-        if (saved && fetched.some((a) => a.id === saved)) {
-          setAccountFilter(saved);
-        } else {
-          setAccountFilter("all");
-        }
-      })
-      .finally(() => setAccountFilterReady(true));
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && accountFilterReady) {
-      window.localStorage.setItem(ACCOUNT_FILTER_KEY, accountFilter);
-    }
-  }, [accountFilter, accountFilterReady]);
-
   const fetchData = useCallback(async () => {
     const p = new URLSearchParams();
-    if (accountFilter !== "all") p.set("accountId", accountFilter);
+    if (selectedAccountId !== "all") p.set("accountId", selectedAccountId);
     const res = await fetch(`/api/remarketing${p.toString() ? `?${p}` : ""}`);
     if (res.ok) {
       const data = await res.json();
       setItems(data.remarketing ?? []);
     }
     setLoading(false);
-  }, [accountFilter]);
+  }, [selectedAccountId]);
 
   useEffect(() => {
-    if (!accountFilterReady) return;
+    if (storeLoading) return;
     fetchData();
-  }, [fetchData, accountFilterReady]);
+  }, [fetchData, storeLoading]);
 
   async function triggerCron() {
     setTriggering(true);
@@ -169,7 +143,7 @@ export default function RemarketingPage() {
         text = data.error ?? "Erro";
       } else if (recovered === 0) {
         text = data.message ?? "Nenhuma recuperação nova encontrada.";
-      } else if (accountFilter !== "all") {
+      } else if (selectedAccountId !== "all") {
         text = `${recovered} carrinho(s) recuperado(s) no total. Selecione "Todas as lojas" para ver todos.`;
       } else {
         text = `${recovered} carrinho(s) recuperado(s)!`;
@@ -189,8 +163,6 @@ export default function RemarketingPage() {
       return next;
     });
   }
-
-  const shopifyAccounts = accounts.filter((a) => a.shopifyConnected);
 
   const stats = {
     total: items.length,
@@ -336,35 +308,6 @@ export default function RemarketingPage() {
           </div>
         ))}
       </div>
-
-      {/* Account filter — only show if there are multiple Shopify-connected accounts */}
-      {shopifyAccounts.length > 1 && (
-        <div className="mb-4 flex gap-2 flex-wrap">
-          <button
-            onClick={() => setAccountFilter("all")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-              accountFilter === "all"
-                ? "bg-indigo-600 border-indigo-500 text-white"
-                : "bg-gray-900/60 border-white/6 text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            Todas as lojas
-          </button>
-          {shopifyAccounts.map((a) => (
-            <button
-              key={a.id}
-              onClick={() => setAccountFilter(a.id)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                accountFilter === a.id
-                  ? "bg-indigo-600 border-indigo-500 text-white"
-                  : "bg-gray-900/60 border-white/6 text-gray-400 hover:text-gray-200"
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* List */}
       {loading ? (

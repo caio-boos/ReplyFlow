@@ -3,13 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { EmailDoc } from "@/lib/types";
-
-interface AccountOption {
-  id: string;
-  label: string;
-  email: string;
-  logoUrl?: string | null;
-}
+import { useStoreContext } from "./store-context";
 
 const ACCOUNT_FILTER_STORAGE_KEY = "replyflow.dashboard.accountFilter";
 const VIEWED_GROUPS_STORAGE_KEY = "replyflow.dashboard.viewedGroups";
@@ -233,12 +227,10 @@ const STATS_CONFIG = [
 ];
 
 export default function DashboardPage() {
+  const { selectedAccountId, loading: storeLoading } = useStoreContext();
   const [emails, setEmails] = useState<EmailDoc[]>([]);
   const [blockedSet, setBlockedSet] = useState<Set<string>>(new Set());
-  const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [accountFilter, setAccountFilter] = useState("all");
-  const [accountFilterReady, setAccountFilterReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState<"fetch" | "process" | null>(
     null,
@@ -250,30 +242,6 @@ export default function DashboardPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [viewedGroups, setViewedGroups] = useState<Record<string, number>>({});
   const [highlightedGroup, setHighlightedGroup] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/accounts")
-      .then((r) => r.json())
-      .then((d) => {
-        const fetchedAccounts = d.accounts ?? [];
-        setAccounts(fetchedAccounts);
-        const saved =
-          typeof window !== "undefined"
-            ? window.localStorage.getItem(ACCOUNT_FILTER_STORAGE_KEY)
-            : null;
-        if (!saved || saved === "all") {
-          setAccountFilter("all");
-          return;
-        }
-        if (fetchedAccounts.some((a: AccountOption) => a.id === saved)) {
-          setAccountFilter(saved);
-          return;
-        }
-        window.localStorage.removeItem(ACCOUNT_FILTER_STORAGE_KEY);
-        setAccountFilter("all");
-      })
-      .finally(() => setAccountFilterReady(true));
-  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -296,11 +264,6 @@ export default function DashboardPage() {
       } catch {}
     }
   }, []);
-
-  useEffect(() => {
-    if (!accountFilterReady) return;
-    window.localStorage.setItem(ACCOUNT_FILTER_STORAGE_KEY, accountFilter);
-  }, [accountFilter, accountFilterReady]);
 
   async function triggerCron(action: "fetch-emails" | "process-replies") {
     setTriggering(action === "fetch-emails" ? "fetch" : "process");
@@ -326,7 +289,7 @@ export default function DashboardPage() {
   const fetchEmails = useCallback(async () => {
     const p = new URLSearchParams();
     if (statusFilter !== "all") p.set("status", statusFilter);
-    if (accountFilter !== "all") p.set("accountId", accountFilter);
+    if (selectedAccountId !== "all") p.set("accountId", selectedAccountId);
     const [emailsRes, customersRes] = await Promise.all([
       fetch(`/api/emails${p.toString() ? `?${p}` : ""}`),
       fetch("/api/customers?limit=500"),
@@ -345,14 +308,14 @@ export default function DashboardPage() {
       setBlockedSet(blocked);
     }
     setLoading(false);
-  }, [statusFilter, accountFilter]);
+  }, [statusFilter, selectedAccountId]);
 
   useEffect(() => {
-    if (!accountFilterReady) return;
+    if (storeLoading) return;
     fetchEmails();
     const id = setInterval(fetchEmails, 30000);
     return () => clearInterval(id);
-  }, [fetchEmails, accountFilterReady]);
+  }, [fetchEmails, storeLoading]);
 
   // Scroll to highlighted group once emails have finished loading
   useEffect(() => {
@@ -576,58 +539,6 @@ export default function DashboardPage() {
 
       {/* Filters */}
       <div className="space-y-3">
-        {accounts.length > 0 && (
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-              Conta em visualização
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-              <button
-                onClick={() => setAccountFilter("all")}
-                className={`text-left rounded-xl border p-3 transition-all ${
-                  accountFilter === "all"
-                    ? "border-indigo-500/40 bg-indigo-500/10 shadow-sm"
-                    : "border-white/6 bg-gray-900/40 hover:border-white/12 hover:bg-gray-900/70"
-                }`}
-              >
-                <p className="text-sm font-semibold text-gray-100">
-                  Todas as contas
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Exibe e-mails de todas as caixas
-                </p>
-              </button>
-              {accounts.map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => setAccountFilter(a.id)}
-                  className={`text-left rounded-xl border p-3 transition-all ${
-                    accountFilter === a.id
-                      ? "border-indigo-500/40 bg-indigo-500/10 shadow-sm"
-                      : "border-white/6 bg-gray-900/40 hover:border-white/12 hover:bg-gray-900/70"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {a.logoUrl ? (
-                      <img src={a.logoUrl} alt={a.label} className="w-5 h-5 rounded object-contain shrink-0" />
-                    ) : (
-                      <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center shrink-0">
-                        <span className="text-indigo-400 text-xs font-bold leading-none">{a.label[0]?.toUpperCase()}</span>
-                      </div>
-                    )}
-                    <p className="text-sm font-semibold text-gray-100 truncate">
-                      {a.label}
-                    </p>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5 truncate pl-7">
-                    {a.email}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="flex flex-wrap gap-1.5 items-center">
           {["all", "pending", "sent", "failed", "cancelled"].map((f) => (
             <button

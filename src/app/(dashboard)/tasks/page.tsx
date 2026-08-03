@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { TaskDoc, TaskPriority } from "@/lib/types";
+import { useStoreContext } from "../store-context";
 
 interface AccountOption {
   id: string;
@@ -10,8 +11,6 @@ interface AccountOption {
   email: string;
   logoUrl?: string | null;
 }
-
-const TASKS_ACCOUNT_FILTER_KEY = "replyflow.tasks.accountFilter";
 
 const PRIORITY_CONFIG: Record<
   TaskPriority,
@@ -416,57 +415,28 @@ function TaskRow({
 }
 
 export default function TasksPage() {
+  const { selectedAccountId, accounts, loading: storeLoading } = useStoreContext();
   const [tasks, setTasks] = useState<TaskDoc[]>([]);
-  const [accounts, setAccounts] = useState<AccountOption[]>([]);
-  const [accountFilter, setAccountFilter] = useState("all");
-  const [accountFilterReady, setAccountFilterReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<Set<string>>(new Set());
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/accounts")
-      .then((r) => r.json())
-      .then((d) => {
-        const list: AccountOption[] = d.accounts ?? [];
-        setAccounts(list);
-        const saved = typeof window !== "undefined"
-          ? window.localStorage.getItem(TASKS_ACCOUNT_FILTER_KEY)
-          : null;
-        if (saved && saved !== "all" && list.some((a) => a.id === saved)) {
-          setAccountFilter(saved);
-        }
-      })
-      .finally(() => setAccountFilterReady(true));
-  }, []);
-
-  useEffect(() => {
-    if (!accountFilterReady) return;
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(TASKS_ACCOUNT_FILTER_KEY, accountFilter);
-    }
-  }, [accountFilter, accountFilterReady]);
-
-  async function loadTasks() {
+  const loadTasks = useCallback(async () => {
     setLoading(true);
     const p = new URLSearchParams({ completed: "true" });
-    if (accountFilter !== "all") p.set("accountId", accountFilter);
+    if (selectedAccountId !== "all") p.set("accountId", selectedAccountId);
     const res = await fetch(`/api/tasks?${p}`);
     if (res.ok) {
       const data = await res.json();
       setTasks(data.tasks);
     }
     setLoading(false);
-  }
+  }, [selectedAccountId]);
 
   useEffect(() => {
+    if (storeLoading) return;
     loadTasks();
-  }, []);
-
-  useEffect(() => {
-    if (!accountFilterReady) return;
-    loadTasks();
-  }, [accountFilter, accountFilterReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadTasks, storeLoading]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem('highlightTask');
@@ -624,51 +594,6 @@ export default function TasksPage() {
                 {doneCount}
               </p>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Account filter */}
-      {accounts.length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-            Conta em visualização
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-            <button
-              onClick={() => setAccountFilter("all")}
-              className={`text-left rounded-xl border p-3 transition-all ${
-                accountFilter === "all"
-                  ? "border-indigo-500/40 bg-indigo-500/10 shadow-sm"
-                  : "border-white/6 bg-gray-900/40 hover:border-white/12 hover:bg-gray-900/70"
-              }`}
-            >
-              <p className="text-sm font-semibold text-gray-100">Todas as contas</p>
-              <p className="text-xs text-gray-500 mt-0.5">Exibe tarefas de todas as caixas</p>
-            </button>
-            {accounts.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => setAccountFilter(a.id)}
-                className={`text-left rounded-xl border p-3 transition-all ${
-                  accountFilter === a.id
-                    ? "border-indigo-500/40 bg-indigo-500/10 shadow-sm"
-                    : "border-white/6 bg-gray-900/40 hover:border-white/12 hover:bg-gray-900/70"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {a.logoUrl ? (
-                    <img src={a.logoUrl} alt={a.label} className="w-5 h-5 rounded object-contain shrink-0" />
-                  ) : (
-                    <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center shrink-0">
-                      <span className="text-indigo-400 text-xs font-bold leading-none">{a.label[0]?.toUpperCase()}</span>
-                    </div>
-                  )}
-                  <p className="text-sm font-semibold text-gray-100 truncate">{a.label}</p>
-                </div>
-                <p className="text-xs text-gray-500 mt-0.5 truncate pl-7">{a.email}</p>
-              </button>
-            ))}
           </div>
         </div>
       )}
