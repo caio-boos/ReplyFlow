@@ -130,7 +130,14 @@ async function run(req: NextRequest) {
       continue;
     }
 
-    const since = new Date(now.getTime() - MAX_ABANDON_HOURS * 60 * 60 * 1000);
+    // When force=true (manual trigger), use the account's recoveryLookbackDays (default 30d)
+    // so old checkouts not yet processed can be caught. Normal scheduled runs keep 72h.
+    const forceLookbackDays =
+      typeof data.recoveryLookbackDays === "number" && data.recoveryLookbackDays > 0
+        ? data.recoveryLookbackDays
+        : 30;
+    const lookbackHours = force ? forceLookbackDays * 24 : MAX_ABANDON_HOURS;
+    const since = new Date(now.getTime() - lookbackHours * 60 * 60 * 1000);
 
     let checkouts;
     try {
