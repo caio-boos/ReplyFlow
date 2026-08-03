@@ -22,29 +22,39 @@ export async function GET(req: NextRequest) {
     snap = await db.collection("remarketing").get();
   }
 
-  const docs = snap.docs
-    .map((doc) => {
-      const d = doc.data();
-      return {
-        id: doc.id,
-        accountId: d.accountId as string,
-        shopDomain: d.shopDomain as string,
-        checkoutId: d.checkoutId as string,
-        customerEmail: d.customerEmail as string,
-        customerName: d.customerName as string,
-        cartValue: d.cartValue as number,
-        currency: d.currency as string,
-        lineItems: (d.lineItems ?? []) as Array<{ title: string; quantity: number; price: number }>,
-        abandonedCheckoutUrl: d.abandonedCheckoutUrl as string,
-        couponCode: d.couponCode as string,
-        status: d.status as string,
-        errorMessage: d.errorMessage as string | undefined,
-        repliedEmailId: (d.repliedEmailId as string | null) ?? null,
-        recoveredOrderName: (d.recoveredOrderName as string | null) ?? null,
-        sentAt: d.sentAt?.toDate?.()?.toISOString() ?? null,
-        createdAt: d.createdAt?.toDate?.()?.toISOString() ?? null,
-      };
-    })
+  const allDocs = snap.docs.map((doc) => {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      accountId: d.accountId as string,
+      shopDomain: d.shopDomain as string,
+      checkoutId: d.checkoutId as string,
+      customerEmail: d.customerEmail as string,
+      customerName: d.customerName as string,
+      cartValue: d.cartValue as number,
+      currency: d.currency as string,
+      lineItems: (d.lineItems ?? []) as Array<{ title: string; quantity: number; price: number }>,
+      abandonedCheckoutUrl: d.abandonedCheckoutUrl as string,
+      couponCode: d.couponCode as string,
+      status: d.status as string,
+      errorMessage: d.errorMessage as string | undefined,
+      repliedEmailId: (d.repliedEmailId as string | null) ?? null,
+      recoveredOrderName: (d.recoveredOrderName as string | null) ?? null,
+      sentAt: d.sentAt?.toDate?.()?.toISOString() ?? null,
+      createdAt: d.createdAt?.toDate?.()?.toISOString() ?? null,
+    };
+  });
+
+  // Compute stats from ALL docs before limiting — so counts are always accurate
+  const stats = {
+    total: allDocs.length,
+    sent: allDocs.filter((i) => i.status === "sent" || i.status === "replied" || i.status === "recovered").length,
+    recovered: allDocs.filter((i) => i.status === "recovered").length,
+    replied: allDocs.filter((i) => i.status === "replied").length,
+    failed: allDocs.filter((i) => i.status === "failed").length,
+  };
+
+  const docs = allDocs
     .sort((a, b) => {
       const ta = a.sentAt ? new Date(a.sentAt).getTime() : 0;
       const tb = b.sentAt ? new Date(b.sentAt).getTime() : 0;
@@ -52,5 +62,5 @@ export async function GET(req: NextRequest) {
     })
     .slice(0, limit);
 
-  return NextResponse.json({ remarketing: docs });
+  return NextResponse.json({ remarketing: docs, stats });
 }

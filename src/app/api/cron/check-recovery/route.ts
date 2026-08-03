@@ -8,6 +8,11 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 const MAX_LOOKBACK_DAYS = 60;
 const DEFAULT_LOOKBACK_DAYS = 7;
 
+/** Minimum ms between consecutive Shopify API calls to stay well under 2 req/s limit */
+const SHOPIFY_CALL_INTERVAL_MS = 600;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export async function GET(req: NextRequest) {
   return run(req);
 }
@@ -89,6 +94,9 @@ async function run(req: NextRequest) {
         console.error(`check-recovery: Shopify error for checkout ${checkoutToken}:`, err);
         continue;
       }
+
+      // Throttle: ensure we never exceed Shopify's 2 req/s limit
+      await sleep(SHOPIFY_CALL_INTERVAL_MS);
 
       if (!order) continue;
 

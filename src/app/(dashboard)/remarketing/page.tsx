@@ -82,6 +82,7 @@ const ACCOUNT_FILTER_KEY = "replyflow.remarketing.accountFilter"; // kept for lo
 export default function RemarketingPage() {
   const { selectedAccountId, loading: storeLoading } = useStoreContext();
   const [items, setItems] = useState<RemarketingItem[]>([]);
+  const [stats, setStats] = useState({ total: 0, sent: 0, recovered: 0, replied: 0, failed: 0 });
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -97,6 +98,7 @@ export default function RemarketingPage() {
     if (res.ok) {
       const data = await res.json();
       setItems(data.remarketing ?? []);
+      if (data.stats) setStats(data.stats);
     }
     setLoading(false);
   }, [selectedAccountId]);
@@ -164,13 +166,7 @@ export default function RemarketingPage() {
     });
   }
 
-  const stats = {
-    total: items.length,
-    sent: items.filter((i) => i.status === "sent" || i.status === "replied" || i.status === "recovered").length,
-    recovered: items.filter((i) => i.status === "recovered").length,
-    replied: items.filter((i) => i.status === "replied").length,
-    failed: items.filter((i) => i.status === "failed").length,
-  };
+  // stats come from the server (computed before pagination limit) — accurate for all stores
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-950 p-6">

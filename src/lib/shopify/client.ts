@@ -56,27 +56,48 @@ function parseOrder(order: Record<string, unknown>): ShopifyOrder {
   };
 }
 
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 async function shopifyFetch(
   domain: string,
   token: string,
-  endpoint: string
+  endpoint: string,
+  retries = 3,
 ): Promise<Record<string, unknown> | null> {
   const base = domain.includes("myshopify.com") ? domain : `${domain}.myshopify.com`;
   const url = `https://${base}/admin/api/${SHOPIFY_API_VERSION}/${endpoint}`;
 
-  const res = await fetch(url, {
-    headers: {
-      "X-Shopify-Access-Token": token,
-      "Content-Type": "application/json",
-    },
-  });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, {
+      headers: {
+        "X-Shopify-Access-Token": token,
+        "Content-Type": "application/json",
+      },
+    });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    console.error(`Shopify API error ${res.status} for ${url}: ${text}`);
-    return null;
+    if (res.status === 429) {
+      if (attempt === retries) {
+        console.error(`Shopify API rate limit exceeded after ${retries + 1} attempts for ${url}`);
+        return null;
+      }
+      // Respect Retry-After header; default to exponential backoff (1s, 2s, 4s)
+      const retryAfter = parseFloat(res.headers.get("Retry-After") ?? "0");
+      const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.pow(2, attempt) * 1000;
+      console.warn(`Shopify 429 for ${url} — retrying in ${waitMs}ms (attempt ${attempt + 1}/${retries})`);
+      await sleep(waitMs);
+      continue;
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`Shopify API error ${res.status} for ${url}: ${text}`);
+      return null;
+    }
+
+    return res.json();
   }
-  return res.json();
+
+  return null;
 }
 
 export interface AbandonedCheckoutLineItem {
