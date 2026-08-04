@@ -350,7 +350,7 @@ function TaskRow({
               onChange={(e) => setNoteValue(e.target.value)}
               placeholder="Adicione uma observação..."
               rows={2}
-              className="w-full bg-gray-800/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/40 resize-none transition-all"
+              className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/40 resize-none transition-all"
             />
             <div className="flex items-center gap-2">
               <button
@@ -509,7 +509,7 @@ export default function TasksPage() {
   const doneCount = tasks.filter((t) => t.completed).length;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -549,8 +549,8 @@ export default function TasksPage() {
       {/* Summary */}
       {!loading && tasks.length > 0 && (
         <div className="grid grid-cols-2 gap-3 max-w-xs">
-          <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl px-4 py-3">
-            <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl p-4">
+            <div className="w-9 h-9 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
               <svg
                 className="w-4 h-4 text-yellow-400"
                 fill="none"
@@ -567,13 +567,13 @@ export default function TasksPage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Pendentes</p>
-              <p className="text-lg font-bold text-yellow-400 leading-none">
+              <p className="text-2xl font-bold text-yellow-400 leading-none">
                 {openCount}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl px-4 py-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl p-4">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
               <svg
                 className="w-4 h-4 text-emerald-400"
                 fill="none"
@@ -590,7 +590,7 @@ export default function TasksPage() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Concluídas</p>
-              <p className="text-lg font-bold text-emerald-400 leading-none">
+              <p className="text-2xl font-bold text-emerald-400 leading-none">
                 {doneCount}
               </p>
             </div>

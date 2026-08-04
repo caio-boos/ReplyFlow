@@ -55,7 +55,7 @@ export default function ContextPage() {
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-5">
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold text-gray-100">Contexto da IA</h1>
@@ -72,7 +72,7 @@ export default function ContextPage() {
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
-            className="flex-1 bg-gray-900/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
+            className="flex-1 bg-gray-900/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
           >
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>

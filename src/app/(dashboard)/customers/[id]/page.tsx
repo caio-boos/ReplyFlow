@@ -291,7 +291,7 @@ export default function CustomerDetailPage() {
   const gradient = avatarGradient(customer.id);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-5">
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <Link

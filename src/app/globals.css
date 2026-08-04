@@ -24,3 +24,80 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ─── Light theme overrides ───────────────────────────────────────────────────
+   Rules outside @layer have higher cascade priority than @layer utilities,
+   so these safely override Tailwind's generated utility classes.             */
+
+html.light-theme {
+  color-scheme: light;
+}
+
+/* App backgrounds */
+html.light-theme .bg-gray-950   { background-color: #f1f5f9; }
+html.light-theme .bg-gray-900   { background-color: #ffffff; }
+
+/* Opacity variants – gray-900 */
+html.light-theme .bg-gray-900\/60 { background-color: rgb(255 255 255 / 97%); }
+html.light-theme .bg-gray-900\/50 { background-color: rgb(255 255 255 / 93%); }
+html.light-theme .bg-gray-900\/40 { background-color: rgb(255 255 255 / 88%); }
+html.light-theme .bg-gray-900\/30 { background-color: rgb(255 255 255 / 80%); }
+html.light-theme .bg-gray-900\/20 { background-color: rgb(255 255 255 / 70%); }
+html.light-theme .bg-gray-900\/70 { background-color: rgb(255 255 255 / 97%); }
+html.light-theme .bg-gray-900\/80 { background-color: rgb(255 255 255 / 98%); }
+
+/* Opacity variants – gray-800 */
+html.light-theme .bg-gray-800    { background-color: #e2e8f0; }
+html.light-theme .bg-gray-800\/60 { background-color: rgb(226 232 240 / 90%); }
+html.light-theme .bg-gray-800\/40 { background-color: rgb(226 232 240 / 75%); }
+
+/* gray-700 */
+html.light-theme .bg-gray-700    { background-color: #cbd5e1; }
+html.light-theme .bg-gray-700\/80 { background-color: rgb(203 213 225 / 80%); }
+
+/* Transparent whites used for hover/subtle bg */
+html.light-theme .bg-white\/3  { background-color: rgb(248 250 252 / 80%); }
+html.light-theme .bg-white\/4  { background-color: rgb(248 250 252 / 80%); }
+html.light-theme .bg-white\/5  { background-color: #f8fafc; }
+html.light-theme .bg-white\/6  { background-color: #f1f5f9; }
+html.light-theme .bg-white\/8  { background-color: #e2e8f0; }
+html.light-theme .bg-white\/10 { background-color: #e2e8f0; }
+
+/* Dark overlays */
+html.light-theme .bg-black\/10 { background-color: rgb(241 245 249 / 70%); }
+html.light-theme .bg-black\/20 { background-color: rgb(226 232 240 / 80%); }
+
+/* Text */
+html.light-theme .text-white    { color: #0f172a; }
+html.light-theme .text-gray-100 { color: #0f172a; }
+html.light-theme .text-gray-200 { color: #1e293b; }
+html.light-theme .text-gray-300 { color: #334155; }
+html.light-theme .text-gray-400 { color: #475569; }
+html.light-theme .text-gray-500 { color: #64748b; }
+html.light-theme .text-gray-600 { color: #94a3b8; }
+html.light-theme .text-gray-700 { color: #cbd5e1; }
+
+/* Borders */
+html.light-theme .border-white\/4  { border-color: rgb(148 163 184 / 30%); }
+html.light-theme .border-white\/5  { border-color: rgb(148 163 184 / 35%); }
+html.light-theme .border-white\/6  { border-color: rgb(148 163 184 / 45%); }
+html.light-theme .border-white\/8  { border-color: rgb(100 116 139 / 35%); }
+html.light-theme .border-white\/10 { border-color: rgb(100 116 139 / 45%); }
+html.light-theme .border-white\/12 { border-color: rgb(100 116 139 / 55%); }
+
+/* Hover states */
+html.light-theme .hover\:bg-white\/5:hover  { background-color: #f1f5f9; }
+html.light-theme .hover\:bg-white\/6:hover  { background-color: #e2e8f0; }
+html.light-theme .hover\:bg-white\/10:hover { background-color: #e2e8f0; }
+html.light-theme .hover\:border-white\/12:hover { border-color: rgb(100 116 139 / 55%); }
+
+/* Dividers (h-px elements) */
+html.light-theme .bg-white\/5.h-px,
+html.light-theme .h-px.bg-white\/5 { background-color: #e2e8f0; }
+html.light-theme .bg-white\/6.h-px,
+html.light-theme .h-px.bg-white\/6 { background-color: #e2e8f0; }
+
+/* Logo invert for light mode (white logo → dark) */
+html.light-theme img[alt="ReplyFlow"] {
+  filter: invert(1) brightness(0.2);
+}

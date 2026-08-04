@@ -220,7 +220,7 @@ export default function NewEmailPage() {
   // ---------- success state ----------
   if (sent) {
     return (
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-6 max-w-6xl mx-auto">
         <div className="bg-gray-900/60 border border-white/6 rounded-xl p-8 flex flex-col items-center gap-4 text-center">
           <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
             <svg
@@ -271,7 +271,7 @@ export default function NewEmailPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-5">
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <button

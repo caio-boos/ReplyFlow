@@ -602,7 +602,7 @@ export default function DashboardPage() {
           Carregando...
         </div>
       ) : groups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-600">
+        <div className="flex flex-col items-center justify-center py-16 border border-white/6 rounded-2xl bg-gray-900/30 text-gray-600">
           <svg
             className="w-10 h-10 mb-3 text-gray-700"
             fill="none"
@@ -616,7 +616,7 @@ export default function DashboardPage() {
               d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
             />
           </svg>
-          <p className="text-sm">Nenhum e-mail encontrado</p>
+          <p className="text-sm font-medium text-gray-500">Nenhum e-mail encontrado</p>
         </div>
       ) : (
         <div className="space-y-2">
