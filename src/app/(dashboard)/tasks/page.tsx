@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { TaskDoc, TaskPriority } from "@/lib/types";
 import { useStoreContext } from "../store-context";
+import { useConfirm } from "../ConfirmDialog";
 
 interface AccountOption {
   id: string;
@@ -473,6 +474,7 @@ export default function TasksPage() {
     accounts,
     loading: storeLoading,
   } = useStoreContext();
+  const openConfirm = useConfirm();
   const [tasks, setTasks] = useState<TaskDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<Set<string>>(new Set());
@@ -558,7 +560,13 @@ export default function TasksPage() {
   }
 
   async function deleteTask(id: string) {
-    if (!confirm("Remover esta tarefa?")) return;
+    const ok = await openConfirm({
+      title: "Remover tarefa?",
+      description: "Esta ação não pode ser desfeita.",
+      confirmLabel: "Remover",
+      danger: true,
+    });
+    if (!ok) return;
     // Optimistic remove
     setTasks((prev) => prev.filter((t) => t.id !== id));
     fetch(`/api/tasks/${id}`, { method: "DELETE" });

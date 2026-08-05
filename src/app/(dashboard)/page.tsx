@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EmailDoc } from "@/lib/types";
 import { useStoreContext } from "./store-context";
 import Paginator from "./Paginator";
+import { toast } from "sonner";
 
 const ACCOUNT_FILTER_STORAGE_KEY = "replyflow.dashboard.accountFilter";
 const VIEWED_GROUPS_STORAGE_KEY = "replyflow.dashboard.viewedGroups";
@@ -239,10 +240,6 @@ export default function DashboardPage() {
   const [triggering, setTriggering] = useState<"fetch" | "process" | null>(
     null,
   );
-  const [triggerMsg, setTriggerMsg] = useState<{
-    text: string;
-    ok: boolean;
-  } | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [viewedGroups, setViewedGroups] = useState<Record<string, number>>({});
   const [highlightedGroup, setHighlightedGroup] = useState<string | null>(null);
@@ -274,7 +271,6 @@ export default function DashboardPage() {
 
   async function triggerCron(action: "fetch-emails" | "process-replies") {
     setTriggering(action === "fetch-emails" ? "fetch" : "process");
-    setTriggerMsg(null);
     try {
       const res = await fetch("/api/admin/trigger", {
         method: "POST",
@@ -282,13 +278,14 @@ export default function DashboardPage() {
         body: JSON.stringify({ action, force: action === "process-replies" }),
       });
       const data = await res.json();
-      setTriggerMsg({
-        text: res.ok ? (data.message ?? "Concluído!") : (data.error ?? "Erro"),
-        ok: res.ok,
-      });
-      if (res.ok) fetchEmails();
+      if (res.ok) {
+        toast.success(data.message ?? "Concluído!");
+        fetchEmails();
+      } else {
+        toast.error(data.error ?? "Erro ao executar");
+      }
     } catch {
-      setTriggerMsg({ text: "Erro de conexão", ok: false });
+      toast.error("Erro de conexão");
     }
     setTriggering(null);
   }
@@ -471,42 +468,6 @@ export default function DashboardPage() {
               Processar respostas
             </button>
           </div>
-          {triggerMsg && (
-            <p
-              className={`text-xs flex items-center gap-1.5 ${triggerMsg.ok ? "text-emerald-400" : "text-red-400"}`}
-            >
-              {triggerMsg.ok ? (
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-                  />
-                </svg>
-              )}
-              {triggerMsg.text}
-            </p>
-          )}
         </div>
       </div>
 
@@ -622,27 +583,14 @@ export default function DashboardPage() {
 
       {/* Email list */}
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-gray-600">
-          <svg
-            className="w-5 h-5 animate-spin mr-2"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="h-16 bg-gray-900/40 border border-white/6 rounded-xl animate-pulse"
+              style={{ opacity: 1 - i * 0.12 }}
             />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-          Carregando...
+          ))}
         </div>
       ) : groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 border border-white/6 rounded-2xl bg-gray-900/30 text-gray-600">
@@ -662,6 +610,15 @@ export default function DashboardPage() {
           <p className="text-sm font-medium text-gray-500">
             Nenhum e-mail encontrado
           </p>
+          <p className="text-xs text-gray-600 mt-1">
+            Configure uma conta de e-mail para receber mensagens.
+          </p>
+          <Link
+            href="/accounts"
+            className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-medium text-white transition-colors"
+          >
+            Configurar conta
+          </Link>
         </div>
       ) : (
         <div className="space-y-2">

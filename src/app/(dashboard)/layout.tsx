@@ -5,6 +5,8 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { StoreProvider, useStoreContext, StoreAccount } from "./store-context";
+import { ConfirmProvider } from "./ConfirmDialog";
+import { Toaster } from "sonner";
 
 // ─── Navigation structure ────────────────────────────────────────────────────
 
@@ -1089,7 +1091,15 @@ export default function DashboardLayout({
 }) {
   return (
     <StoreProvider>
-      <SidebarLayout>{children}</SidebarLayout>
+      <ConfirmProvider>
+        <SidebarLayout>{children}</SidebarLayout>
+      </ConfirmProvider>
+      <Toaster
+        position="bottom-right"
+        theme="dark"
+        richColors
+        toastOptions={{ classNames: { toast: "!font-sans !text-xs" } }}
+      />
     </StoreProvider>
   );
 }

@@ -160,6 +160,12 @@ export default function CustomersPage() {
           <p className="text-xs text-gray-600 mt-1 text-center max-w-xs">
             Os perfis são criados automaticamente quando e-mails chegam.
           </p>
+          <Link
+            href="/accounts"
+            className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-medium text-white transition-colors"
+          >
+            Configurar conta de e-mail
+          </Link>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 border border-white/6 rounded-2xl bg-gray-900/30">
