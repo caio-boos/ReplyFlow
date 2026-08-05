@@ -347,9 +347,15 @@ export default function EmailDetailPage() {
   const [translated, setTranslated] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
-  const [historyTranslations, setHistoryTranslations] = useState<Record<string, string>>({});
-  const [historyTranslating, setHistoryTranslating] = useState<Record<string, boolean>>({});
-  const [historyShowTranslation, setHistoryShowTranslation] = useState<Record<string, boolean>>({});
+  const [historyTranslations, setHistoryTranslations] = useState<
+    Record<string, string>
+  >({});
+  const [historyTranslating, setHistoryTranslating] = useState<
+    Record<string, boolean>
+  >({});
+  const [historyShowTranslation, setHistoryShowTranslation] = useState<
+    Record<string, boolean>
+  >({});
   const [draft, setDraft] = useState("");
   const [enhancing, setEnhancing] = useState(false);
   const [manualSending, setManualSending] = useState(false);
@@ -362,29 +368,29 @@ export default function EmailDetailPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
-  const [backHref, setBackHref] = useState('/');
-  const [backLabel, setBackLabel] = useState('Dashboard');
+  const [backHref, setBackHref] = useState("/");
+  const [backLabel, setBackLabel] = useState("Dashboard");
   const [backTaskId, setBackTaskId] = useState<string | null>(null);
   const [backIsTask, setBackIsTask] = useState(false);
 
   useEffect(() => {
-    const taskRaw = sessionStorage.getItem('taskNavCtx');
+    const taskRaw = sessionStorage.getItem("taskNavCtx");
     if (taskRaw) {
       try {
         const { taskId } = JSON.parse(taskRaw);
-        setBackHref('/tasks');
-        setBackLabel('Tarefas');
+        setBackHref("/tasks");
+        setBackLabel("Tarefas");
         setBackTaskId(taskId ?? null);
         setBackIsTask(true);
       } catch {}
       return;
     }
-    const dashRaw = sessionStorage.getItem('dashboardNavCtx');
+    const dashRaw = sessionStorage.getItem("dashboardNavCtx");
     if (dashRaw) {
       try {
         const { groupId } = JSON.parse(dashRaw);
-        setBackHref('/');
-        setBackLabel('Dashboard');
+        setBackHref("/");
+        setBackLabel("Dashboard");
         setBackTaskId(groupId ?? null); // reuse field to carry the groupId
       } catch {}
     }
@@ -470,7 +476,10 @@ export default function EmailDetailPage() {
 
   async function handleHistoryTranslate(itemId: string, text: string) {
     if (historyTranslations[itemId]) {
-      setHistoryShowTranslation((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
+      setHistoryShowTranslation((prev) => ({
+        ...prev,
+        [itemId]: !prev[itemId],
+      }));
       return;
     }
     setHistoryTranslating((prev) => ({ ...prev, [itemId]: true }));
@@ -482,7 +491,10 @@ export default function EmailDetailPage() {
       });
       const data = await res.json();
       if (res.ok && data.translated) {
-        setHistoryTranslations((prev) => ({ ...prev, [itemId]: data.translated }));
+        setHistoryTranslations((prev) => ({
+          ...prev,
+          [itemId]: data.translated,
+        }));
         setHistoryShowTranslation((prev) => ({ ...prev, [itemId]: true }));
       }
     } finally {
@@ -507,7 +519,9 @@ export default function EmailDetailPage() {
       setSummary(data.summary);
       setShowSummary(true);
     } catch (err) {
-      setSummaryError(err instanceof Error ? err.message : "Erro ao gerar resumo");
+      setSummaryError(
+        err instanceof Error ? err.message : "Erro ao gerar resumo",
+      );
     } finally {
       setSummaryLoading(false);
     }
@@ -527,7 +541,9 @@ export default function EmailDetailPage() {
       if (!res.ok) throw new Error(data.error ?? "Erro ao aperfeiçoar");
       setDraft(data.enhanced);
     } catch (err) {
-      setManualError(err instanceof Error ? err.message : "Erro ao aperfeiçoar");
+      setManualError(
+        err instanceof Error ? err.message : "Erro ao aperfeiçoar",
+      );
     } finally {
       setEnhancing(false);
     }
@@ -551,7 +567,11 @@ export default function EmailDetailPage() {
           reader.onload = () => {
             const dataUrl = reader.result as string;
             const base64 = dataUrl.split(",")[1];
-            resolve({ filename: file.name, contentType: file.type || "application/octet-stream", data: base64 });
+            resolve({
+              filename: file.name,
+              contentType: file.type || "application/octet-stream",
+              data: base64,
+            });
           };
           reader.readAsDataURL(file);
         }),
@@ -567,7 +587,9 @@ export default function EmailDetailPage() {
         const next = [...prev, ...valid];
         const totalBytes = totalAttachmentBytes(next);
         if (totalBytes > MAX_TOTAL_BYTES) {
-          setAttachmentError("Total dos anexos ultrapassa 20 MB (limite dos provedores de e-mail).");
+          setAttachmentError(
+            "Total dos anexos ultrapassa 20 MB (limite dos provedores de e-mail).",
+          );
           return prev;
         }
         if (errors.length > 0) setAttachmentError(errors.join(" "));
@@ -578,16 +600,22 @@ export default function EmailDetailPage() {
 
   function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
     const items = Array.from(e.clipboardData.items);
-    const imageItems = items.filter((item) => item.kind === "file" && item.type.startsWith("image/"));
+    const imageItems = items.filter(
+      (item) => item.kind === "file" && item.type.startsWith("image/"),
+    );
     if (imageItems.length === 0) return;
     e.preventDefault();
-    const files = imageItems.map((item) => item.getAsFile()).filter(Boolean) as File[];
+    const files = imageItems
+      .map((item) => item.getAsFile())
+      .filter(Boolean) as File[];
     addFiles(files);
   }
 
   async function handleManualSend() {
     if (!draft.trim()) return;
-    const confirmed = window.confirm("Tem certeza que deseja enviar esta resposta?");
+    const confirmed = window.confirm(
+      "Tem certeza que deseja enviar esta resposta?",
+    );
     if (!confirmed) return;
     setManualSending(true);
     setManualError(null);
@@ -659,17 +687,20 @@ export default function EmailDetailPage() {
     email.status === "cancelled";
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <button
           onClick={() => {
             if (backTaskId) {
               if (backIsTask) {
-                sessionStorage.removeItem('taskNavCtx');
-                sessionStorage.setItem('highlightTask', backTaskId);
+                sessionStorage.removeItem("taskNavCtx");
+                sessionStorage.setItem("highlightTask", backTaskId);
               } else {
-                sessionStorage.setItem('dashboardNavCtx', JSON.stringify({ groupId: backTaskId }));
+                sessionStorage.setItem(
+                  "dashboardNavCtx",
+                  JSON.stringify({ groupId: backTaskId }),
+                );
               }
             }
             router.push(backHref);
@@ -1006,22 +1037,47 @@ export default function EmailDetailPage() {
                 className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-400 disabled:opacity-50 transition-colors"
               >
                 {translating ? (
-                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <svg
+                    className="w-3 h-3 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                 ) : (
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                    />
                   </svg>
                 )}
                 {translating
                   ? "Traduzindo..."
                   : translated && showTranslation
-                  ? "Ocultar tradução"
-                  : translated
-                  ? "Mostrar tradução"
-                  : "Traduzir"}
+                    ? "Ocultar tradução"
+                    : translated
+                      ? "Mostrar tradução"
+                      : "Traduzir"}
               </button>
               {!!email.attachments?.length && (
                 <span className="flex items-center gap-1 text-xs text-gray-500">
@@ -1045,14 +1101,27 @@ export default function EmailDetailPage() {
             </div>
           </div>
           <div className="p-4 space-y-4">
-            <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed" suppressHydrationWarning>
+            <pre
+              className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed"
+              suppressHydrationWarning
+            >
               {email.bodyText}
             </pre>
             {showTranslation && translated && (
               <div className="pt-3 border-t border-white/10 space-y-1.5">
                 <p className="text-xs text-blue-400/70 uppercase tracking-wider flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                    />
                   </svg>
                   Tradução automática
                 </p>
@@ -1083,7 +1152,10 @@ export default function EmailDetailPage() {
           </div>
           <div className="p-4">
             {email.aiResponse ? (
-              <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed" suppressHydrationWarning>
+              <pre
+                className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed"
+                suppressHydrationWarning
+              >
                 {email.aiResponse}
               </pre>
             ) : (
@@ -1133,16 +1205,36 @@ export default function EmailDetailPage() {
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+              />
             </svg>
           </button>
           {showHistory && (
             <div className="border-t border-white/5">
               {historyLoading ? (
                 <div className="flex items-center gap-2 px-4 py-8 text-gray-600 text-sm justify-center">
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <svg
+                    className="w-4 h-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                   Carregando histórico...
                 </div>
@@ -1150,17 +1242,24 @@ export default function EmailDetailPage() {
                 <div className="px-4 py-4 space-y-6 max-h-150 overflow-y-auto">
                   {[...history]
                     .sort((a, b) => {
-                      const aS = (a.receivedAt?.seconds ?? a.receivedAt?._seconds) ?? 0;
-                      const bS = (b.receivedAt?.seconds ?? b.receivedAt?._seconds) ?? 0;
+                      const aS =
+                        a.receivedAt?.seconds ?? a.receivedAt?._seconds ?? 0;
+                      const bS =
+                        b.receivedAt?.seconds ?? b.receivedAt?._seconds ?? 0;
                       return aS - bS;
                     })
                     .map((item) => {
                       const isCurrent = item.id === id;
-                      const sc2 = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.cancelled;
-                      const date = tsToDate(item.receivedAt)?.toLocaleString("pt-BR") ?? "—";
+                      const sc2 =
+                        STATUS_CONFIG[item.status] ?? STATUS_CONFIG.cancelled;
+                      const date =
+                        tsToDate(item.receivedAt)?.toLocaleString("pt-BR") ??
+                        "—";
                       const displayName = item.fromName || item.from;
                       const initial = displayName.charAt(0).toUpperCase();
-                      const customerText = item.bodyText ? extractNewText(item.bodyText) : null;
+                      const customerText = item.bodyText
+                        ? extractNewText(item.bodyText)
+                        : null;
 
                       return (
                         <div
@@ -1174,17 +1273,31 @@ export default function EmailDetailPage() {
                           {/* date + subject + link */}
                           <div className="flex items-center gap-2">
                             <div className="h-px flex-1 bg-white/5" />
-                            <span className="text-xs text-gray-600">{date}</span>
+                            <span className="text-xs text-gray-600">
+                              {date}
+                            </span>
                             {isCurrent && (
-                              <span className="text-xs text-indigo-400 font-medium">atual</span>
+                              <span className="text-xs text-indigo-400 font-medium">
+                                atual
+                              </span>
                             )}
                             <Link
                               href={`/emails/${item.id}`}
                               className="text-xs text-gray-600 hover:text-indigo-400 transition-colors"
                               title={item.subject}
                             >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                                />
                               </svg>
                             </Link>
                             <div className="h-px flex-1 bg-white/5" />
@@ -1197,47 +1310,91 @@ export default function EmailDetailPage() {
                                 {initial}
                               </div>
                               <div className="max-w-[82%] space-y-1">
-                                <p className="text-xs text-gray-600 pl-1">{displayName}</p>
+                                <p className="text-xs text-gray-600 pl-1">
+                                  {displayName}
+                                </p>
                                 <div className="bg-gray-800/80 border border-white/5 rounded-xl rounded-bl-sm px-3 py-2.5">
                                   <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
                                     {customerText}
                                   </p>
-                                  {historyShowTranslation[item.id] && historyTranslations[item.id] && (
-                                    <div className="mt-2 pt-2 border-t border-white/10">
-                                      <p className="text-xs text-blue-400/70 mb-1 flex items-center gap-1">
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                                        </svg>
-                                        Tradução
-                                      </p>
-                                      <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
-                                        {historyTranslations[item.id]}
-                                      </p>
-                                    </div>
-                                  )}
+                                  {historyShowTranslation[item.id] &&
+                                    historyTranslations[item.id] && (
+                                      <div className="mt-2 pt-2 border-t border-white/10">
+                                        <p className="text-xs text-blue-400/70 mb-1 flex items-center gap-1">
+                                          <svg
+                                            className="w-3 h-3"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                                            />
+                                          </svg>
+                                          Tradução
+                                        </p>
+                                        <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
+                                          {historyTranslations[item.id]}
+                                        </p>
+                                      </div>
+                                    )}
                                 </div>
                                 <button
-                                  onClick={() => handleHistoryTranslate(item.id, customerText)}
+                                  onClick={() =>
+                                    handleHistoryTranslate(
+                                      item.id,
+                                      customerText,
+                                    )
+                                  }
                                   disabled={historyTranslating[item.id]}
                                   className="flex items-center gap-1 text-xs text-gray-600 hover:text-blue-400 disabled:opacity-50 transition-colors pl-1"
                                 >
                                   {historyTranslating[item.id] ? (
-                                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    <svg
+                                      className="w-3 h-3 animate-spin"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                      />
+                                      <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                      />
                                     </svg>
                                   ) : (
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                                    <svg
+                                      className="w-3 h-3"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                                      />
                                     </svg>
                                   )}
                                   {historyTranslating[item.id]
                                     ? "Traduzindo..."
-                                    : historyTranslations[item.id] && historyShowTranslation[item.id]
-                                    ? "Ocultar tradução"
-                                    : historyTranslations[item.id]
-                                    ? "Mostrar tradução"
-                                    : "Traduzir"}
+                                    : historyTranslations[item.id] &&
+                                        historyShowTranslation[item.id]
+                                      ? "Ocultar tradução"
+                                      : historyTranslations[item.id]
+                                        ? "Mostrar tradução"
+                                        : "Traduzir"}
                                 </button>
                               </div>
                             </div>
@@ -1248,10 +1405,14 @@ export default function EmailDetailPage() {
                             <div className="flex items-end gap-2 justify-end">
                               <div className="max-w-[82%] space-y-1 flex flex-col items-end">
                                 <div className="flex items-center gap-1.5">
-                                  <span className={`text-xs px-1.5 py-0.5 rounded border ${sc2.bg} ${sc2.text} ${sc2.border}`}>
+                                  <span
+                                    className={`text-xs px-1.5 py-0.5 rounded border ${sc2.bg} ${sc2.text} ${sc2.border}`}
+                                  >
                                     {sc2.label}
                                   </span>
-                                  <p className="text-xs text-gray-600 pr-1">IA</p>
+                                  <p className="text-xs text-gray-600 pr-1">
+                                    IA
+                                  </p>
                                 </div>
                                 <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl rounded-br-sm px-3 py-2.5">
                                   <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
@@ -1260,14 +1421,20 @@ export default function EmailDetailPage() {
                                 </div>
                               </div>
                               <div className="w-7 h-7 rounded-full bg-indigo-500/20 flex items-center justify-center shrink-0">
-                                <svg className="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="currentColor">
+                                <svg
+                                  className="w-3.5 h-3.5 text-indigo-400"
+                                  viewBox="0 0 24 24"
+                                  fill="currentColor"
+                                >
                                   <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                                 </svg>
                               </div>
                             </div>
                           ) : (
                             <div className="flex justify-end pr-9">
-                              <span className={`text-xs px-2 py-0.5 rounded border ${sc2.bg} ${sc2.text} ${sc2.border}`}>
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded border ${sc2.bg} ${sc2.text} ${sc2.border}`}
+                              >
                                 {sc2.label}
                               </span>
                             </div>
@@ -1319,30 +1486,59 @@ export default function EmailDetailPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-50 border border-amber-500/20 rounded-lg text-xs font-medium text-amber-300 transition-colors"
           >
             {summaryLoading ? (
-              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              <svg
+                className="w-3.5 h-3.5 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
               </svg>
             ) : (
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
                 <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
               </svg>
             )}
             {summaryLoading
               ? "Gerando..."
               : summary && showSummary
-              ? "Ocultar"
-              : summary
-              ? "Mostrar"
-              : "Gerar resumo com IA"}
+                ? "Ocultar"
+                : summary
+                  ? "Mostrar"
+                  : "Gerar resumo com IA"}
           </button>
         </div>
 
         {summaryError && (
           <div className="px-4 pb-4">
             <p className="flex items-center gap-1.5 text-xs text-red-400">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              <svg
+                className="w-3.5 h-3.5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                />
               </svg>
               {summaryError}
             </p>
@@ -1362,12 +1558,17 @@ export default function EmailDetailPage() {
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         {title}
                       </p>
-                      <p className="text-sm text-gray-300 whitespace-pre-wrap">{body}</p>
+                      <p className="text-sm text-gray-300 whitespace-pre-wrap">
+                        {body}
+                      </p>
                     </div>
                   );
                 }
                 return (
-                  <p key={i} className="text-sm text-gray-300 whitespace-pre-wrap">
+                  <p
+                    key={i}
+                    className="text-sm text-gray-300 whitespace-pre-wrap"
+                  >
                     {block.trim()}
                   </p>
                 );
@@ -1378,8 +1579,18 @@ export default function EmailDetailPage() {
               disabled={summaryLoading}
               className="mt-4 flex items-center gap-1 text-xs text-gray-600 hover:text-amber-400 disabled:opacity-40 transition-colors"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                />
               </svg>
               Regenerar
             </button>
@@ -1441,7 +1652,10 @@ export default function EmailDetailPage() {
               {attachments.map((att, i) => {
                 const isImage = att.contentType.startsWith("image/");
                 return (
-                  <div key={i} className="relative group flex items-center gap-2 bg-gray-800/80 border border-white/8 rounded-lg px-2.5 py-2 max-w-45">
+                  <div
+                    key={i}
+                    className="relative group flex items-center gap-2 bg-gray-800/80 border border-white/8 rounded-lg px-2.5 py-2 max-w-45"
+                  >
                     {isImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1451,19 +1665,45 @@ export default function EmailDetailPage() {
                       />
                     ) : (
                       <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center shrink-0">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                        <svg
+                          className="w-4 h-4 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.75}
+                            d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"
+                          />
                         </svg>
                       </div>
                     )}
-                    <span className="text-xs text-gray-400 truncate flex-1">{att.filename}</span>
+                    <span className="text-xs text-gray-400 truncate flex-1">
+                      {att.filename}
+                    </span>
                     <button
-                      onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                      onClick={() =>
+                        setAttachments((prev) =>
+                          prev.filter((_, idx) => idx !== i),
+                        )
+                      }
                       className="ml-1 shrink-0 text-gray-600 hover:text-red-400 transition-colors"
                       aria-label="Remover anexo"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -1474,8 +1714,18 @@ export default function EmailDetailPage() {
 
           {attachmentError && (
             <p className="flex items-center gap-1.5 text-xs text-amber-400">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              <svg
+                className="w-3.5 h-3.5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                />
               </svg>
               {attachmentError}
             </p>
@@ -1483,16 +1733,36 @@ export default function EmailDetailPage() {
 
           {manualError && (
             <p className="flex items-center gap-1.5 text-xs text-red-400">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              <svg
+                className="w-3.5 h-3.5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                />
               </svg>
               {manualError}
             </p>
           )}
           {manualSuccess && (
             <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-3.5 h-3.5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               Resposta enviada com sucesso!
             </p>
@@ -1506,12 +1776,24 @@ export default function EmailDetailPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 border border-white/8 rounded-lg text-xs font-medium text-gray-400 transition-colors"
               title="Anexar arquivo (imagem, PDF, etc.)"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"
+                />
               </svg>
               Anexar
               {attachments.length > 0 && (
-                <span className="ml-0.5 bg-indigo-500/30 text-indigo-300 rounded-full px-1.5 py-px text-[10px] font-semibold">{attachments.length}</span>
+                <span className="ml-0.5 bg-indigo-500/30 text-indigo-300 rounded-full px-1.5 py-px text-[10px] font-semibold">
+                  {attachments.length}
+                </span>
               )}
             </button>
 
@@ -1521,12 +1803,31 @@ export default function EmailDetailPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 disabled:opacity-40 border border-violet-500/20 rounded-lg text-xs font-medium text-violet-300 transition-colors"
             >
               {enhancing ? (
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                <svg
+                  className="w-3.5 h-3.5 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
               ) : (
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                 </svg>
               )}
@@ -1539,13 +1840,38 @@ export default function EmailDetailPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 rounded-lg text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-px active:translate-y-0"
             >
               {manualSending ? (
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                <svg
+                  className="w-3.5 h-3.5 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
               ) : (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
+                  />
                 </svg>
               )}
               {manualSending ? "Enviando..." : "Enviar"}

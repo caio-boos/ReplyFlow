@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import Paginator from "../Paginator";
 import { useStoreContext } from "../store-context";
 
 interface AccountOption {
@@ -55,7 +56,8 @@ const STATUS_CONFIG = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.sent;
+  const cfg =
+    STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.sent;
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium border ${cfg.color}`}
@@ -82,14 +84,27 @@ const ACCOUNT_FILTER_KEY = "replyflow.remarketing.accountFilter"; // kept for lo
 export default function RemarketingPage() {
   const { selectedAccountId, loading: storeLoading } = useStoreContext();
   const [items, setItems] = useState<RemarketingItem[]>([]);
-  const [stats, setStats] = useState({ total: 0, sent: 0, recovered: 0, replied: 0, failed: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    sent: 0,
+    recovered: 0,
+    replied: 0,
+    failed: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
-  const [triggerMsg, setTriggerMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [triggerMsg, setTriggerMsg] = useState<{
+    text: string;
+    ok: boolean;
+  } | null>(null);
   const [checkingRecovery, setCheckingRecovery] = useState(false);
-  const [recoveryMsg, setRecoveryMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [recoveryMsg, setRecoveryMsg] = useState<{
+    text: string;
+    ok: boolean;
+  } | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const fetchData = useCallback(async () => {
     const p = new URLSearchParams();
@@ -107,6 +122,10 @@ export default function RemarketingPage() {
     if (storeLoading) return;
     fetchData();
   }, [fetchData, storeLoading]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedAccountId]);
 
   async function triggerCron() {
     setTriggering(true);
@@ -166,10 +185,18 @@ export default function RemarketingPage() {
     });
   }
 
+  const PAGE_SIZE = 20;
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedItems = items.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
   // stats come from the server (computed before pagination limit) — accurate for all stores
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Email preview modal */}
       {previewId && (
         <div
@@ -181,13 +208,25 @@ export default function RemarketingPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
-              <span className="text-sm font-medium text-gray-300">Preview do e-mail</span>
+              <span className="text-sm font-medium text-gray-300">
+                Preview do e-mail
+              </span>
               <button
                 onClick={() => setPreviewId(null)}
                 className="text-gray-500 hover:text-gray-200 transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -201,28 +240,54 @@ export default function RemarketingPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-100">Remarketing</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Carrinhos abandonados — cupom de 20% de desconto enviado automaticamente
+            Carrinhos abandonados — cupom de 20% de desconto enviado
+            automaticamente
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:items-end gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <button
               onClick={checkRecovery}
               disabled={checkingRecovery}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-gray-800 hover:bg-gray-700 border border-white/6 text-gray-300 disabled:opacity-50 transition-all"
+              className="flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-gray-800 hover:bg-gray-700 border border-white/6 text-gray-300 disabled:opacity-50 transition-all"
             >
               {checkingRecovery ? (
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                <svg
+                  className="w-4 h-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
               ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               )}
               Verificar recuperações
@@ -230,44 +295,113 @@ export default function RemarketingPage() {
             <button
               onClick={triggerCron}
               disabled={triggering}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-500 border border-indigo-500/30 text-white shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition-all"
+              className="flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-500 border border-indigo-500/30 text-white shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition-all"
             >
               {triggering ? (
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                <svg
+                  className="w-4 h-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
               ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
                 </svg>
               )}
               Buscar carrinhos agora
             </button>
           </div>
           {triggerMsg && (
-            <p className={`text-xs flex items-center gap-1.5 ${triggerMsg.ok ? "text-emerald-400" : "text-red-400"}`}>
+            <p
+              className={`text-xs flex items-center gap-1.5 ${triggerMsg.ok ? "text-emerald-400" : "text-red-400"}`}
+            >
               {triggerMsg.ok ? (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               ) : (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                  />
                 </svg>
               )}
               {triggerMsg.text}
             </p>
           )}
           {recoveryMsg && (
-            <p className={`text-xs flex items-center gap-1.5 ${recoveryMsg.ok ? "text-yellow-400" : "text-red-400"}`}>
+            <p
+              className={`text-xs flex items-center gap-1.5 ${recoveryMsg.ok ? "text-yellow-400" : "text-red-400"}`}
+            >
               {recoveryMsg.ok ? (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               ) : (
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                  />
                 </svg>
               )}
               {recoveryMsg.text}
@@ -279,10 +413,26 @@ export default function RemarketingPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: "Total processados", value: stats.total, color: "text-gray-100" },
-          { label: "Enviados com sucesso", value: stats.sent, color: "text-emerald-400" },
-          { label: "Recuperados", value: stats.recovered, color: "text-yellow-400" },
-          { label: "Respondidos", value: stats.replied, color: "text-blue-400" },
+          {
+            label: "Total processados",
+            value: stats.total,
+            color: "text-gray-100",
+          },
+          {
+            label: "Enviados com sucesso",
+            value: stats.sent,
+            color: "text-emerald-400",
+          },
+          {
+            label: "Recuperados",
+            value: stats.recovered,
+            color: "text-yellow-400",
+          },
+          {
+            label: "Respondidos",
+            value: stats.replied,
+            color: "text-blue-400",
+          },
           { label: "Falhos", value: stats.failed, color: "text-red-400" },
         ].map((s) => (
           <div
@@ -334,16 +484,20 @@ export default function RemarketingPage() {
               d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
             />
           </svg>
-          <p className="text-sm font-medium text-gray-500">Nenhum email de remarketing enviado ainda.</p>
+          <p className="text-sm font-medium text-gray-500">
+            Nenhum email de remarketing enviado ainda.
+          </p>
           <p className="text-xs text-gray-600 mt-1 text-center max-w-xs">
-            Clique em &ldquo;Buscar carrinhos agora&rdquo; ou aguarde o processamento automático a cada 2 horas.
+            Clique em &ldquo;Buscar carrinhos agora&rdquo; ou aguarde o
+            processamento automático a cada 2 horas.
           </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {items.map((item) => {
+          {paginatedItems.map((item) => {
             const expanded = expandedItems.has(item.id);
-            const initials = (item.customerName || item.customerEmail)[0].toUpperCase();
+            const initials = (item.customerName ||
+              item.customerEmail)[0].toUpperCase();
             return (
               <div
                 key={item.id}
@@ -355,7 +509,9 @@ export default function RemarketingPage() {
                 >
                   {/* Avatar */}
                   <div className="w-9 h-9 rounded-full bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-semibold text-indigo-300">{initials}</span>
+                    <span className="text-sm font-semibold text-indigo-300">
+                      {initials}
+                    </span>
                   </div>
 
                   {/* Main info */}
@@ -364,12 +520,17 @@ export default function RemarketingPage() {
                       <span className="text-sm font-medium text-gray-200 truncate">
                         {item.customerName || item.customerEmail}
                       </span>
-                      {item.customerName && item.customerName !== item.customerEmail && (
-                        <span className="text-xs text-gray-500 truncate">{item.customerEmail}</span>
-                      )}
+                      {item.customerName &&
+                        item.customerName !== item.customerEmail && (
+                          <span className="text-xs text-gray-500 truncate">
+                            {item.customerEmail}
+                          </span>
+                        )}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5 truncate">
-                      {item.lineItems.map((l) => `${l.quantity}x ${l.title}`).join(", ")}
+                      {item.lineItems
+                        .map((l) => `${l.quantity}x ${l.title}`)
+                        .join(", ")}
                     </div>
                   </div>
 
@@ -377,7 +538,9 @@ export default function RemarketingPage() {
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-sm font-semibold text-gray-200">
                       {item.currency}{" "}
-                      {item.cartValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      {item.cartValue.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}
                     </span>
                     <StatusBadge status={item.status} />
                     <span className="text-xs text-gray-600 hidden lg:block">
@@ -440,14 +603,18 @@ export default function RemarketingPage() {
                         </p>
                         <div className="space-y-2.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Cupom enviado:</span>
+                            <span className="text-xs text-gray-500">
+                              Cupom enviado:
+                            </span>
                             <span className="font-mono text-xs bg-gray-800 border border-white/10 px-2 py-0.5 rounded text-yellow-400">
                               {item.couponCode}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <span>Enviado em:</span>
-                            <span className="text-gray-400">{formatDate(item.sentAt)}</span>
+                            <span className="text-gray-400">
+                              {formatDate(item.sentAt)}
+                            </span>
                           </div>
                           <div>
                             <a
@@ -484,23 +651,44 @@ export default function RemarketingPage() {
                           )}
                           {item.status === "recovered" && (
                             <div className="flex items-center gap-2 text-xs">
-                              <span className="text-gray-500">Pedido gerado:</span>
+                              <span className="text-gray-500">
+                                Pedido gerado:
+                              </span>
                               <span className="font-semibold text-yellow-400">
                                 {item.recoveredOrderName ?? "—"}
                               </span>
                             </div>
                           )}
                           {item.status === "failed" && item.errorMessage && (
-                            <p className="text-xs text-red-400/80">{item.errorMessage}</p>
+                            <p className="text-xs text-red-400/80">
+                              {item.errorMessage}
+                            </p>
                           )}
-                          {(item.status === "sent" || item.status === "replied" || item.status === "recovered") && (
+                          {(item.status === "sent" ||
+                            item.status === "replied" ||
+                            item.status === "recovered") && (
                             <button
                               onClick={() => setPreviewId(item.id)}
                               className="inline-flex items-center gap-1.5 text-xs bg-gray-800 border border-white/8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 px-2.5 py-1 rounded-md transition-colors"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
                               </svg>
                               Ver e-mail enviado
                             </button>
@@ -514,6 +702,14 @@ export default function RemarketingPage() {
             );
           })}
         </div>
+      )}
+
+      {!loading && totalPages > 1 && (
+        <Paginator
+          page={safePage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       )}
     </div>
   );

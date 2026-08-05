@@ -143,7 +143,10 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
   low: 2,
 };
 
-function groupByCustomer(tasks: TaskDoc[], accounts: AccountOption[]): CustomerGroup[] {
+function groupByCustomer(
+  tasks: TaskDoc[],
+  accounts: AccountOption[],
+): CustomerGroup[] {
   const accountMap = new Map(accounts.map((a) => [a.id, a]));
   const map = new Map<string, CustomerGroup>();
   for (const t of tasks) {
@@ -227,10 +230,10 @@ function TaskRow({
         isHighlighted
           ? "bg-indigo-500/10 ring-1 ring-inset ring-indigo-500/40 shadow-[inset_0_0_24px_rgba(99,102,241,0.12)]"
           : isCompleting
-          ? "bg-emerald-500/8"
-          : task.completed
-          ? "opacity-55 hover:bg-white/2"
-          : "hover:bg-white/2"
+            ? "bg-emerald-500/8"
+            : task.completed
+              ? "opacity-55 hover:bg-white/2"
+              : "hover:bg-white/2"
       }`}
     >
       {/* Priority bar */}
@@ -247,8 +250,8 @@ function TaskRow({
           isCompleting
             ? "bg-emerald-500 border-emerald-400 scale-125 ring-4 ring-emerald-500/35"
             : task.completed
-            ? "bg-emerald-600/80 border-emerald-600"
-            : "border-gray-600 hover:border-indigo-400 hover:bg-indigo-500/10"
+              ? "bg-emerald-600/80 border-emerald-600"
+              : "border-gray-600 hover:border-indigo-400 hover:bg-indigo-500/10"
         }`}
       >
         {(task.completed || isCompleting) && (
@@ -301,7 +304,10 @@ function TaskRow({
           <Link
             href={`/emails/${task.emailId}`}
             onClick={() => {
-              sessionStorage.setItem('taskNavCtx', JSON.stringify({ taskId: task.id }));
+              sessionStorage.setItem(
+                "taskNavCtx",
+                JSON.stringify({ taskId: task.id }),
+              );
             }}
             className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-indigo-400 transition-colors truncate max-w-xs"
           >
@@ -325,8 +331,18 @@ function TaskRow({
         {/* Existing note display */}
         {task.note && !noteOpen && (
           <div className="mt-2.5 flex items-start gap-1.5 text-xs text-gray-500 bg-gray-800/40 border border-white/5 rounded-lg px-3 py-2">
-            <svg className="w-3 h-3 mt-0.5 shrink-0 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+            <svg
+              className="w-3 h-3 mt-0.5 shrink-0 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.75}
+                d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"
+              />
             </svg>
             <span className="leading-relaxed">{task.note}</span>
             <button
@@ -334,8 +350,18 @@ function TaskRow({
               className="ml-auto shrink-0 text-gray-600 hover:text-gray-300 transition-colors"
               title="Editar observação"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"
+                />
               </svg>
             </button>
           </div>
@@ -360,13 +386,30 @@ function TaskRow({
               >
                 {noteSaving ? (
                   <>
-                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    <svg
+                      className="w-3 h-3 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
                     </svg>
                     Salvando...
                   </>
-                ) : "Salvar"}
+                ) : (
+                  "Salvar"
+                )}
               </button>
               <button
                 onClick={() => setNoteOpen(false)}
@@ -382,8 +425,18 @@ function TaskRow({
               onClick={openNote}
               className="mt-2 inline-flex items-center gap-1 text-xs text-gray-700 hover:text-gray-400 transition-colors opacity-0 group-hover:opacity-100"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.75}
+                  d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"
+                />
               </svg>
               Adicionar observação
             </button>
@@ -415,11 +468,20 @@ function TaskRow({
 }
 
 export default function TasksPage() {
-  const { selectedAccountId, accounts, loading: storeLoading } = useStoreContext();
+  const {
+    selectedAccountId,
+    accounts,
+    loading: storeLoading,
+  } = useStoreContext();
   const [tasks, setTasks] = useState<TaskDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<Set<string>>(new Set());
-  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(
+    null,
+  );
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "done">(
+    "all",
+  );
 
   const loadTasks = useCallback(async () => {
     setLoading(true);
@@ -439,9 +501,9 @@ export default function TasksPage() {
   }, [loadTasks, storeLoading]);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('highlightTask');
+    const raw = sessionStorage.getItem("highlightTask");
     if (raw) {
-      sessionStorage.removeItem('highlightTask');
+      sessionStorage.removeItem("highlightTask");
       setHighlightedTaskId(raw);
       setTimeout(() => setHighlightedTaskId(null), 4000);
     }
@@ -451,7 +513,7 @@ export default function TasksPage() {
   useEffect(() => {
     if (loading || !highlightedTaskId) return;
     const el = document.getElementById(`task-${highlightedTaskId}`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [loading, highlightedTaskId]);
 
   async function toggleComplete(task: TaskDoc) {
@@ -492,9 +554,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ note }),
     });
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, note } : t)),
-    );
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, note } : t)));
   }
 
   async function deleteTask(id: string) {
@@ -508,8 +568,19 @@ export default function TasksPage() {
   const openCount = tasks.filter((t) => !t.completed).length;
   const doneCount = tasks.filter((t) => t.completed).length;
 
+  const filteredGroups =
+    statusFilter === "all"
+      ? groups
+      : statusFilter === "pending"
+        ? groups
+            .filter((g) => g.pending.length > 0)
+            .map((g) => ({ ...g, done: [] }))
+        : groups
+            .filter((g) => g.done.length > 0)
+            .map((g) => ({ ...g, pending: [] }));
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -546,54 +617,79 @@ export default function TasksPage() {
         </button>
       </div>
 
-      {/* Summary */}
+      {/* Summary + Filter */}
       {!loading && tasks.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 max-w-xs">
-          <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl p-4">
-            <div className="w-9 h-9 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
-              <svg
-                className="w-4 h-4 text-yellow-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.75}
-                  d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl p-4">
+              <div className="w-9 h-9 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
+                <svg
+                  className="w-4 h-4 text-yellow-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.75}
+                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Pendentes</p>
+                <p className="text-2xl font-bold text-yellow-400 leading-none">
+                  {openCount}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-gray-500">Pendentes</p>
-              <p className="text-2xl font-bold text-yellow-400 leading-none">
-                {openCount}
-              </p>
+            <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl p-4">
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                <svg
+                  className="w-4 h-4 text-emerald-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.75}
+                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Concluídas</p>
+                <p className="text-2xl font-bold text-emerald-400 leading-none">
+                  {doneCount}
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 bg-gray-900/60 border border-white/6 rounded-xl p-4">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <svg
-                className="w-4 h-4 text-emerald-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+
+          {/* Status filter */}
+          <div className="flex items-center gap-1 bg-gray-900/60 border border-white/6 rounded-xl p-1 self-start">
+            {(
+              [
+                { value: "all", label: "Todas" },
+                { value: "pending", label: "Pendentes" },
+                { value: "done", label: "Resolvidas" },
+              ] as const
+            ).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setStatusFilter(value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  statusFilter === value
+                    ? "bg-gray-800 text-gray-100 shadow-sm"
+                    : "text-gray-500 hover:text-gray-300"
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.75}
-                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Concluídas</p>
-              <p className="text-2xl font-bold text-emerald-400 leading-none">
-                {doneCount}
-              </p>
-            </div>
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -622,7 +718,7 @@ export default function TasksPage() {
           </svg>
           Carregando...
         </div>
-      ) : groups.length === 0 ? (
+      ) : filteredGroups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-gray-600 border border-white/6 rounded-2xl bg-gray-900/30">
           <svg
             className="w-10 h-10 mb-3 text-gray-700"
@@ -638,15 +734,21 @@ export default function TasksPage() {
             />
           </svg>
           <p className="text-sm font-medium text-gray-500">
-            Nenhuma tarefa ainda
+            {statusFilter === "all"
+              ? "Nenhuma tarefa ainda"
+              : statusFilter === "pending"
+                ? "Nenhuma tarefa pendente"
+                : "Nenhuma tarefa resolvida"}
           </p>
           <p className="text-xs text-gray-600 mt-1 text-center max-w-xs">
-            As tarefas são criadas quando há necessidade de ação manual.
+            {statusFilter === "all"
+              ? "As tarefas são criadas quando há necessidade de ação manual."
+              : "Tente selecionar outro filtro."}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {groups.map((group) => {
+          {filteredGroups.map((group) => {
             const allDone = group.pending.length === 0;
             const initials = group.customerName
               .split(" ")
@@ -701,7 +803,11 @@ export default function TasksPage() {
                       </span>
                       <span className="inline-flex items-center gap-1 text-xs text-gray-600 ml-2">
                         {group.accountLogoUrl ? (
-                          <img src={group.accountLogoUrl} alt="" className="w-3.5 h-3.5 rounded object-contain" />
+                          <img
+                            src={group.accountLogoUrl}
+                            alt=""
+                            className="w-3.5 h-3.5 rounded object-contain"
+                          />
                         ) : null}
                         {group.accountEmail}
                       </span>

@@ -21,7 +21,11 @@ const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 function SpinnerIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
-    <svg className={`${className} animate-spin`} fill="none" viewBox="0 0 24 24">
+    <svg
+      className={`${className} animate-spin`}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
       <circle
         className="opacity-25"
         cx="12"
@@ -271,7 +275,7 @@ export default function NewEmailPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <button

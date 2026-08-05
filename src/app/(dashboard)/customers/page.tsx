@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Paginator from "../Paginator";
 
 interface Customer {
   id: string;
@@ -40,6 +41,7 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetch("/api/customers", { credentials: "include" })
@@ -47,6 +49,10 @@ export default function CustomersPage() {
       .then((d) => setCustomers(d.customers ?? []))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const filtered = search.trim()
     ? customers.filter((c) => {
@@ -59,8 +65,16 @@ export default function CustomersPage() {
       })
     : customers;
 
+  const PAGE_SIZE = 20;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedCustomers = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -168,7 +182,7 @@ export default function CustomersPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((c) => {
+          {paginatedCustomers.map((c) => {
             const displayName = c.name || "(sem nome)";
             const initials = getInitials(displayName);
             const gradient = avatarGradient(c.id);
@@ -251,6 +265,14 @@ export default function CustomersPage() {
             );
           })}
         </div>
+      )}
+
+      {!loading && totalPages > 1 && (
+        <Paginator
+          page={safePage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       )}
     </div>
   );

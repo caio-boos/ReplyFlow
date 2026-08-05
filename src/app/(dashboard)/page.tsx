@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { EmailDoc } from "@/lib/types";
 import { useStoreContext } from "./store-context";
+import Paginator from "./Paginator";
 
 const ACCOUNT_FILTER_STORAGE_KEY = "replyflow.dashboard.accountFilter";
 const VIEWED_GROUPS_STORAGE_KEY = "replyflow.dashboard.viewedGroups";
@@ -104,7 +105,10 @@ interface CustomerGroup {
   emails: EmailDoc[];
 }
 
-function groupByCustomer(emails: EmailDoc[], blockedSet: Set<string>): CustomerGroup[] {
+function groupByCustomer(
+  emails: EmailDoc[],
+  blockedSet: Set<string>,
+): CustomerGroup[] {
   const map = new Map<string, CustomerGroup>();
   for (const e of emails) {
     const key = e.customerId || e.from;
@@ -242,22 +246,25 @@ export default function DashboardPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [viewedGroups, setViewedGroups] = useState<Record<string, number>>({});
   const [highlightedGroup, setHighlightedGroup] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const raw = localStorage.getItem(VIEWED_GROUPS_STORAGE_KEY);
     if (!raw) return;
-    try { setViewedGroups(JSON.parse(raw)); } catch {}
+    try {
+      setViewedGroups(JSON.parse(raw));
+    } catch {}
   }, []);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('dashboardNavCtx');
+    const raw = sessionStorage.getItem("dashboardNavCtx");
     if (raw) {
-      sessionStorage.removeItem('dashboardNavCtx');
+      sessionStorage.removeItem("dashboardNavCtx");
       try {
         const { groupId } = JSON.parse(raw);
         if (groupId) {
-          setExpandedGroups(prev => new Set(prev).add(groupId));
+          setExpandedGroups((prev) => new Set(prev).add(groupId));
           setHighlightedGroup(groupId);
           setTimeout(() => setHighlightedGroup(null), 4000);
         }
@@ -321,8 +328,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (loading || !highlightedGroup) return;
     const el = document.getElementById(`group-${highlightedGroup}`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [loading, highlightedGroup]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, selectedAccountId]);
 
   function toggleGroup(key: string) {
     setExpandedGroups((prev) => {
@@ -331,13 +342,14 @@ export default function DashboardPage() {
       return next;
     });
     // Mark group as viewed when expanded
-    const groupEmails = emails.filter(e => (e.customerId || e.from) === key);
-    const latestTs = groupEmails.length > 0
-      ? Math.max(...groupEmails.map(e => e.receivedAt?.seconds ?? 0))
-      : Date.now() / 1000;
-    setViewedGroups(prev => {
+    const groupEmails = emails.filter((e) => (e.customerId || e.from) === key);
+    const latestTs =
+      groupEmails.length > 0
+        ? Math.max(...groupEmails.map((e) => e.receivedAt?.seconds ?? 0))
+        : Date.now() / 1000;
+    setViewedGroups((prev) => {
       const next = { ...prev, [key]: latestTs };
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         localStorage.setItem(VIEWED_GROUPS_STORAGE_KEY, JSON.stringify(next));
       }
       return next;
@@ -352,11 +364,18 @@ export default function DashboardPage() {
   };
 
   const groups = groupByCustomer(emails, blockedSet);
+  const PAGE_SIZE = 15;
+  const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedGroups = groups.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-100">
             Caixa de entrada
@@ -365,7 +384,7 @@ export default function DashboardPage() {
             E-mails recebidos e status das respostas automáticas
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col sm:items-end gap-2 shrink-0">
           <div className="flex gap-2">
             <button
               onClick={() => triggerCron("fetch-emails")}
@@ -492,7 +511,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {STATS_CONFIG.map((s) => (
           <div
             key={s.key}
@@ -522,18 +541,42 @@ export default function DashboardPage() {
       >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 text-indigo-400">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-                d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.75}
+                d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+              />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-300">Proteção contra chargebacks</p>
-            <p className="text-xs text-gray-600">Ver relatórios detalhados de chargebacks evitados e valor economizado</p>
+            <p className="text-xs font-medium text-gray-300">
+              Proteção contra chargebacks
+            </p>
+            <p className="text-xs text-gray-600">
+              Ver relatórios detalhados de chargebacks evitados e valor
+              economizado
+            </p>
           </div>
         </div>
-        <svg className="w-4 h-4 text-gray-600 group-hover:text-indigo-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        <svg
+          className="w-4 h-4 text-gray-600 group-hover:text-indigo-400 transition-colors shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8.25 4.5l7.5 7.5-7.5 7.5"
+          />
         </svg>
       </Link>
 
@@ -616,16 +659,22 @@ export default function DashboardPage() {
               d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
             />
           </svg>
-          <p className="text-sm font-medium text-gray-500">Nenhum e-mail encontrado</p>
+          <p className="text-sm font-medium text-gray-500">
+            Nenhum e-mail encontrado
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {groups.map((group) => {
+          {paginatedGroups.map((group) => {
             const isExpanded = expandedGroups.has(group.customerId);
             const hasPending = group.emails.some((e) => e.status === "pending");
             const hasFailed = group.emails.some((e) => e.status === "failed");
-            const latestEmailTs = Math.max(...group.emails.map(e => e.receivedAt?.seconds ?? 0));
-            const isUnread = viewedGroups[group.customerId] === undefined || latestEmailTs > (viewedGroups[group.customerId] ?? 0);
+            const latestEmailTs = Math.max(
+              ...group.emails.map((e) => e.receivedAt?.seconds ?? 0),
+            );
+            const isUnread =
+              viewedGroups[group.customerId] === undefined ||
+              latestEmailTs > (viewedGroups[group.customerId] ?? 0);
             const latestEmail = group.emails[0];
             const initials = group.fromName
               .split(" ")
@@ -640,8 +689,8 @@ export default function DashboardPage() {
                 id={`group-${group.customerId}`}
                 className={`border rounded-xl overflow-hidden transition-all duration-700 ${
                   highlightedGroup === group.customerId
-                    ? 'border-indigo-500/40 bg-indigo-500/8 shadow-[0_0_24px_rgba(99,102,241,0.12)]'
-                    : 'border-white/6 bg-gray-900/40 hover:bg-gray-900/60'
+                    ? "border-indigo-500/40 bg-indigo-500/8 shadow-[0_0_24px_rgba(99,102,241,0.12)]"
+                    : "border-white/6 bg-gray-900/40 hover:bg-gray-900/60"
                 }`}
               >
                 {/* Customer row */}
@@ -650,24 +699,40 @@ export default function DashboardPage() {
                   className="w-full px-4 py-3.5 flex items-center gap-3 text-left"
                 >
                   {/* Avatar */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm ${
-                    group.blocked
-                      ? "bg-linear-to-br from-gray-600 to-gray-700"
-                      : "bg-linear-to-br from-indigo-500 to-violet-600"
-                  }`}>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm ${
+                      group.blocked
+                        ? "bg-linear-to-br from-gray-600 to-gray-700"
+                        : "bg-linear-to-br from-indigo-500 to-violet-600"
+                    }`}
+                  >
                     {group.blocked ? (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                        />
                       </svg>
-                    ) : initials}
+                    ) : (
+                      initials
+                    )}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-sm font-medium truncate ${
-                        group.blocked ? "text-gray-500" : "text-gray-200"
-                      }`}>
+                      <span
+                        className={`text-sm font-medium truncate ${
+                          group.blocked ? "text-gray-500" : "text-gray-200"
+                        }`}
+                      >
                         {group.fromName}
                       </span>
                       {group.blocked && (
@@ -737,7 +802,10 @@ export default function DashboardPage() {
                           <Link
                             href={`/emails/${email.id}`}
                             onClick={() => {
-                              sessionStorage.setItem('dashboardNavCtx', JSON.stringify({ groupId: group.customerId }));
+                              sessionStorage.setItem(
+                                "dashboardNavCtx",
+                                JSON.stringify({ groupId: group.customerId }),
+                              );
                             }}
                             className="group flex items-center gap-1.5 min-w-0"
                           >
@@ -784,6 +852,14 @@ export default function DashboardPage() {
             );
           })}
         </div>
+      )}
+
+      {!loading && groups.length > 0 && totalPages > 1 && (
+        <Paginator
+          page={safePage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       )}
     </div>
   );

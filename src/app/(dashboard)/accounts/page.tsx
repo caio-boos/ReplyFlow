@@ -256,7 +256,8 @@ function AccountForm({
             placeholder="Ex: Kenbi™ — nome exibido nos e-mails de remarketing"
           />
           <p className="text-xs text-gray-600 mt-1.5">
-            Nome público da loja exibido nos e-mails. Se vazio, usa o nome da conta.
+            Nome público da loja exibido nos e-mails. Se vazio, usa o nome da
+            conta.
           </p>
         </div>
 
@@ -266,7 +267,9 @@ function AccountForm({
             <FieldLabel>Idioma das respostas</FieldLabel>
             <select
               value={form.replyLanguage}
-              onChange={(e) => setForm({ ...form, replyLanguage: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, replyLanguage: e.target.value })
+              }
               className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
             >
               <option value="en">English</option>
@@ -279,7 +282,9 @@ function AccountForm({
               <option value="ja">日本語</option>
               <option value="zh">中文（简体）</option>
             </select>
-            <p className="text-xs text-gray-600 mt-1.5">Idioma em que o ReplyFlow vai responder os clientes desta conta.</p>
+            <p className="text-xs text-gray-600 mt-1.5">
+              Idioma em que o ReplyFlow vai responder os clientes desta conta.
+            </p>
           </div>
         </div>
 
@@ -295,15 +300,35 @@ function AccountForm({
               />
             ) : (
               <div className="w-10 h-10 rounded-lg bg-gray-800 border border-white/6 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                <svg
+                  className="w-5 h-5 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                  />
                 </svg>
               </div>
             )}
             <div className="flex-1">
               <label className="flex items-center gap-2 px-3 py-2 bg-gray-800/60 border border-white/6 rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:border-white/12 cursor-pointer transition-all">
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                <svg
+                  className="w-4 h-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.75}
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                  />
                 </svg>
                 {form.logoUrl ? "Trocar logo" : "Carregar logo"}
                 <input
@@ -319,13 +344,18 @@ function AccountForm({
                     }
                     const reader = new FileReader();
                     reader.onload = (ev) => {
-                      setForm({ ...form, logoUrl: ev.target?.result as string });
+                      setForm({
+                        ...form,
+                        logoUrl: ev.target?.result as string,
+                      });
                     };
                     reader.readAsDataURL(file);
                   }}
                 />
               </label>
-              <p className="text-xs text-gray-600 mt-1">PNG, JPG ou SVG — máx. 300KB. Recomendado: 64×64px.</p>
+              <p className="text-xs text-gray-600 mt-1">
+                PNG, JPG ou SVG — máx. 300KB. Recomendado: 64×64px.
+              </p>
             </div>
             {form.logoUrl && (
               <button
@@ -334,8 +364,18 @@ function AccountForm({
                 className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
                 title="Remover logo"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             )}
@@ -564,7 +604,11 @@ function AccountForm({
             placeholder="https://minhaloja.shop/apps/17TRACK?nums={{tracking_number}}"
           />
           <p className="text-xs text-gray-600 mt-1.5">
-            Use <code className="bg-gray-800 px-1 rounded text-gray-400">{"{{tracking_number}}"}</code> como marcador. Se vazio, usa o link padrão da Shopify.
+            Use{" "}
+            <code className="bg-gray-800 px-1 rounded text-gray-400">
+              {"{{tracking_number}}"}
+            </code>{" "}
+            como marcador. Se vazio, usa o link padrão da Shopify.
           </p>
         </div>
       </div>
@@ -637,10 +681,16 @@ export default function AccountsPage() {
     error?: string;
   } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
-  const [remarketingTogglingId, setRemarketingTogglingId] = useState<string | null>(null);
-  const [remarketingEditId, setRemarketingEditId] = useState<string | null>(null);
+  const [remarketingTogglingId, setRemarketingTogglingId] = useState<
+    string | null
+  >(null);
+  const [remarketingEditId, setRemarketingEditId] = useState<string | null>(
+    null,
+  );
   const [remarketingTestInput, setRemarketingTestInput] = useState("");
-  const [recoveryDaysEditId, setRecoveryDaysEditId] = useState<string | null>(null);
+  const [recoveryDaysEditId, setRecoveryDaysEditId] = useState<string | null>(
+    null,
+  );
   const [recoveryDaysInput, setRecoveryDaysInput] = useState("7");
   const [shopifyMsg, setShopifyMsg] = useState<{
     type: "success" | "error";
@@ -835,7 +885,7 @@ export default function AccountsPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       <Suspense fallback={null}>
         <ShopifyParamsReader onMessage={setShopifyMsg} />
       </Suspense>
@@ -1017,7 +1067,11 @@ export default function AccountsPage() {
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${acc.active ? "bg-indigo-500/10" : "bg-gray-800"}`}
                     >
                       {acc.logoUrl ? (
-                        <img src={acc.logoUrl} alt={acc.label} className="w-full h-full object-contain" />
+                        <img
+                          src={acc.logoUrl}
+                          alt={acc.label}
+                          className="w-full h-full object-contain"
+                        />
                       ) : (
                         <svg
                           className={`w-5 h-5 ${acc.active ? "text-indigo-400" : "text-gray-600"}`}
@@ -1143,40 +1197,64 @@ export default function AccountsPage() {
                       <div className="flex items-center gap-2.5">
                         <button
                           type="button"
-                          onClick={() => handleToggleRemarketing(acc.id, acc.remarketingEnabled ?? false)}
+                          onClick={() =>
+                            handleToggleRemarketing(
+                              acc.id,
+                              acc.remarketingEnabled ?? false,
+                            )
+                          }
                           disabled={remarketingTogglingId === acc.id}
                           className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
-                            acc.remarketingEnabled ? "bg-indigo-600" : "bg-gray-700"
+                            acc.remarketingEnabled
+                              ? "bg-indigo-600"
+                              : "bg-gray-700"
                           }`}
                         >
                           <span
                             className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                              acc.remarketingEnabled ? "translate-x-4" : "translate-x-0"
+                              acc.remarketingEnabled
+                                ? "translate-x-4"
+                                : "translate-x-0"
                             }`}
                           />
                         </button>
                         <span className="text-xs text-gray-400">
                           Recuperação de carrinho
                           {!acc.remarketingEnabled && (
-                            <span className="ml-1 text-gray-600">(desabilitado)</span>
+                            <span className="ml-1 text-gray-600">
+                              (desabilitado)
+                            </span>
                           )}
                         </span>
                       </div>
 
                       {acc.remarketingEnabled && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 shrink-0">Janela de recuperação:</span>
+                          <span className="text-xs text-gray-500 shrink-0">
+                            Janela de recuperação:
+                          </span>
                           <input
                             type="number"
                             min="1"
                             max="365"
-                            value={recoveryDaysEditId === acc.id ? recoveryDaysInput : String(acc.recoveryLookbackDays ?? 7)}
+                            value={
+                              recoveryDaysEditId === acc.id
+                                ? recoveryDaysInput
+                                : String(acc.recoveryLookbackDays ?? 7)
+                            }
                             onFocus={() => {
                               setRecoveryDaysEditId(acc.id);
-                              setRecoveryDaysInput(String(acc.recoveryLookbackDays ?? 7));
+                              setRecoveryDaysInput(
+                                String(acc.recoveryLookbackDays ?? 7),
+                              );
                             }}
-                            onChange={(e) => setRecoveryDaysInput(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleSaveRecoveryDays(acc.id)}
+                            onChange={(e) =>
+                              setRecoveryDaysInput(e.target.value)
+                            }
+                            onKeyDown={(e) =>
+                              e.key === "Enter" &&
+                              handleSaveRecoveryDays(acc.id)
+                            }
                             className="bg-gray-800/60 border border-white/6 rounded-md px-2 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-14 text-center"
                           />
                           <span className="text-xs text-gray-600">dias</span>
@@ -1193,15 +1271,25 @@ export default function AccountsPage() {
                       )}
                       {acc.remarketingEnabled && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 shrink-0">E-mail de teste:</span>
+                          <span className="text-xs text-gray-500 shrink-0">
+                            E-mail de teste:
+                          </span>
                           <input
-                            value={remarketingEditId === acc.id ? remarketingTestInput : (acc.testEmail ?? "")}
+                            value={
+                              remarketingEditId === acc.id
+                                ? remarketingTestInput
+                                : (acc.testEmail ?? "")
+                            }
                             onFocus={() => {
                               setRemarketingEditId(acc.id);
                               setRemarketingTestInput(acc.testEmail ?? "");
                             }}
-                            onChange={(e) => setRemarketingTestInput(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleSaveTestEmail(acc.id)}
+                            onChange={(e) =>
+                              setRemarketingTestInput(e.target.value)
+                            }
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleSaveTestEmail(acc.id)
+                            }
                             className="bg-gray-800/60 border border-white/6 rounded-md px-2.5 py-1 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-56"
                             placeholder="vazio = envia para todos (ex: a@b.com, c@d.com)"
                           />
@@ -1215,10 +1303,14 @@ export default function AccountsPage() {
                             </button>
                           )}
                           {acc.testEmail && remarketingEditId !== acc.id && (
-                            <span className="text-xs text-amber-400 font-mono">{acc.testEmail}</span>
+                            <span className="text-xs text-amber-400 font-mono">
+                              {acc.testEmail}
+                            </span>
                           )}
                           {!acc.testEmail && remarketingEditId !== acc.id && (
-                            <span className="text-xs text-gray-600">todos os clientes</span>
+                            <span className="text-xs text-gray-600">
+                              todos os clientes
+                            </span>
                           )}
                         </div>
                       )}

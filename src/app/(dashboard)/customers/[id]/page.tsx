@@ -180,7 +180,7 @@ export default function CustomerDetailPage() {
         body: JSON.stringify({ blocked: newBlocked }),
       });
       if (res.ok) {
-        setCustomer((c) => c ? { ...c, blocked: newBlocked } : c);
+        setCustomer((c) => (c ? { ...c, blocked: newBlocked } : c));
       }
     } finally {
       setBlocking(false);
@@ -291,7 +291,7 @@ export default function CustomerDetailPage() {
   const gradient = avatarGradient(customer.id);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <Link
@@ -359,8 +359,18 @@ export default function CustomerDetailPage() {
                   : "bg-gray-800/60 text-gray-500 border-white/6 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/10"
               }`}
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                />
               </svg>
               {customer.blocked ? "Bloqueado" : "Bloquear"}
             </button>
