@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "../../ConfirmDialog";
 
 interface Account {
   id: string;
@@ -182,12 +183,15 @@ export default function NewEmailPage() {
     }
   }
 
-  // ---------- send ----------
+  const openConfirm = useConfirm();
+
   async function handleSend() {
     if (!accountId || !to.trim() || !subject.trim() || !body.trim()) return;
-    const confirmed = window.confirm(
-      "Tem certeza que deseja enviar este e-mail?",
-    );
+    const confirmed = await openConfirm({
+      title: "Enviar e-mail?",
+      description: "Confirme o envio deste e-mail para o destinatário informado.",
+      confirmLabel: "Enviar",
+    });
     if (!confirmed) return;
 
     setSending(true);

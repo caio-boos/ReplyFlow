@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import Paginator from "../Paginator";
 import { useStoreContext } from "../store-context";
+import { toast } from "sonner";
 
 interface AccountOption {
   id: string;
@@ -93,15 +94,7 @@ export default function RemarketingPage() {
   });
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
-  const [triggerMsg, setTriggerMsg] = useState<{
-    text: string;
-    ok: boolean;
-  } | null>(null);
   const [checkingRecovery, setCheckingRecovery] = useState(false);
-  const [recoveryMsg, setRecoveryMsg] = useState<{
-    text: string;
-    ok: boolean;
-  } | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -129,7 +122,6 @@ export default function RemarketingPage() {
 
   async function triggerCron() {
     setTriggering(true);
-    setTriggerMsg(null);
     try {
       const res = await fetch("/api/admin/trigger", {
         method: "POST",
@@ -137,20 +129,20 @@ export default function RemarketingPage() {
         body: JSON.stringify({ action: "abandoned-checkouts", force: true }),
       });
       const data = await res.json();
-      setTriggerMsg({
-        text: res.ok ? (data.message ?? "Concluído!") : (data.error ?? "Erro"),
-        ok: res.ok,
-      });
-      if (res.ok) fetchData();
+      if (res.ok) {
+        toast.success(data.message ?? "Concluído!");
+        fetchData();
+      } else {
+        toast.error(data.error ?? "Erro");
+      }
     } catch {
-      setTriggerMsg({ text: "Erro de conexão", ok: false });
+      toast.error("Erro de conexão");
     }
     setTriggering(false);
   }
 
   async function checkRecovery() {
     setCheckingRecovery(true);
-    setRecoveryMsg(null);
     try {
       const res = await fetch("/api/admin/trigger", {
         method: "POST",
@@ -159,20 +151,18 @@ export default function RemarketingPage() {
       });
       const data = await res.json();
       const recovered = data.recovered ?? 0;
-      let text: string;
       if (!res.ok) {
-        text = data.error ?? "Erro";
+        toast.error(data.error ?? "Erro");
       } else if (recovered === 0) {
-        text = data.message ?? "Nenhuma recuperação nova encontrada.";
+        toast.info(data.message ?? "Nenhuma recuperação nova encontrada.");
       } else if (selectedAccountId !== "all") {
-        text = `${recovered} carrinho(s) recuperado(s) no total. Selecione "Todas as lojas" para ver todos.`;
+        toast.success(`${recovered} carrinho(s) recuperado(s). Selecione "Todas as lojas" para ver todos.`);
       } else {
-        text = `${recovered} carrinho(s) recuperado(s)!`;
+        toast.success(`${recovered} carrinho(s) recuperado(s)!`);
       }
-      setRecoveryMsg({ text, ok: res.ok });
       if (res.ok) fetchData();
     } catch {
-      setRecoveryMsg({ text: "Erro de conexão", ok: false });
+      toast.error("Erro de conexão");
     }
     setCheckingRecovery(false);
   }
@@ -335,78 +325,6 @@ export default function RemarketingPage() {
               Buscar carrinhos agora
             </button>
           </div>
-          {triggerMsg && (
-            <p
-              className={`text-xs flex items-center gap-1.5 ${triggerMsg.ok ? "text-emerald-400" : "text-red-400"}`}
-            >
-              {triggerMsg.ok ? (
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-                  />
-                </svg>
-              )}
-              {triggerMsg.text}
-            </p>
-          )}
-          {recoveryMsg && (
-            <p
-              className={`text-xs flex items-center gap-1.5 ${recoveryMsg.ok ? "text-yellow-400" : "text-red-400"}`}
-            >
-              {recoveryMsg.ok ? (
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-                  />
-                </svg>
-              )}
-              {recoveryMsg.text}
-            </p>
-          )}
         </div>
       </div>
 
@@ -488,9 +406,15 @@ export default function RemarketingPage() {
             Nenhum email de remarketing enviado ainda.
           </p>
           <p className="text-xs text-gray-600 mt-1 text-center max-w-xs">
-            Clique em &ldquo;Buscar carrinhos agora&rdquo; ou aguarde o
-            processamento automático a cada 2 horas.
+            Conecte uma loja Shopify e ative o remarketing nas configurações da
+            conta.
           </p>
+          <Link
+            href="/accounts"
+            className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-medium text-white transition-colors"
+          >
+            Configurar conta Shopify
+          </Link>
         </div>
       ) : (
         <div className="space-y-2">

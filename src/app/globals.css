@@ -97,6 +97,32 @@ html.light-theme .h-px.bg-white\/5 { background-color: #e2e8f0; }
 html.light-theme .bg-white\/6.h-px,
 html.light-theme .h-px.bg-white\/6 { background-color: #e2e8f0; }
 
+/* Additional gray-800 opacity variants */
+html.light-theme .bg-gray-800\/80 { background-color: rgb(226 232 240 / 90%); }
+
+/* Additional white variants for subtle states */
+html.light-theme .bg-white\/2  { background-color: rgb(241 245 249 / 40%); }
+html.light-theme .bg-white\/1\.5 { background-color: rgb(241 245 249 / 25%); }
+
+/* Shadows */
+html.light-theme .shadow-2xl { box-shadow: 0 25px 50px -12px rgb(15 23 42 / 15%); }
+
+/* Fix: text-gray-700 was too light (#cbd5e1) — make it visible on white bg */
+html.light-theme .text-gray-700 { color: #94a3b8; }
+
+/* Indigo badge/accent tones — keep as-is (colored = readable on both themes) */
+
+/* Divide lines */
+html.light-theme .divide-white\/4 > * + * { border-color: rgb(148 163 184 / 25%); }
+html.light-theme .divide-white\/3 > * + * { border-color: rgb(148 163 184 / 18%); }
+
+/* Ring */
+html.light-theme .ring-white\/5 { --tw-ring-color: rgb(148 163 184 / 30%); }
+
+/* Indigo active nav item remains as-is (indigo bg = readable) */
+/* Ensure sidebar bg on light theme */
+html.light-theme .bg-gray-900\/60.z-50 { background-color: rgb(255 255 255 / 97%); }
+
 /* Logo invert for light mode (white logo → dark) */
 html.light-theme img[alt="ReplyFlow"] {
   filter: invert(1) brightness(0.2);
