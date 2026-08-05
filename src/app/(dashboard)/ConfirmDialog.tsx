@@ -47,7 +47,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   const confirmBtnRef = useRef<HTMLButtonElement>(null);

@@ -156,7 +156,9 @@ export default function RemarketingPage() {
       } else if (recovered === 0) {
         toast.info(data.message ?? "Nenhuma recuperação nova encontrada.");
       } else if (selectedAccountId !== "all") {
-        toast.success(`${recovered} carrinho(s) recuperado(s). Selecione "Todas as lojas" para ver todos.`);
+        toast.success(
+          `${recovered} carrinho(s) recuperado(s). Selecione "Todas as lojas" para ver todos.`,
+        );
       } else {
         toast.success(`${recovered} carrinho(s) recuperado(s)!`);
       }

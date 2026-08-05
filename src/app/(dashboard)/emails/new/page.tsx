@@ -189,7 +189,8 @@ export default function NewEmailPage() {
     if (!accountId || !to.trim() || !subject.trim() || !body.trim()) return;
     const confirmed = await openConfirm({
       title: "Enviar e-mail?",
-      description: "Confirme o envio deste e-mail para o destinatário informado.",
+      description:
+        "Confirme o envio deste e-mail para o destinatário informado.",
       confirmLabel: "Enviar",
     });
     if (!confirmed) return;
