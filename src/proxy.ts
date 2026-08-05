@@ -3,7 +3,7 @@ import { verifySession, COOKIE_NAME } from "@/lib/auth/session";
 
 const PUBLIC_PATHS = ["/login", "/api/auth/login"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow cron routes (protected by CRON_SECRET header, not session)
