@@ -98,9 +98,6 @@ export async function GET() {
     };
   }
 
-  const cbDocs = cbSnap.docs;
-  const refundDocs = refundSnap.docs;
-
   const allTimeGlobal = aggregate(cbDocs, refundDocs);
   const monthGlobal = aggregate(cbDocs, refundDocs, thirtyDaysAgoMs);
 
