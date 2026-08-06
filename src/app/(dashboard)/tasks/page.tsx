@@ -487,7 +487,7 @@ export default function TasksPage() {
 
   const loadTasks = useCallback(async () => {
     setLoading(true);
-    const p = new URLSearchParams({ completed: "true" });
+    const p = new URLSearchParams({ all: "true" });
     if (selectedAccountId !== "all") p.set("accountId", selectedAccountId);
     const res = await fetch(`/api/tasks?${p}`);
     if (res.ok) {
