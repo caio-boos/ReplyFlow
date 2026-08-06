@@ -50,6 +50,9 @@ export async function GET(req: NextRequest) {
   if (!accountDoc.exists) {
     return NextResponse.json({ error: "Account not found" }, { status: 404 });
   }
+  if (accountDoc.data()!.userId !== session.uid) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const systemPrompt = accountDoc.data()?.systemPrompt ?? DEFAULT_CONTEXT;
   return NextResponse.json({ text: systemPrompt });
@@ -72,6 +75,9 @@ export async function PUT(req: NextRequest) {
   const doc = await ref.get();
   if (!doc.exists) {
     return NextResponse.json({ error: "Account not found" }, { status: 404 });
+  }
+  if (doc.data()!.userId !== session.uid) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await ref.update({ systemPrompt: text.trim(), updatedAt: FieldValue.serverTimestamp() });

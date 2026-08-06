@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   createUserWithEmailAndPassword,
@@ -59,15 +58,10 @@ export default function RegisterPage() {
       <div className="relative z-10 w-full max-w-[420px] px-4">
         <div className="mb-10 text-center">
           <div className="mb-4 flex justify-center">
-            <Image
+            <img
               src="/images/logo-com-texto-branco-simples.png"
               alt="ReplyFlow"
-              width={200}
-              height={20}
-              className="object-contain"
-              style={{ height: "auto" }}
-              priority
-              unoptimized
+              className="h-36 w-auto object-contain"
             />
           </div>
           {/* <h1 className="bg-gradient-to-b from-white to-gray-400 bg-clip-text text-3xl font-bold text-transparent">

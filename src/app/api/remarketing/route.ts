@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -11,16 +12,15 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 500);
 
   const db = getAdminDb();
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (ownedIds.length === 0) return NextResponse.json({ items: [] });
 
-  let snap;
-  if (accountId) {
-    snap = await db
-      .collection("remarketing")
-      .where("accountId", "==", accountId)
-      .get();
-  } else {
-    snap = await db.collection("remarketing").get();
-  }
+  const ids = accountId && ownedIds.includes(accountId) ? [accountId] : ownedIds;
+
+  const snap = await db
+    .collection("remarketing")
+    .where("accountId", "in", ids)
+    .get();
 
   const allDocs = snap.docs.map((doc) => {
     const d = doc.data();

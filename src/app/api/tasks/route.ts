@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -9,14 +10,16 @@ export async function GET(req: NextRequest) {
   const db = getAdminDb();
   const { searchParams } = new URL(req.url);
   const showCompleted = searchParams.get("completed") === "true";
-
   const accountId = searchParams.get("accountId");
 
-  // Avoid composite index requirements by using only equality filters.
-  // orderBy("createdAt") + where("accountId" / "completed") would need a composite index.
-  let query: FirebaseFirestore.Query = db.collection("tasks");
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (ownedIds.length === 0) return NextResponse.json({ tasks: [] });
+
+  const ids = accountId && ownedIds.includes(accountId) ? [accountId] : ownedIds;
+
+  // Avoid composite index: equality filters only, sort in code.
+  let query: FirebaseFirestore.Query = db.collection("tasks").where("accountId", "in", ids);
   if (!showCompleted) query = query.where("completed", "==", false);
-  if (accountId) query = query.where("accountId", "==", accountId);
 
   const snap = await query.limit(200).get();
   const tasks = snap.docs

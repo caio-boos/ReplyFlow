@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function GET(req: NextRequest) {
@@ -9,10 +10,27 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 500);
+  const accountId = searchParams.get("accountId");
 
   const db = getAdminDb();
-  const snap = await db.collection("customers").orderBy("updatedAt", "desc").limit(limit).get();
-  const customers = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (ownedIds.length === 0) return NextResponse.json({ customers: [] });
+
+  const ids = accountId && ownedIds.includes(accountId) ? [accountId] : ownedIds;
+
+  const snap = await db
+    .collection("customers")
+    .where("accountId", "in", ids)
+    .limit(limit)
+    .get();
+
+  const customers = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const aT = (a as { updatedAt?: { seconds?: number } }).updatedAt?.seconds ?? 0;
+      const bT = (b as { updatedAt?: { seconds?: number } }).updatedAt?.seconds ?? 0;
+      return bT - aT;
+    });
 
   return NextResponse.json({ customers });
 }

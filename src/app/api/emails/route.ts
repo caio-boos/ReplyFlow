@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -12,10 +13,14 @@ export async function GET(req: NextRequest) {
   const accountId = searchParams.get("accountId");
   const limitParam = parseInt(searchParams.get("limit") ?? "50", 10);
 
-  let query: FirebaseFirestore.Query = db.collection("emails").orderBy("receivedAt", "desc");
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (ownedIds.length === 0) return NextResponse.json({ emails: [] });
 
+  const ids = accountId && ownedIds.includes(accountId) ? [accountId] : ownedIds;
+
+  let query: FirebaseFirestore.Query = db.collection("emails").orderBy("receivedAt", "desc");
   if (status) query = query.where("status", "==", status);
-  if (accountId) query = query.where("accountId", "==", accountId);
+  query = query.where("accountId", "in", ids);
 
   const snap = await query.limit(limitParam).get();
   const emails = snap.docs.map((d) => {
