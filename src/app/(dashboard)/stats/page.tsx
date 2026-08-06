@@ -175,6 +175,7 @@ function AccountsTable({
         </div>
       </div>
     );
+    2;
   }
 
   if (accounts.length === 0) return null;

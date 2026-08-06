@@ -21,7 +21,11 @@ export default function LoginPage() {
 
     try {
       const auth = getClientAuth();
-      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
 
       if (!credential.user.emailVerified) {
         setError("E-mail não verificado. Verifique sua caixa de entrada.");
@@ -37,14 +41,18 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push("/");
+        router.push("/dashboard");
       } else {
         const data = await res.json();
         setError(data.error ?? "Erro ao fazer login");
       }
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
-      if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+      if (
+        code === "auth/invalid-credential" ||
+        code === "auth/wrong-password" ||
+        code === "auth/user-not-found"
+      ) {
         setError("E-mail ou senha incorretos");
       } else if (code === "auth/too-many-requests") {
         setError("Muitas tentativas. Aguarde alguns minutos.");
@@ -256,7 +264,10 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-xs text-gray-700">
           Ainda não tem conta?{" "}
-          <Link href="/register" className="text-indigo-500 hover:text-indigo-400 transition-colors">
+          <Link
+            href="/register"
+            className="text-indigo-500 hover:text-indigo-400 transition-colors"
+          >
             Criar conta
           </Link>
         </p>

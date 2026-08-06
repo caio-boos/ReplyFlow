@@ -15,7 +15,7 @@ const NAV_SECTIONS = [
     label: null,
     items: [
       {
-        href: "/",
+        href: "/dashboard",
         label: "Dashboard",
         icon: (
           <svg

@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { EmailDoc } from "@/lib/types";
-import { useStoreContext } from "./store-context";
-import Paginator from "./Paginator";
+import { useStoreContext } from "../store-context";
+import Paginator from "../Paginator";
 import { toast } from "sonner";
 
 const ACCOUNT_FILTER_STORAGE_KEY = "replyflow.dashboard.accountFilter";
