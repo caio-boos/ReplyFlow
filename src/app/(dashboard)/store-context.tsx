@@ -18,6 +18,7 @@ export interface StoreAccount {
   shopifyConnected?: boolean;
   remarketingEnabled?: boolean;
   active?: boolean;
+  pausedReplies?: boolean;
 }
 
 interface StoreContextValue {
@@ -56,7 +57,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // If the saved account no longer exists, fall back to "all"
         if (saved !== "all" && !fetched.find((a) => a.id === saved)) {
           setSelectedAccountIdState("all");
-          if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, "all");
+          if (typeof window !== "undefined")
+            localStorage.setItem(STORAGE_KEY, "all");
         }
       })
       .finally(() => setLoading(false));
@@ -67,11 +69,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, id);
   }
 
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
+  const selectedAccount =
+    accounts.find((a) => a.id === selectedAccountId) ?? null;
 
   return (
     <StoreContext.Provider
-      value={{ accounts, selectedAccountId, setSelectedAccountId, selectedAccount, loading }}
+      value={{
+        accounts,
+        selectedAccountId,
+        setSelectedAccountId,
+        selectedAccount,
+        loading,
+      }}
     >
       {children}
     </StoreContext.Provider>

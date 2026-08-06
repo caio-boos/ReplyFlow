@@ -36,6 +36,7 @@ export interface EmailDoc {
   orderValue?: number | null;
   remarketing?: boolean;
   remarketingId?: string | null;
+  classifyConfidence?: "high" | "medium" | "low";
 }
 
 export interface AccountDoc {
@@ -57,6 +58,7 @@ export interface AccountDoc {
   systemPrompt?: string | null;
   logoUrl?: string | null;
   replyLanguage?: string;
+  pausedReplies?: boolean;
   createdAt: { seconds: number; nanoseconds: number };
 }
 
@@ -71,6 +73,8 @@ export interface CustomerDoc {
     incomingEmailDocId: string;
     reason: string;
   }>;
+  blocked?: boolean;
+  pausedReplies?: boolean;
   createdAt: { seconds: number; nanoseconds: number };
   updatedAt: { seconds: number; nanoseconds: number };
 }

@@ -27,6 +27,7 @@ export async function PATCH(
     "label",
     "provider",
     "active",
+    "pausedReplies",
     "imapHost",
     "imapPort",
     "smtpHost",

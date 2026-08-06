@@ -17,8 +17,12 @@ const SHOPIFY_MAILER = "mailer@shopify.com";
  *   Name:\nRoy mohamad\n\nEmail:\nroymo2007@gmail.com
  * Extract them so we can identify/contact the actual customer.
  */
-function extractShopifyContactInfo(bodyText: string): { email: string; name: string } | null {
-  const emailMatch = bodyText.match(/\bEmail:\s*\r?\n([^\r\n@\s]+@[^\r\n@\s]+)/i);
+function extractShopifyContactInfo(
+  bodyText: string,
+): { email: string; name: string } | null {
+  const emailMatch = bodyText.match(
+    /\bEmail:\s*\r?\n([^\r\n@\s]+@[^\r\n@\s]+)/i,
+  );
   const nameMatch = bodyText.match(/\bName:\s*\r?\n([^\r\n]+)/i);
   if (!emailMatch) return null;
   return {
@@ -289,8 +293,12 @@ export async function POST(req: NextRequest) {
         emailStatus = "cancelled";
       } else {
         // Check if the customer is blocked
-        const customerDoc = await db.collection("customers").doc(matchResult.customerId).get();
-        emailStatus = customerDoc.data()?.blocked === true ? "cancelled" : "pending";
+        const customerDoc = await db
+          .collection("customers")
+          .doc(matchResult.customerId)
+          .get();
+        emailStatus =
+          customerDoc.data()?.blocked === true ? "cancelled" : "pending";
       }
 
       await emailRef.set({
@@ -314,7 +322,10 @@ export async function POST(req: NextRequest) {
         error: null,
         attachments: storedAttachments,
         aiCostUsd: classifyCost,
-        ...(remarketingDocId ? { remarketing: true, remarketingId: remarketingDocId } : {}),
+        classifyConfidence: classification.confidence ?? "high",
+        ...(remarketingDocId
+          ? { remarketing: true, remarketingId: remarketingDocId }
+          : {}),
         createdAt: FieldValue.serverTimestamp(),
       });
 

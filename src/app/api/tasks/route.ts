@@ -5,21 +5,27 @@ import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getAdminDb();
   const { searchParams } = new URL(req.url);
   const showCompleted = searchParams.get("completed") === "true";
+  const showAll = searchParams.get("all") === "true";
   const accountId = searchParams.get("accountId");
 
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (ownedIds.length === 0) return NextResponse.json({ tasks: [] });
 
-  const ids = accountId && ownedIds.includes(accountId) ? [accountId] : ownedIds;
+  const ids =
+    accountId && ownedIds.includes(accountId) ? [accountId] : ownedIds;
 
   // Avoid composite index: equality filters only, sort in code.
-  let query: FirebaseFirestore.Query = db.collection("tasks").where("accountId", "in", ids);
-  if (!showCompleted) query = query.where("completed", "==", false);
+  let query: FirebaseFirestore.Query = db
+    .collection("tasks")
+    .where("accountId", "in", ids);
+  if (!showAll && !showCompleted) query = query.where("completed", "==", false);
+  if (!showAll && showCompleted) query = query.where("completed", "==", true);
 
   const snap = await query.limit(200).get();
   const tasks = snap.docs
@@ -28,7 +34,12 @@ export async function GET(req: NextRequest) {
       return {
         id: d.id,
         ...data,
-        createdAt: data.createdAt ? { seconds: data.createdAt.seconds ?? data.createdAt._seconds, nanoseconds: 0 } : null,
+        createdAt: data.createdAt
+          ? {
+              seconds: data.createdAt.seconds ?? data.createdAt._seconds,
+              nanoseconds: 0,
+            }
+          : null,
       };
     })
     .sort((a, b) => {

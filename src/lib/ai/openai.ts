@@ -16,14 +16,14 @@ export interface TokenUsage {
 
 // Pricing per 1M tokens (USD) — update when OpenAI changes rates
 const COST_PER_1M: Record<string, { input: number; output: number }> = {
-  "gpt-4o":      { input: 2.50, output: 10.00 },
-  "gpt-4o-mini": { input: 0.15, output:  0.60 },
+  "gpt-4o": { input: 2.5, output: 10.0 },
+  "gpt-4o-mini": { input: 0.15, output: 0.6 },
 };
 
 export function computeCostUsd(model: string, usage: TokenUsage): number {
   const rates = COST_PER_1M[model] ?? COST_PER_1M["gpt-4o"];
   return (
-    (usage.promptTokens     / 1_000_000) * rates.input +
+    (usage.promptTokens / 1_000_000) * rates.input +
     (usage.completionTokens / 1_000_000) * rates.output
   );
 }
@@ -78,7 +78,9 @@ export interface GenerateReplyParams {
   }>;
 }
 
-export async function generateReply(params: GenerateReplyParams): Promise<{ text: string; usage: TokenUsage }> {
+export async function generateReply(
+  params: GenerateReplyParams,
+): Promise<{ text: string; usage: TokenUsage }> {
   const {
     systemContext,
     storeName,
@@ -99,7 +101,7 @@ export async function generateReply(params: GenerateReplyParams): Promise<{ text
           .slice(0, -1)
           .map(
             (h, i) =>
-              `--- Previous email ${i + 1} (${h.receivedAt.toLocaleDateString("en-US")}) ---\nFrom: ${h.from}\nSubject: ${h.subject}\nMessage: ${stripQuotedText(h.bodyText).slice(0, 600)}${h.aiResponse ? `\n\nReply sent: ${h.aiResponse.slice(0, 400)}` : ""}`
+              `--- Previous email ${i + 1} (${h.receivedAt.toLocaleDateString("en-US")}) ---\nFrom: ${h.from}\nSubject: ${h.subject}\nMessage: ${stripQuotedText(h.bodyText).slice(0, 600)}${h.aiResponse ? `\n\nReply sent: ${h.aiResponse.slice(0, 400)}` : ""}`,
           )
           .join("\n\n")
       : "No previous contact from this customer.";
@@ -143,7 +145,6 @@ ${bodyDisplay}
 
 Write a professional and empathetic reply in ${targetLanguage}.`;
 
-
   const completion = await getClient().chat.completions.create({
     model: "gpt-4o",
     messages: [
@@ -174,11 +175,20 @@ export interface ExtractedFlags {
   tasks: string[];
 }
 
-export async function extractFlags(emailBody: string, aiResponse: string, previousAiResponse?: string): Promise<{ flags: ExtractedFlags; usage: TokenUsage }> {
+export async function extractFlags(
+  emailBody: string,
+  aiResponse: string,
+  previousAiResponse?: string,
+): Promise<{ flags: ExtractedFlags; usage: TokenUsage }> {
   const defaultFlags: ExtractedFlags = {
-    chargeback_risk: false, manual_review: false, refund_pending: false,
-    photos_received: false, carrier_problem: false, address_problem: false,
-    priority: "low", tasks: [],
+    chargeback_risk: false,
+    manual_review: false,
+    refund_pending: false,
+    photos_received: false,
+    carrier_problem: false,
+    address_problem: false,
+    priority: "low",
+    tasks: [],
   };
   try {
     const completion = await getClient().chat.completions.create({
@@ -186,7 +196,8 @@ export async function extractFlags(emailBody: string, aiResponse: string, previo
       messages: [
         {
           role: "system",
-          content: "You analyze customer support email exchanges and extract flags. Return only valid JSON.",
+          content:
+            "You analyze customer support email exchanges and extract flags. Return only valid JSON.",
         },
         {
           role: "user",
@@ -206,21 +217,28 @@ export async function extractFlags(emailBody: string, aiResponse: string, previo
       },
     };
   } catch {
-    return { flags: defaultFlags, usage: { promptTokens: 0, completionTokens: 0 } };
+    return {
+      flags: defaultFlags,
+      usage: { promptTokens: 0, completionTokens: 0 },
+    };
   }
 }
 
 export interface EmailClassification {
   type: "customer" | "alert" | "ignore";
-  reason: string; // short explanation
-  taskDescription?: string; // only when type === "alert"
+  confidence: "high" | "medium" | "low";
+  reason: string;
+  taskDescription?: string;
 }
 
 function normalizeText(input: string): string {
   return input.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function isLikelyFakeCustomerMarketing(subject: string, bodyText: string): boolean {
+function isLikelyFakeCustomerMarketing(
+  subject: string,
+  bodyText: string,
+): boolean {
   const text = normalizeText(`${subject} ${bodyText}`);
   if (!text) return false;
 
@@ -231,7 +249,9 @@ function isLikelyFakeCustomerMarketing(subject: string, bodyText: string): boole
     /\b(is|are) (the )?(store|shop|business|website) for sale\b/,
   ];
 
-  const hasFakeCustomerPattern = fakeCustomerPatterns.some((pattern) => pattern.test(text));
+  const hasFakeCustomerPattern = fakeCustomerPatterns.some((pattern) =>
+    pattern.test(text),
+  );
   if (!hasFakeCustomerPattern) return false;
 
   // If there is clear purchase/support intent, do not auto-ignore.
@@ -250,12 +270,13 @@ function isLikelyFakeCustomerMarketing(subject: string, bodyText: string): boole
 export async function classifyEmail(
   from: string,
   subject: string,
-  bodyText: string
+  bodyText: string,
 ): Promise<EmailClassification & { usage: TokenUsage }> {
   const zeroUsage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
   if (isLikelyFakeCustomerMarketing(subject, bodyText)) {
     return {
       type: "ignore",
+      confidence: "high",
       reason: "Likely fake-customer marketing/prospecting message",
       usage: zeroUsage,
     };
@@ -279,6 +300,7 @@ Body (first 800 chars): ${bodyText.slice(0, 800)}
 Classify this email. Return JSON:
 {
   "type": "customer" | "alert" | "ignore",
+  "confidence": "high" | "medium" | "low",
   "reason": "<one sentence>",
   "taskDescription": "<only if type is alert, else null>"
 }
@@ -302,6 +324,7 @@ When in doubt between "alert" and "ignore", choose "alert".`,
     const parsed = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
     return {
       type: parsed.type ?? "customer",
+      confidence: (parsed.confidence as "high" | "medium" | "low") ?? "high",
       reason: parsed.reason ?? "",
       taskDescription: parsed.taskDescription ?? undefined,
       usage: {
@@ -310,6 +333,11 @@ When in doubt between "alert" and "ignore", choose "alert".`,
       },
     };
   } catch {
-    return { type: "customer", reason: "Classification failed — defaulting to customer", usage: zeroUsage };
+    return {
+      type: "customer",
+      confidence: "high",
+      reason: "Classification failed — defaulting to customer",
+      usage: zeroUsage,
+    };
   }
 }

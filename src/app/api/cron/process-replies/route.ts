@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "No emails due", processed: 0 });
   }
 
-  const DEFAULT_CONTEXT = "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
+  const DEFAULT_CONTEXT =
+    "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
   let processed = 0;
   let failed = 0;
@@ -83,24 +84,47 @@ export async function POST(req: NextRequest) {
       }
 
       const accountData = accountDoc.data()!;
+
+      // If the account has paused AI replies, revert to pending and skip
+      if (accountData.pausedReplies === true) {
+        await emailRef.update({ status: "pending" });
+        continue;
+      }
+
       const password = decrypt(accountData.encryptedPassword);
 
-      // Check if customer is blocked — if so, cancel without sending
+      // Check if customer is blocked or has paused replies
       if (emailData.customerId) {
-        const customerDoc = await db.collection("customers").doc(emailData.customerId).get();
-        if (customerDoc.data()?.blocked === true) {
-          await emailRef.update({ status: "cancelled", error: "Customer blocked" });
+        const customerDoc = await db
+          .collection("customers")
+          .doc(emailData.customerId)
+          .get();
+        const customerData = customerDoc.data();
+        if (customerData?.blocked === true) {
+          await emailRef.update({
+            status: "cancelled",
+            error: "Customer blocked",
+          });
           processed++;
+          continue;
+        }
+        if (customerData?.pausedReplies === true) {
+          // Revert to pending — will retry when pause is lifted
+          await emailRef.update({ status: "pending" });
           continue;
         }
       }
 
       // Get full customer history — scoped to this account to prevent cross-store mixing
-      const emailHistory = await getCustomerEmailHistory(emailData.customerId, emailData.accountId);
+      const emailHistory = await getCustomerEmailHistory(
+        emailData.customerId,
+        emailData.accountId,
+      );
 
       // Lookup Shopify order if account has Shopify integration
       let orderInfo: string | null = null;
-      let shopifyOrder: import("@/lib/shopify/client").ShopifyOrder | null = null;
+      let shopifyOrder: import("@/lib/shopify/client").ShopifyOrder | null =
+        null;
 
       console.log(accountData.shopifyDomain, accountData.encryptedShopifyToken);
 
@@ -134,7 +158,10 @@ export async function POST(req: NextRequest) {
             if (orders.length > 0) order = orders[0];
           }
           if (order) {
-            orderInfo = formatOrderForAI(order, accountData.trackingUrlTemplate);
+            orderInfo = formatOrderForAI(
+              order,
+              accountData.trackingUrlTemplate,
+            );
 
             console.log("Found Shopify order for email:", orderInfo);
 
@@ -178,7 +205,10 @@ export async function POST(req: NextRequest) {
           to: emailData.from,
           subject: emailData.subject,
           text: aiResponse,
-          html: renderEmailHtml(aiResponse, accountData.label || accountData.email),
+          html: renderEmailHtml(
+            aiResponse,
+            accountData.label || accountData.email,
+          ),
           inReplyTo: emailData.messageId,
           references: [...(emailData.references ?? []), emailData.messageId],
         },
