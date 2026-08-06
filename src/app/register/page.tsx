@@ -51,7 +51,6 @@ export default function RegisterPage() {
     }
     setLoading(false);
   }
-
   return (
     <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gray-950">
       <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full bg-indigo-600/15 blur-[120px]" />
