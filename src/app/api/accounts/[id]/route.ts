@@ -20,6 +20,9 @@ export async function PATCH(
   if (!doc.exists)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if (doc.data()!.userId !== session.uid)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const allowedFields = [
     "label",
     "provider",
@@ -83,6 +86,14 @@ export async function DELETE(
 
   const { id } = await params;
   const db = getAdminDb();
-  await db.collection("accounts").doc(id).delete();
+  const ref = db.collection("accounts").doc(id);
+  const doc = await ref.get();
+  if (!doc.exists)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (doc.data()!.userId !== session.uid)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  await ref.delete();
   return NextResponse.json({ ok: true });
 }

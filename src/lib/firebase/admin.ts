@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, App } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { getAuth as getAdminAuthSDK } from "firebase-admin/auth";
 
 type Bucket = ReturnType<ReturnType<typeof getStorage>["bucket"]>;
 
@@ -41,4 +42,9 @@ export function getAdminStorage(): Bucket {
     );
   }
   return storageBucket;
+}
+
+export function getAdminAuth() {
+  getAdminApp();
+  return getAdminAuthSDK();
 }

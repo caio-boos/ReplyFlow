@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signInWithEmailAndPassword, getIdToken } from "firebase/auth";
+import { getClientAuth } from "@/lib/firebase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,17 +20,38 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const auth = getClientAuth();
+      const credential = await signInWithEmailAndPassword(auth, email, password);
 
-    if (res.ok) {
-      router.push("/");
-    } else {
-      const data = await res.json();
-      setError(data.error ?? "Erro ao fazer login");
+      if (!credential.user.emailVerified) {
+        setError("E-mail não verificado. Verifique sua caixa de entrada.");
+        setLoading(false);
+        return;
+      }
+
+      const idToken = await getIdToken(credential.user);
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (res.ok) {
+        router.push("/");
+      } else {
+        const data = await res.json();
+        setError(data.error ?? "Erro ao fazer login");
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+        setError("E-mail ou senha incorretos");
+      } else if (code === "auth/too-many-requests") {
+        setError("Muitas tentativas. Aguarde alguns minutos.");
+      } else {
+        setError("Erro ao fazer login");
+      }
     }
     setLoading(false);
   }
@@ -43,18 +67,19 @@ export default function LoginPage() {
         <div className="mb-10 text-center">
           <div className="mb-4 flex justify-center">
             <Image
-              src="/images/logo-com-texto.png"
+              src="/images/logo-com-texto-branco-simples.png"
               alt="ReplyFlow"
-              width={140}
-              height={32}
+              width={200}
+              height={20}
               className="object-contain"
+              style={{ height: "auto" }}
               priority
               unoptimized
             />
           </div>
-          <h1 className="bg-gradient-to-b from-white to-gray-400 bg-clip-text text-3xl font-bold text-transparent">
+          {/* <h1 className="bg-gradient-to-b from-white to-gray-400 bg-clip-text text-3xl font-bold text-transparent">
             ReplyFlow
-          </h1>
+          </h1> */}
           <p className="mt-1.5 text-sm text-gray-500">
             Atendimento inteligente para e-commerce
           </p>
@@ -236,6 +261,12 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-700">
+          Ainda não tem conta?{" "}
+          <Link href="/register" className="text-indigo-500 hover:text-indigo-400 transition-colors">
+            Criar conta
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-gray-700">
           &copy; {new Date().getFullYear()} ReplyFlow
         </p>
       </div>

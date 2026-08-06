@@ -31,10 +31,16 @@ export async function GET() {
   const db = getAdminDb();
   const snap = await db
     .collection("accounts")
-    .orderBy("createdAt", "asc")
+    .where("userId", "==", session.uid)
     .get();
 
-  const accounts = snap.docs.map((d) => {
+  const accounts = snap.docs
+    .sort((a, b) => {
+      const aT = a.data().createdAt?.seconds ?? 0;
+      const bT = b.data().createdAt?.seconds ?? 0;
+      return aT - bT;
+    })
+    .map((d) => {
     const data = d.data();
     // Never return secrets to client
     const {
@@ -101,6 +107,7 @@ export async function POST(req: NextRequest) {
     encryptedShopifyClientSecret: shopifyClientSecret?.trim()
       ? encrypt(shopifyClientSecret.trim())
       : null,
+    userId: session.uid,
     encryptedShopifyToken: null,
     lastUid: 0,
     active: true,

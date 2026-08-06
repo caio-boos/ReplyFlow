@@ -9,11 +9,12 @@ const COOKIE_NAME = "rf_session";
 const MAX_AGE = 60 * 60 * 8; // 8 hours
 
 export interface SessionPayload {
+  uid: string;
   email: string;
 }
 
-export async function createSession(email: string): Promise<string> {
-  return new SignJWT({ email })
+export async function createSession(uid: string, email: string): Promise<string> {
+  return new SignJWT({ uid, email })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE}s`)
@@ -23,7 +24,7 @@ export async function createSession(email: string): Promise<string> {
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, SECRET);
-    return { email: payload["email"] as string };
+    return { uid: payload["uid"] as string, email: payload["email"] as string };
   } catch {
     return null;
   }
