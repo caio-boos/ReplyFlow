@@ -85,9 +85,9 @@ function Navbar() {
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-8">
           {[
-            { href: "#features", label: "Funcionalidades" },
-            { href: "#how-it-works", label: "Como funciona" },
-            { href: "#pricing", label: "Planos" },
+            { href: "#features", label: "Features" },
+            { href: "#how-it-works", label: "How it works" },
+            { href: "#pricing", label: "Pricing" },
           ].map((item) => (
             <a
               key={item.href}
@@ -105,13 +105,13 @@ function Navbar() {
             href="/login"
             className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-1.5"
           >
-            Entrar
+            Log in
           </Link>
           <Link
             href="/register"
             className="text-sm font-medium bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-1.5 rounded-lg transition-colors shadow-lg shadow-emerald-500/20"
           >
-            Começar grátis
+            Get started free
           </Link>
         </div>
 
@@ -165,21 +165,21 @@ function Navbar() {
                   className="text-sm text-zinc-400 hover:text-white transition-colors capitalize"
                 >
                   {href === "#features"
-                    ? "Funcionalidades"
+                    ? "Features"
                     : href === "#how-it-works"
-                      ? "Como funciona"
-                      : "Planos"}
+                      ? "How it works"
+                      : "Pricing"}
                 </a>
               ))}
               <hr className="border-white/8" />
               <Link href="/login" className="text-sm text-zinc-400">
-                Entrar
+                Log in
               </Link>
               <Link
                 href="/register"
                 className="text-sm font-medium bg-emerald-500 text-white px-4 py-2 rounded-lg text-center"
               >
-                Começar grátis
+                Get started free
               </Link>
             </div>
           </motion.div>
@@ -224,7 +224,7 @@ function Hero() {
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/8 text-emerald-400 text-xs font-medium tracking-wide mb-8"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Protege seu gateway · Recupera carrinhos · Responde em 90s
+          Stops chargebacks. Recovers carts. Replies in 90s.
         </motion.div>
 
         {/* Headline */}
@@ -235,9 +235,9 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight text-white leading-[1.05] mb-6"
         >
-          Seu chargeback está
+          One complaint ignored.
           <br />
-          <span className="text-emerald-400">suspendendo seu gateway.</span>
+          <span className="text-emerald-400">One gateway suspended.</span>
         </motion.h1>
 
         {/* Subheading */}
@@ -248,11 +248,11 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.32 }}
           className="text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed"
         >
-          Shopify Payments, Stripe e PayPal suspendem contas com mais de 1% de
-          chargeback. O ReplyFlow responde cada reclamação, ameaça de disputa e
-          pedido de reembolso antes que o cliente abra uma contestação — e ainda
-          recupera carrinhos abandonados para você ganhar de volta o que
-          perderia.
+          Shopify Payments cuts you off at 1% chargeback rate. Stripe does too.
+          PayPal too. ReplyFlow replies to every refund request, delivery
+          complaint, and dispute threat in under 90 seconds. Before it becomes a
+          filed chargeback. It also recovers abandoned carts so you stop leaving
+          money on the table.
         </motion.p>
 
         {/* CTAs */}
@@ -267,7 +267,7 @@ function Hero() {
             href="/register"
             className="group flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5"
           >
-            Proteger minha conta
+            Protect my account
             <svg
               className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
               fill="none"
@@ -299,7 +299,7 @@ function Hero() {
                 d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z"
               />
             </svg>
-            Como funciona
+            See how it works
           </a>
         </motion.div>
 
@@ -322,7 +322,7 @@ function Hero() {
             ))}
           </div>
           <span>
-            Usado por lojas que dependem do Shopify Payments para operar
+            Used by stores that can&apos;t afford to lose their payment gateway
           </span>
         </motion.div>
       </motion.div>
@@ -507,27 +507,28 @@ function Stats() {
 
   const stats = [
     {
-      value: 94,
-      suffix: "%",
-      label: "of emails handled without human review",
-      color: "text-emerald-400",
-    },
-    {
       value: 87,
       suffix: "%",
-      label: "reduction in chargeback threats reported",
+      label: "of chargebacks stopped before they're filed with the bank",
       color: "text-amber-400",
+    },
+    {
+      value: 94,
+      suffix: "%",
+      label: "of support emails handled with zero human input",
+      color: "text-emerald-400",
     },
     {
       value: 90,
       suffix: "s",
-      label: "average response time per customer email",
+      label: "average time from incoming complaint to reply sent",
       color: "text-sky-400",
     },
     {
-      value: 24,
-      suffix: "/7",
-      label: "hours active — even when your team sleeps",
+      value: 3,
+      suffix: "x",
+      label:
+        "average ROI for stores using chargeback prevention plus cart recovery",
       color: "text-rose-400",
     },
   ];
@@ -600,9 +601,9 @@ function Features() {
           />
         </svg>
       ),
-      title: "Respostas contextuais com IA",
+      title: "AI replies that sound like you wrote them",
       description:
-        "O GPT-4o lê todo o histórico da conversa e gera respostas que parecem humanas — citando números de pedido, produtos e mensagens anteriores.",
+        "GPT-4o reads every previous message and order detail before writing a reply. Customers won't know it's automated. You'd be surprised how often they say thanks.",
       accent: "emerald",
     },
     {
@@ -621,9 +622,9 @@ function Features() {
           />
         </svg>
       ),
-      title: "Proteção do gateway de pagamento",
+      title: "Payment gateway protection",
       description:
-        "Shopify Payments, Stripe e PayPal suspendem contas acima de 1% de chargeback. A IA de-escalada cada ameaça antes que vire disputa — sua taxa fica no verde.",
+        "Shopify Payments, Stripe, and PayPal all pull the plug above 1% chargeback rate. The AI de-escalates every threat before it becomes a filed dispute. Your rate stays clean.",
       accent: "amber",
     },
     {
@@ -642,9 +643,9 @@ function Features() {
           />
         </svg>
       ),
-      title: "Integração nativa com Shopify",
+      title: "Native Shopify integration",
       description:
-        "Conexão OAuth em um clique puxa dados reais de pedidos, códigos de rastreamento e detalhes de produtos para cada resposta automática.",
+        "One-click OAuth pulls live order data, tracking numbers, and product details into every reply. No copy-pasting. No tab-switching.",
       accent: "sky",
     },
     {
@@ -669,9 +670,9 @@ function Features() {
           />
         </svg>
       ),
-      title: "Escalonamento inteligente",
+      title: "Smart escalation",
       description:
-        "A IA sabe quando parar. Casos complexos, ameaças jurídicas e reembolsos aceitos criam tarefas automáticas para o seu time revisar.",
+        "When a case needs a human, it creates a task automatically. Accepted refunds, legal threats, address changes. You only see what actually needs you.",
       accent: "rose",
     },
     {
@@ -690,9 +691,9 @@ function Features() {
           />
         </svg>
       ),
-      title: "Funciona com qualquer inbox",
+      title: "Works with any email provider",
       description:
-        "Suporte IMAP/SMTP padrão: Gmail, Outlook, Zoho, Hostinger — qualquer provedor que sua loja já usa hoje.",
+        "Standard IMAP/SMTP. Gmail, Outlook, Zoho, Hostinger, Titan. If your store already uses it, ReplyFlow can monitor it.",
       accent: "violet",
     },
     {
@@ -711,9 +712,9 @@ function Features() {
           />
         </svg>
       ),
-      title: "Recuperação de carrinho abandonado",
+      title: "Abandoned cart recovery",
       description:
-        "Quando um checkout é abandonado, o ReplyFlow envia um follow-up personalizado automaticamente — trazendo o cliente de volta para completar o pedido.",
+        "Abandoned checkout? ReplyFlow follows up with a personalized email referencing the customer's actual cart. Not a generic blast. A real message.",
       accent: "teal",
     },
   ];
@@ -770,13 +771,13 @@ function Features() {
               variants={fadeUp}
               className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-3"
             >
-              Funcionalidades
+              Features
             </motion.p>
             <motion.h2
               variants={fadeUp}
               className="text-4xl font-black text-white tracking-tight leading-tight"
             >
-              Previne chargebacks. Recupera carrinhos. Protege seu faturamento.
+              Stops chargebacks. Recovers carts. Keeps your gateway alive.
             </motion.h2>
           </div>
 
@@ -822,27 +823,25 @@ function HowItWorks() {
   const steps = [
     {
       number: "01",
-      title: "Conecte seu e-mail e Shopify",
+      title: "Connect your inbox and Shopify",
       description:
-        "Adicione sua conta de e-mail com IMAP/SMTP e conecte sua loja Shopify com um clique. O sistema já começa a monitorar em minutos.",
-      detail:
-        "Funciona com Gmail, Outlook, Zoho, Hostinger — qualquer provedor IMAP.",
+        "Add your IMAP/SMTP credentials and link Shopify in one click. No code, no webhooks, no waiting for approval.",
+      detail: "Gmail, Outlook, Zoho, Hostinger, Titan. Any IMAP provider.",
     },
     {
       number: "02",
-      title: "IA responde antes do chargeback",
+      title: "AI intercepts complaints before they escalate",
       description:
-        "Cada reclamação de entrega, pedido de reembolso ou ameaça de disputa recebe uma resposta contextual em menos de 90 segundos — antes que o cliente ligue para o banco.",
+        "Every refund threat, delivery complaint, and angry email gets a contextual reply in under 90 seconds. Before the customer opens a dispute with their bank.",
       detail:
-        "E-mails novos buscados a cada 2 minutos. Taxa de chargeback monitorada continuamente.",
+        "Inbox checked every 2 minutes. Replies go out from your own address.",
     },
     {
       number: "03",
-      title: "Carrinhos abandonados recuperados",
+      title: "Abandoned carts come back",
       description:
-        "Além de defender seu gateway, o ReplyFlow envia follow-ups automáticos para quem abandonou o checkout — convertendo receita perdida em pedidos pagos.",
-      detail:
-        "Fila de tarefas criada só quando o caso realmente precisa de você.",
+        "ReplyFlow also follows up on abandoned checkouts with a personalized message referencing the customer's actual cart. Not a blast. A real email.",
+      detail: "Tasks created only when a case actually needs a human.",
     },
   ];
 
@@ -867,7 +866,7 @@ function HowItWorks() {
               variants={fadeUp}
               className="text-4xl font-black text-white tracking-tight leading-tight"
             >
-              Configurado em minutos. Protegendo sua conta no mesmo dia.
+              Set up in 10 minutes. Protecting your account today.
             </motion.h2>
           </div>
 
@@ -917,23 +916,23 @@ function Testimonials() {
   const testimonials = [
     {
       quote:
-        "Meu Shopify Payments foi suspenso uma vez por chargeback alto. Depois que coloquei o ReplyFlow, minha taxa foi de 2,3% para 0,4% em 6 semanas. Nunca mais tive problema com gateway.",
-      author: "Mateus Rocha",
-      role: "Dono, loja de dropshipping · 800+ pedidos/mês",
+        "My Shopify Payments got suspended once. Two years ago. I switched to ReplyFlow, dropped from 2.3% to 0.4% chargeback rate in six weeks. Haven't had a gateway issue since.",
+      author: "Mateus R.",
+      role: "Dropshipping store owner, 800+ orders/month",
       initials: "MR",
     },
     {
       quote:
-        "O que me surpreendeu foi a recuperação de carrinho. Nos primeiros 30 dias, foram R$ 4.200 em pedidos que teriam sido perdidos. Isso paga o plano várias vezes.",
-      author: "Larissa Fonseca",
-      role: "Gestora de e-commerce · Marca de moda",
+        "The cart recovery alone pays for the plan. $4,200 in recovered orders in the first 30 days. I almost turned that feature off by accident.",
+      author: "Larissa F.",
+      role: "E-commerce manager, Fashion brand",
       initials: "LF",
     },
     {
       quote:
-        "Conectei em 10 minutos. O sistema já sabe o número do pedido, o status de entrega e o histórico do cliente. As respostas parecem que eu mesmo escrevi — o cliente não desconfia.",
-      author: "David Kim",
-      role: "Fundador · Loja de eletrônicos",
+        "Took 10 minutes to connect. It already knew the order number, delivery status, and customer history. The replies sound exactly like me. Customers never suspect a thing.",
+      author: "David K.",
+      role: "Founder, Electronics store",
       initials: "DK",
     },
   ];
@@ -951,13 +950,13 @@ function Testimonials() {
               variants={fadeUp}
               className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-3"
             >
-              O que nossos clientes dizem
+              What our customers say
             </motion.p>
             <motion.h2
               variants={fadeUp}
               className="text-4xl font-black text-white tracking-tight"
             >
-              Gateway protegido. Receita recuperada.
+              Gateway saved. Revenue recovered.
             </motion.h2>
           </div>
 
@@ -1016,45 +1015,46 @@ function Pricing() {
     {
       name: "Starter",
       price: 49,
-      description: "Para lojas que estão começando a proteger seu gateway.",
+      description:
+        "For stores that need to stop chargebacks without hiring support.",
       features: [
-        "1 conta de e-mail",
-        "Até 500 e-mails/mês",
-        "Integração Shopify",
-        "Fila de tarefas básica",
-        "Suporte por e-mail",
+        "1 email account",
+        "Up to 500 emails/mo",
+        "Shopify integration",
+        "Basic task queue",
+        "Email support",
       ],
-      cta: "Começar agora",
+      cta: "Get started",
       highlight: false,
     },
     {
       name: "Growth",
       price: 129,
-      description: "Para marcas em crescimento com alto volume de suporte.",
+      description: "For growing brands getting hit with high support volume.",
       features: [
-        "3 contas de e-mail",
-        "Até 3.000 e-mails/mês",
-        "Integração Shopify",
-        "Fila completa + flags de prioridade",
-        "Prompt de IA personalizável",
-        "Suporte prioritário",
+        "3 email accounts",
+        "Up to 3,000 emails/mo",
+        "Shopify integration",
+        "Full task queue + priority flags",
+        "Custom AI prompt",
+        "Priority support",
       ],
-      cta: "Começar agora",
+      cta: "Get started",
       highlight: true,
     },
     {
       name: "Scale",
       price: 299,
-      description: "Para quem opera múltiplas lojas ou alto volume.",
+      description: "For multi-store operators who can't afford any downtime.",
       features: [
-        "Contas ilimitadas",
-        "E-mails ilimitados",
-        "Shopify multi-loja",
-        "Recuperação de carrinhos",
-        "Análises avançadas",
-        "Onboarding dedicado",
+        "Unlimited accounts",
+        "Unlimited emails",
+        "Multi-store Shopify",
+        "Cart recovery",
+        "Advanced analytics",
+        "Dedicated onboarding",
       ],
-      cta: "Falar com o time",
+      cta: "Talk to us",
       highlight: false,
     },
   ];
@@ -1074,16 +1074,16 @@ function Pricing() {
               variants={fadeUp}
               className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-3"
             >
-              Planos
+              Pricing
             </motion.p>
             <motion.h2
               variants={fadeUp}
               className="text-4xl font-black text-white tracking-tight"
             >
-              Preços simples e previsíveis
+              Flat pricing. No surprises.
             </motion.h2>
             <motion.p variants={fadeUp} className="text-zinc-500 mt-3 text-sm">
-              14 dias grátis em todos os planos. Sem cartão de crédito.
+              14-day free trial on all plans. No credit card required.
             </motion.p>
           </div>
 
@@ -1180,26 +1180,26 @@ function CTA() {
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/8 text-emerald-400 text-xs font-medium mb-8"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            14 dias grátis · Sem cartão de crédito
+            14-day free trial. No credit card.
           </motion.div>
 
           <motion.h2
             variants={fadeUp}
             className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-tight mb-5"
           >
-            Seu gateway não pode
+            Your gateway can&apos;t
             <br />
-            <span className="text-emerald-400">depender da sua sorte.</span>
+            <span className="text-emerald-400">run on luck.</span>
           </motion.h2>
 
           <motion.p
             variants={fadeUp}
             className="text-zinc-400 mb-10 max-w-lg mx-auto leading-relaxed"
           >
-            Cada reclamação não respondida é um chargeback em potencial — e
-            chargebacks acima de 1% suspendem seu Shopify Payments, Stripe ou
-            PayPal. O ReplyFlow resolve isso automaticamente e ainda recupera
-            carrinhos abandonados pelo caminho.
+            Every unanswered complaint is a potential chargeback. Every
+            chargeback above 1% risks your Shopify Payments, Stripe, or PayPal
+            account. ReplyFlow handles it automatically and recovers abandoned
+            carts along the way.
           </motion.p>
 
           <motion.div
@@ -1210,7 +1210,7 @@ function CTA() {
               href="/register"
               className="group flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-7 py-3.5 rounded-xl transition-all shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5 text-sm"
             >
-              Proteger minha conta agora
+              Protect my account
               <svg
                 className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
                 fill="none"
@@ -1229,7 +1229,7 @@ function CTA() {
               href="/login"
               className="text-sm text-zinc-400 hover:text-white transition-colors px-4 py-3.5"
             >
-              Já tenho uma conta →
+              Already have an account →
             </Link>
           </motion.div>
         </motion.div>
@@ -1255,10 +1255,10 @@ function Footer() {
 
           <nav className="flex flex-wrap gap-6">
             {[
-              { href: "#features", label: "Funcionalidades" },
-              { href: "#how-it-works", label: "Como funciona" },
-              { href: "#pricing", label: "Planos" },
-              { href: "/login", label: "Entrar" },
+              { href: "#features", label: "Features" },
+              { href: "#how-it-works", label: "How it works" },
+              { href: "#pricing", label: "Pricing" },
+              { href: "/login", label: "Log in" },
             ].map((item) => (
               <a
                 key={item.href}

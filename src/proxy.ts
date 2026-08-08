@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth/session";
 
-const PUBLIC_PATHS = ["/login", "/register", "/api/auth/login", "/api/auth/register"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/register",
+  "/api/auth/login",
+  "/api/auth/register",
+];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -10,7 +16,8 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith("/api/cron/")) return NextResponse.next();
 
   // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return NextResponse.next();
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p)))
+    return NextResponse.next();
 
   // Verify session cookie
   const token = req.cookies.get(COOKIE_NAME)?.value;
