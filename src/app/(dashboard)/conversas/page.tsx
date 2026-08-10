@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EmailDoc } from "@/lib/types";
 import { useStoreContext } from "../store-context";
@@ -66,6 +66,8 @@ function ConversasContent() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [dayRange, setDayRange] = useState(30);
+  const initialLoaded = useRef(false);
 
   // Pause state — synced from selectedAccount, updated optimistically on toggle
   const [paused, setPaused] = useState(false);
@@ -76,8 +78,9 @@ function ConversasContent() {
   }, [selectedAccount]);
 
   const fetchPage = useCallback(
-    async (cursor?: number) => {
-      const p = new URLSearchParams({ limit: "100" });
+    async (cursor?: number, limit = 100) => {
+      const sinceSeconds = Math.floor(Date.now() / 1000 - dayRange * 86400);
+      const p = new URLSearchParams({ limit: String(limit), slim: "true", since: String(sinceSeconds) });
       if (selectedAccountId !== "all") p.set("accountId", selectedAccountId);
       if (cursor) p.set("cursor", String(cursor));
       const res = await fetch(`/api/emails?${p}`);
@@ -90,11 +93,15 @@ function ConversasContent() {
         nextCursor: data.nextCursor ?? 0,
       };
     },
-    [selectedAccountId],
+    [selectedAccountId, dayRange],
   );
 
   const refreshEmails = useCallback(async () => {
-    const result = await fetchPage();
+    // First load fetches a large batch so counts and search cover all emails;
+    // subsequent 30s polls fetch only the latest 100 for efficiency.
+    const limit = initialLoaded.current ? 100 : 2000;
+    const result = await fetchPage(undefined, limit);
+    initialLoaded.current = true;
     setEmails((prev) => {
       if (prev.length === 0) return result.emails;
       // Merge: update changed statuses + add genuinely new emails
@@ -126,6 +133,7 @@ function ConversasContent() {
 
   useEffect(() => {
     if (storeLoading) return;
+    initialLoaded.current = false;
     setEmails([]);
     setLoading(true);
     refreshEmails();
@@ -181,6 +189,8 @@ function ConversasContent() {
           showPauseToggle={showPauseToggle}
           toggling={toggling}
           onTogglePause={handleTogglePause}
+          dayRange={dayRange}
+          onDayRangeChange={setDayRange}
         />
       </div>
 

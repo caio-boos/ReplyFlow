@@ -6,8 +6,8 @@ import { sendEmail } from "@/lib/email/smtp";
 import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
 import { FieldValue } from "firebase-admin/firestore";
 
-const COUPON_CODE = process.env.REMARKETING_COUPON_CODE ?? "CARRINHO20";
-const DISCOUNT_PERCENT = 20;
+const DEFAULT_COUPON_CODE = process.env.REMARKETING_COUPON_CODE ?? "CARRINHO20";
+const DEFAULT_DISCOUNT_PERCENT = 20;
 const MIN_ABANDON_HOURS = 1;
 const MAX_ABANDON_HOURS = 72;
 
@@ -173,7 +173,9 @@ async function run(req: NextRequest) {
 
       const storeName = (data.fantasyName as string | undefined) || (data.label as string) || data.shopifyDomain;
       const language = (data.replyLanguage as string | undefined) ?? "pt-BR";
-      const checkoutUrl = buildCheckoutUrl(checkout.abandonedCheckoutUrl, COUPON_CODE);
+      const couponCode = (data.couponCode as string | undefined) || DEFAULT_COUPON_CODE;
+      const discountPercent = typeof data.discountPercent === "number" ? data.discountPercent : DEFAULT_DISCOUNT_PERCENT;
+      const checkoutUrl = buildCheckoutUrl(checkout.abandonedCheckoutUrl, couponCode);
 
       const emailItems = checkout.lineItems.map((item) => ({
         ...item,
@@ -186,7 +188,7 @@ async function run(req: NextRequest) {
         items: emailItems,
         totalPrice: checkout.totalPrice,
         currency: checkout.currency,
-        discountPercent: DISCOUNT_PERCENT,
+        discountPercent,
         checkoutUrl,
         language,
       });
@@ -197,12 +199,12 @@ async function run(req: NextRequest) {
         emailItems,
         checkout.totalPrice,
         checkout.currency,
-        DISCOUNT_PERCENT,
+        discountPercent,
         checkoutUrl,
         language,
       );
 
-      const subject = buildSubject(DISCOUNT_PERCENT, language);
+      const subject = buildSubject(discountPercent, language);
 
       const remarketingRef = db.collection("remarketing").doc();
 
@@ -237,7 +239,7 @@ async function run(req: NextRequest) {
           currency: checkout.currency,
           lineItems: sanitizedLineItems,
           abandonedCheckoutUrl: checkoutUrl,
-          couponCode: COUPON_CODE,
+          couponCode: couponCode,
           sentMessageId: sendResult.messageId,
           status: "sent",
           repliedEmailId: null,
@@ -260,7 +262,7 @@ async function run(req: NextRequest) {
           currency: checkout.currency,
           lineItems: sanitizedLineItems,
           abandonedCheckoutUrl: checkoutUrl,
-          couponCode: COUPON_CODE,
+          couponCode: couponCode,
           sentMessageId: "",
           status: "failed",
           errorMessage: err instanceof Error ? err.message : String(err),

@@ -27,6 +27,7 @@ interface StoreContextValue {
   setSelectedAccountId: (id: string) => void;
   selectedAccount: StoreAccount | null;
   loading: boolean;
+  refreshAccounts: () => void;
 }
 
 const StoreContext = createContext<StoreContextValue>({
@@ -35,6 +36,7 @@ const StoreContext = createContext<StoreContextValue>({
   setSelectedAccountId: () => {},
   selectedAccount: null,
   loading: true,
+  refreshAccounts: () => {},
 });
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -69,6 +71,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, id);
   }
 
+  function refreshAccounts() {
+    fetch("/api/accounts")
+      .then((r) => r.json())
+      .then((d) => setAccounts(d.accounts ?? []));
+  }
+
   const selectedAccount =
     accounts.find((a) => a.id === selectedAccountId) ?? null;
 
@@ -80,6 +88,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSelectedAccountId,
         selectedAccount,
         loading,
+        refreshAccounts,
       }}
     >
       {children}

@@ -29,13 +29,26 @@ export async function GET(req: NextRequest) {
   const ids =
     accountId && ownedIds.includes(accountId) ? [accountId] : ownedIds;
 
+  const slim = searchParams.get("slim") === "true";
+  const sinceSeconds = parseInt(searchParams.get("since") ?? "0", 10);
+
   let query: FirebaseFirestore.Query = db
     .collection("emails")
     .orderBy("receivedAt", "desc");
   if (status) query = query.where("status", "==", status);
   query = query.where("accountId", "in", ids);
+  if (sinceSeconds > 0) {
+    query = query.where("receivedAt", ">=", Timestamp.fromMillis(sinceSeconds * 1000));
+  }
   if (cursorSeconds > 0) {
     query = query.startAfter(Timestamp.fromMillis(cursorSeconds * 1000));
+  }
+  if (slim) {
+    // Only return fields needed for the conversation list — omits bodyText/bodyHtml/aiResponse
+    query = query.select(
+      "accountId", "customerId", "from", "fromName", "subject",
+      "status", "receivedAt", "chargebackRisk", "remarketing", "classifyConfidence",
+    );
   }
 
   const snap = await query.limit(limitParam).get();

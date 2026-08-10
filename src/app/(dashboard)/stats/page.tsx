@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useStoreContext } from "../store-context";
 
 interface StatsPeriod {
   chargebacksAvoided: number;
@@ -315,6 +316,7 @@ function AccountsTable({
 }
 
 export default function StatsPage() {
+  const { selectedAccountId, selectedAccount } = useStoreContext();
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<"month" | "allTime">("month");
@@ -326,8 +328,32 @@ export default function StatsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const stats = data ? data[period] : null;
-  const hasShopify = data?.perAccount?.some((a) => a.shopifyConnected) ?? false;
+  // Filter per-account data based on the sidebar store selector
+  const filteredAccounts =
+    !data ? [] :
+    selectedAccountId === "all"
+      ? data.perAccount
+      : data.perAccount.filter((a) => a.id === selectedAccountId);
+
+  // Recompute totals from filtered accounts when a specific account is selected
+  const stats: (StatsPeriod & { autoReplyRate?: number }) | null =
+    !data ? null :
+    selectedAccountId === "all"
+      ? data[period]
+      : filteredAccounts.reduce(
+          (acc, a) => ({
+            chargebacksAvoided: acc.chargebacksAvoided + a[period].chargebacksAvoided,
+            refundsResolved: acc.refundsResolved + a[period].refundsResolved,
+            valueAtRisk: acc.valueAtRisk + a[period].valueAtRisk,
+            ordersWithValue: acc.ordersWithValue + a[period].ordersWithValue,
+            emailsProcessed: acc.emailsProcessed + a[period].emailsProcessed,
+            aiCostUsd: acc.aiCostUsd + a[period].aiCostUsd,
+            autoReplyRate: data[period].autoReplyRate,
+          }),
+          { chargebacksAvoided: 0, refundsResolved: 0, valueAtRisk: 0, ordersWithValue: 0, emailsProcessed: 0, aiCostUsd: 0, autoReplyRate: 0 },
+        );
+
+  const hasShopify = filteredAccounts.some((a) => a.shopifyConnected);
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
@@ -336,7 +362,9 @@ export default function StatsPage() {
         <div>
           <h1 className="text-xl font-semibold text-gray-100">Relatórios</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            Impacto do ReplyFlow na proteção contra chargebacks
+            {selectedAccountId === "all"
+              ? "Impacto do ReplyFlow em todas as contas"
+              : `Impacto do ReplyFlow — ${selectedAccount?.label ?? ""}`}
           </p>
         </div>
         <div className="flex items-center gap-1 bg-gray-900/60 border border-white/6 rounded-xl p-1 self-start">
@@ -509,7 +537,7 @@ export default function StatsPage() {
 
       {/* Per-account table */}
       <AccountsTable
-        accounts={data?.perAccount ?? []}
+        accounts={filteredAccounts}
         period={period}
         loading={loading}
       />

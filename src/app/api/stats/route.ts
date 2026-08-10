@@ -69,7 +69,7 @@ export async function GET() {
   const recentDocs = recentSnap.docs.filter(isOwned);
   const allSentDocs = allSentSnap.docs.filter(isOwned);
 
-  // Helper to aggregate per group of docs
+  // Helper to aggregate per group of docs — deduplicates orderValue by customerId+accountId
   function aggregate(cbDocs: FirebaseFirestore.QueryDocumentSnapshot[], refundDocs: FirebaseFirestore.QueryDocumentSnapshot[], sinceMs?: number) {
     const cbFiltered = sinceMs
       ? cbDocs.filter((d) => (d.data().sentAt?.seconds ?? 0) * 1000 >= sinceMs)
@@ -78,17 +78,25 @@ export async function GET() {
       ? refundDocs.filter((d) => (d.data().sentAt?.seconds ?? 0) * 1000 >= sinceMs)
       : refundDocs;
 
-    // Avoid double-counting
+    // Avoid double-counting docs flagged as both chargeback and refund
     const refundOnly = refundFiltered.filter((d) => !d.data().chargebackRisk);
     const combined = [...cbFiltered, ...refundOnly];
 
-    const valueAtRisk = combined.reduce(
-      (sum, d) => sum + (typeof d.data().orderValue === "number" ? d.data().orderValue : 0),
-      0,
-    );
-    const ordersWithValue = combined.filter(
-      (d) => typeof d.data().orderValue === "number" && d.data().orderValue > 0,
-    ).length;
+    // Deduplicate orderValue by customerId+accountId — one value per customer per account
+    const seenCustomers = new Set<string>();
+    let valueAtRisk = 0;
+    let ordersWithValue = 0;
+    for (const d of combined) {
+      const { accountId, customerId, orderValue } = d.data();
+      const key = `${accountId}:${customerId}`;
+      if (!seenCustomers.has(key)) {
+        seenCustomers.add(key);
+        if (typeof orderValue === "number" && orderValue > 0) {
+          valueAtRisk += orderValue;
+          ordersWithValue++;
+        }
+      }
+    }
 
     return {
       chargebacksAvoided: cbFiltered.length,

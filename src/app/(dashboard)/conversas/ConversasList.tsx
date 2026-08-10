@@ -63,6 +63,8 @@ interface Props {
   showPauseToggle: boolean;
   toggling: boolean;
   onTogglePause: () => void;
+  dayRange: number;
+  onDayRangeChange: (days: number) => void;
 }
 
 export default function ConversasList({
@@ -77,6 +79,8 @@ export default function ConversasList({
   showPauseToggle,
   toggling,
   onTogglePause,
+  dayRange,
+  onDayRangeChange,
 }: Props) {
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
@@ -233,6 +237,24 @@ export default function ConversasList({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Date range filter */}
+      <div className="flex items-center gap-1 px-3 pb-1.5 shrink-0">
+        <span className="text-[11px] text-gray-600 mr-0.5">Últimos:</span>
+        {([7, 30, 60, 90, 180] as const).map((d) => (
+          <button
+            key={d}
+            onClick={() => onDayRangeChange(d)}
+            className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+              dayRange === d
+                ? "bg-indigo-500/20 text-indigo-300"
+                : "text-gray-600 hover:text-gray-400"
+            }`}
+          >
+            {d}d
+          </button>
+        ))}
       </div>
 
       {/* Tabs */}

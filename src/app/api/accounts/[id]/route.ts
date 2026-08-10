@@ -42,6 +42,8 @@ export async function PATCH(
     "testEmail",
     "fantasyName",
     "recoveryLookbackDays",
+    "couponCode",
+    "discountPercent",
   ];
   const update: Record<string, unknown> = {
     updatedAt: FieldValue.serverTimestamp(),

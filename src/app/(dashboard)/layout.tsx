@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { StoreProvider, useStoreContext, StoreAccount } from "./store-context";
 import { ConfirmProvider } from "./ConfirmDialog";
 import { Toaster } from "sonner";
+import AccountsPanel from "./AccountsPanel";
 
 // ─── Navigation structure ────────────────────────────────────────────────────
 
@@ -388,6 +389,22 @@ function SettingsPanel({
   onToggleTheme: () => void;
 }) {
   const { accounts } = useStoreContext();
+  const [panelView, setPanelView] = useState<"settings" | "accounts">("settings");
+  const [accountInitialView, setAccountInitialView] = useState<"list" | "add">("list");
+  const [accountInitialEditId, setAccountInitialEditId] = useState<string | null>(null);
+  // Remount AccountsPanel when opening to pick up fresh initialView/editId
+  const [accountsPanelKey, setAccountsPanelKey] = useState(0);
+
+  function openAccounts(view: "list" | "add", editId?: string) {
+    setAccountInitialView(view);
+    setAccountInitialEditId(editId ?? null);
+    setAccountsPanelKey((k) => k + 1);
+    setPanelView("accounts");
+  }
+
+  useEffect(() => {
+    if (!open) setPanelView("settings");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -429,56 +446,56 @@ function SettingsPanel({
           open ? "translate-y-0" : "translate-y-full"
         }`}
       >
-        {/* Header */}
+        {/* Header — changes based on which sub-view is active */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/8 shrink-0 bg-gray-900/50 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-              <svg
-                className="w-4 h-4 text-indigo-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {panelView === "accounts" ? (
+              <button
+                onClick={() => setPanelView("settings")}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.75}
-                  d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.75}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-sm font-semibold text-white">
-                Configurações
-              </h1>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Gerencie sua conta e preferências
-              </p>
-            </div>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="font-semibold text-white">Contas de E-mail</span>
+              </button>
+            ) : (
+              <>
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                  <svg
+                    className="w-4 h-4 text-indigo-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.75}
+                      d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.75}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-sm font-semibold text-white">Configurações</h1>
+                  <p className="text-xs text-gray-500 mt-0.5">Gerencie sua conta e preferências</p>
+                </div>
+              </>
+            )}
           </div>
           <button
             onClick={onClose}
             className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
             aria-label="Fechar configurações"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -486,6 +503,14 @@ function SettingsPanel({
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-8 space-y-10">
+            {panelView === "accounts" ? (
+              <AccountsPanel
+                key={accountsPanelKey}
+                initialView={accountInitialView}
+                initialEditId={accountInitialEditId}
+              />
+            ) : (
+              <>
             {/* ── Aparência ── */}
             <section>
               <div className="mb-4">
@@ -599,9 +624,8 @@ function SettingsPanel({
                     Gerencie suas integrações com a Shopify
                   </p>
                 </div>
-                <Link
-                  href="/accounts"
-                  onClick={onClose}
+                <button
+                  onClick={() => openAccounts("add")}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"
                 >
                   <svg
@@ -618,7 +642,7 @@ function SettingsPanel({
                     />
                   </svg>
                   Nova conta
-                </Link>
+                </button>
               </div>
 
               <div className="space-y-2.5">
@@ -641,9 +665,8 @@ function SettingsPanel({
                     <p className="text-xs text-gray-600 mb-5">
                       Conecte sua loja Shopify para começar a usar o ReplyFlow
                     </p>
-                    <Link
-                      href="/accounts"
-                      onClick={onClose}
+                    <button
+                      onClick={() => openAccounts("add")}
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#96BF48] hover:bg-[#85aa3d] text-white text-sm font-semibold rounded-xl transition-colors"
                     >
                       Conectar loja Shopify
@@ -660,7 +683,7 @@ function SettingsPanel({
                           d="M9 5l7 7-7 7"
                         />
                       </svg>
-                    </Link>
+                    </button>
                   </div>
                 ) : (
                   <>
@@ -693,19 +716,17 @@ function SettingsPanel({
                             {account.email}
                           </p>
                         </div>
-                        <Link
-                          href="/accounts"
-                          onClick={onClose}
+                        <button
+                          onClick={() => openAccounts("list", account.id)}
                           className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all shrink-0"
                         >
                           Gerenciar
-                        </Link>
+                        </button>
                       </div>
                     ))}
-                    <Link
-                      href="/accounts"
-                      onClick={onClose}
-                      className="flex items-center gap-4 p-4 border border-dashed border-white/10 rounded-xl hover:border-[#96BF48]/40 hover:bg-[#96BF48]/5 transition-all group"
+                    <button
+                      onClick={() => openAccounts("add")}
+                      className="flex items-center gap-4 p-4 w-full text-left border border-dashed border-white/10 rounded-xl hover:border-[#96BF48]/40 hover:bg-[#96BF48]/5 transition-all group"
                     >
                       <div className="w-14 h-14 rounded-xl bg-[#96BF48]/10 border border-[#96BF48]/20 flex items-center justify-center shrink-0">
                         <Image
@@ -739,7 +760,7 @@ function SettingsPanel({
                           d="M9 5l7 7-7 7"
                         />
                       </svg>
-                    </Link>
+                    </button>
                   </>
                 )}
               </div>
@@ -853,6 +874,8 @@ function SettingsPanel({
                 </svg>
               </Link>
             </section>
+              </>
+            )}
           </div>
         </div>
       </div>
