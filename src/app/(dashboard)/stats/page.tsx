@@ -336,22 +336,23 @@ export default function StatsPage() {
       : data.perAccount.filter((a) => a.id === selectedAccountId);
 
   // Recompute totals from filtered accounts when a specific account is selected
-  const stats: (StatsPeriod & { autoReplyRate?: number }) | null =
-    !data ? null :
-    selectedAccountId === "all"
-      ? data[period]
-      : filteredAccounts.reduce(
-          (acc, a) => ({
-            chargebacksAvoided: acc.chargebacksAvoided + a[period].chargebacksAvoided,
-            refundsResolved: acc.refundsResolved + a[period].refundsResolved,
-            valueAtRisk: acc.valueAtRisk + a[period].valueAtRisk,
-            ordersWithValue: acc.ordersWithValue + a[period].ordersWithValue,
-            emailsProcessed: acc.emailsProcessed + a[period].emailsProcessed,
-            aiCostUsd: acc.aiCostUsd + a[period].aiCostUsd,
-            autoReplyRate: data[period].autoReplyRate,
-          }),
-          { chargebacksAvoided: 0, refundsResolved: 0, valueAtRisk: 0, ordersWithValue: 0, emailsProcessed: 0, aiCostUsd: 0, autoReplyRate: 0 },
-        );
+  const stats: (StatsPeriod & { autoReplyRate?: number }) | null = (() => {
+    if (!data) return null;
+    if (selectedAccountId === "all") return period === "month" ? data.month : data.allTime;
+    const periodRate = period === "month" ? data.month.autoReplyRate : (data.allTime.autoReplyRate ?? 0);
+    return filteredAccounts.reduce<StatsPeriod & { autoReplyRate?: number }>(
+      (acc, a) => ({
+        chargebacksAvoided: acc.chargebacksAvoided + a[period].chargebacksAvoided,
+        refundsResolved: acc.refundsResolved + a[period].refundsResolved,
+        valueAtRisk: acc.valueAtRisk + a[period].valueAtRisk,
+        ordersWithValue: acc.ordersWithValue + a[period].ordersWithValue,
+        emailsProcessed: acc.emailsProcessed + a[period].emailsProcessed,
+        aiCostUsd: acc.aiCostUsd + a[period].aiCostUsd,
+        autoReplyRate: periodRate,
+      }),
+      { chargebacksAvoided: 0, refundsResolved: 0, valueAtRisk: 0, ordersWithValue: 0, emailsProcessed: 0, aiCostUsd: 0, autoReplyRate: 0 },
+    );
+  })();
 
   const hasShopify = filteredAccounts.some((a) => a.shopifyConnected);
 

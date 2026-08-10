@@ -236,3 +236,65 @@ export function formatOrderForAI(order: ShopifyOrder, trackingUrlTemplate?: stri
   }
   return lines.join("\n");
 }
+
+export interface RefundedOrder {
+  id: number;
+  name: string;
+  totalPrice: number;
+  totalRefunded: number;
+  currency: string;
+  financialStatus: string;
+  createdAt: string;
+}
+
+export async function getRefundedOrders(
+  domain: string,
+  token: string,
+  sinceDate?: Date,
+): Promise<RefundedOrder[]> {
+  // Two separate calls — Shopify REST doesn't accept comma-separated financial_status
+  const seen = new Set<number>();
+  const result: RefundedOrder[] = [];
+
+  for (const status of ["refunded", "partially_refunded"] as const) {
+    const params = new URLSearchParams({ status: "any", financial_status: status, limit: "250" });
+    if (sinceDate) params.set("created_at_min", sinceDate.toISOString());
+
+    const data = await shopifyFetch(domain, token, `orders.json?${params}`);
+    const orders = (data?.orders as Record<string, unknown>[]) ?? [];
+
+
+    for (const order of orders) {
+      const id = order.id as number;
+      if (seen.has(id)) continue; // dedupe — a refunded order won't appear twice but be safe
+      seen.add(id);
+
+      const refunds = (order.refunds as Record<string, unknown>[]) ?? [];
+      let totalRefunded = 0;
+      for (const refund of refunds) {
+        const transactions = (refund.transactions as Record<string, unknown>[]) ?? [];
+        for (const txn of transactions) {
+          if (txn.kind === "refund" && txn.status === "success") {
+            totalRefunded += parseFloat((txn.amount as string) ?? "0");
+          }
+        }
+      }
+      // Shopify void/auto-cancel: refunds[] is empty but current_total_price dropped to 0
+      if (totalRefunded === 0 && order.financial_status === "refunded") {
+        const currentPrice = parseFloat((order.current_total_price as string) ?? "1");
+        if (currentPrice === 0) totalRefunded = parseFloat((order.total_price as string) ?? "0");
+      }
+      result.push({
+        id,
+        name: order.name as string,
+        totalPrice: parseFloat((order.total_price as string) ?? "0"),
+        totalRefunded,
+        currency: (order.currency as string) ?? "USD",
+        financialStatus: (order.financial_status as string) ?? "refunded",
+        createdAt: (order.created_at as string) ?? "",
+      });
+    }
+  }
+
+  return result;
+}

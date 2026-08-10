@@ -793,7 +793,7 @@ export default function ConversaDetail({ emailId, onBack, onRefresh }: Props) {
             const isCurrent = item.id === emailId;
             const sc2 = STATUS_CFG[item.status] ?? STATUS_CFG.cancelled;
             const date = formatDateTime(item.receivedAt);
-            const displayName = item.fromName || item.from;
+            const displayName = item.fromName || item.from || "?";
             const initial = displayName.charAt(0).toUpperCase();
             const text = item.bodyText ? extractNewText(item.bodyText) : null;
 
