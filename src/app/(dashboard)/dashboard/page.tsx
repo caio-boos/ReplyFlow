@@ -812,57 +812,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-
-              {/* Disputas de Pagamento — emails com chargebackRisk */}
-              {!loading && (at?.chargebackItems.length ?? 0) > 0 && (
-                <div className="bg-gray-900/60 border border-white/6 rounded-2xl overflow-hidden">
-                  <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-200">Disputas de Pagamento</h3>
-                      <p className="text-xs text-gray-600 mt-0.5">Clientes que abriram contestação junto ao banco/cartão</p>
-                    </div>
-                    <span className="text-xs text-gray-600">{at!.chargebackItems.length} caso{at!.chargebackItems.length !== 1 ? "s" : ""}</span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr>
-                          {["Cliente", "Assunto", "Valor em Risco", "Data", ""].map((h, i) => (
-                            <th key={i} className={`px-4 py-2.5 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : i === 4 ? "text-center" : "text-right"}`}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {at!.chargebackItems.map((item) => (
-                          <tr key={item.id} className="border-t border-white/5 hover:bg-white/2 transition-colors">
-                            <td className="px-4 py-3">
-                              <p className="text-sm text-gray-200">{item.fromName || item.from}</p>
-                              <p className="text-xs text-gray-600 font-mono">{item.from}</p>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-400 max-w-50 truncate">{item.subject}</td>
-                            <td className="px-4 py-3 text-right">
-                              <span className="text-sm text-amber-400">
-                                {item.orderValueUSD > 0 ? fmtCurrency(toDisplay(item.orderValueUSD), displayCurrency) : "—"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-500 text-right whitespace-nowrap">
-                              {item.sentAt ? fmtDate(item.sentAt) : "—"}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <Link
-                                href={`/conversas?id=${item.customerId || encodeURIComponent(item.from)}`}
-                                className="px-2.5 py-1 rounded-lg text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
-                              >
-                                Ver →
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>

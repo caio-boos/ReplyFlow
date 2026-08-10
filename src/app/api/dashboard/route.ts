@@ -194,7 +194,13 @@ export async function GET(req: NextRequest) {
       sentAt: data.sentAt ? new Date((data.sentAt as { seconds: number }).seconds * 1000).toISOString().slice(0, 10) : "",
       accountLabel: filteredAccounts.find((a) => a.id === data.accountId)?.label ?? "",
     };
-  }).sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+  }).sort((a, b) => b.sentAt.localeCompare(a.sentAt))
+    .filter(((seen) => (item: { customerId: string; from: string }) => {
+      const key = item.customerId || item.from;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })(new Set<string>()));
 
   const refundedOrders = allRefundedOrders.map((o) => ({
     id: String(o.id),
