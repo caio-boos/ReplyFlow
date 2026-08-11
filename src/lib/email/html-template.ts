@@ -1,3 +1,5 @@
+import { RemarketingTemplateConfig } from "./types";
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -184,8 +186,44 @@ function resolveLanguage(lang?: string): keyof typeof REMARKETING_TRANSLATIONS {
   return "pt-BR";
 }
 
-export function renderRemarketingEmailHtml(data: RemarketingEmailData): string {
+export function renderRemarketingEmailHtml(
+  data: RemarketingEmailData,
+  customTemplate?: RemarketingTemplateConfig,
+): string {
   const t = REMARKETING_TRANSLATIONS[resolveLanguage(data.language)];
+
+  // Cores do template (usa custom ou defaults)
+  const colors = customTemplate
+    ? {
+        primary: customTemplate.primaryColor,
+        accent: customTemplate.accentColor,
+        background: customTemplate.backgroundColor,
+        text: customTemplate.textColor,
+        border: customTemplate.borderColor,
+        buttonBg: customTemplate.buttonColor,
+        buttonText: customTemplate.buttonTextColor,
+        buttonRadius: customTemplate.buttonBorderRadius,
+        bannerBg: customTemplate.bannerBackgroundColor,
+        bannerBorder: customTemplate.bannerBorderColor,
+        bannerText: customTemplate.bannerTextColor,
+        footerBg: customTemplate.footerBackgroundColor,
+        footerText: customTemplate.footerTextColor,
+      }
+    : {
+        primary: "#1d4ed8",
+        accent: "#fbbf24",
+        background: "#f3f4f6",
+        text: "#111827",
+        border: "#e5e7eb",
+        buttonBg: "#1d4ed8",
+        buttonText: "#ffffff",
+        buttonRadius: "6px",
+        bannerBg: "#fffbeb",
+        bannerBorder: "#fbbf24",
+        bannerText: "#92400e",
+        footerBg: "#f9fafb",
+        footerText: "#9ca3af",
+      };
 
   const itemsHtml = data.items
     .map((item) => {
@@ -228,30 +266,30 @@ export function renderRemarketingEmailHtml(data: RemarketingEmailData): string {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+<body style="margin:0;padding:0;background-color:${colors.background};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-    style="background-color:#f3f4f6;padding:40px 16px;min-width:320px">
+    style="background-color:${colors.background};padding:40px 16px;min-width:320px">
     <tr>
       <td align="center" valign="top">
 
         <!-- Card -->
         <table role="presentation" width="580" cellpadding="0" cellspacing="0" border="0"
           style="max-width:580px;width:100%;background-color:#ffffff;border-radius:6px;
-                 border:1px solid #e5e7eb;overflow:hidden">
+                 border:1px solid ${colors.border};overflow:hidden">
 
           <!-- Top accent bar -->
           <tr>
-            <td style="height:4px;background-color:#1d4ed8;font-size:0;line-height:0">&nbsp;</td>
+            <td style="height:4px;background-color:${colors.primary};font-size:0;line-height:0">&nbsp;</td>
           </tr>
 
           <!-- Greeting + body -->
           <tr>
             <td style="padding:36px 48px 24px 48px">
-              <p style="margin:0 0 16px;font-size:22px;font-weight:700;color:#111827;line-height:1.3">
-                ${t.greeting(escapeHtml(data.customerName))}
+              <p style="margin:0 0 16px;font-size:22px;font-weight:700;color:${colors.text};line-height:1.3">
+                ${customTemplate?.customGreeting ? customTemplate.customGreeting.replace("{{name}}", escapeHtml(data.customerName)) : t.greeting(escapeHtml(data.customerName))}
               </p>
               <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#374151">
-                ${t.body(data.storeName)}
+                ${customTemplate?.customBody ? customTemplate.customBody.replace("{{store}}", escapeHtml(data.storeName)) : t.body(data.storeName)}
               </p>
 
               <!-- Cart title -->
@@ -261,15 +299,15 @@ export function renderRemarketingEmailHtml(data: RemarketingEmailData): string {
 
               <!-- Items -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                style="border:1px solid #e5e7eb;border-radius:6px;padding:16px 16px 2px 16px;margin-bottom:20px">
+                style="border:1px solid ${colors.border};border-radius:6px;padding:16px 16px 2px 16px;margin-bottom:20px">
                 ${itemsHtml}
                 <!-- Total row -->
                 <tr>
-                  <td style="border-top:1px solid #e5e7eb;padding-top:12px;padding-bottom:14px">
+                  <td style="border-top:1px solid ${colors.border};padding-top:12px;padding-bottom:14px">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <td style="font-size:14px;font-weight:600;color:#111827">${t.totalLabel}</td>
-                        <td align="right" style="font-size:15px;font-weight:700;color:#111827">
+                        <td style="font-size:14px;font-weight:600;color:${colors.text}">${t.totalLabel}</td>
+                        <td align="right" style="font-size:15px;font-weight:700;color:${colors.text}">
                           ${data.currency} ${totalFormatted}
                         </td>
                       </tr>
@@ -282,11 +320,11 @@ export function renderRemarketingEmailHtml(data: RemarketingEmailData): string {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
                 style="margin-bottom:24px">
                 <tr>
-                  <td style="background-color:#fffbeb;border:1px solid #fbbf24;border-radius:6px;padding:12px 16px;text-align:center">
-                    <p style="margin:0;font-size:14px;color:#92400e">
+                  <td style="background-color:${colors.bannerBg};border:1px solid ${colors.bannerBorder};border-radius:6px;padding:12px 16px;text-align:center">
+                    <p style="margin:0;font-size:14px;color:${colors.bannerText}">
                       ${t.discountBanner(data.discountPercent)}
                     </p>
-                    <p style="margin:4px 0 0;font-size:12px;color:#a16207">${t.validNote}</p>
+                    <p style="margin:4px 0 0;font-size:12px;color:${colors.bannerText}">${t.validNote}</p>
                   </td>
                 </tr>
               </table>
@@ -297,10 +335,10 @@ export function renderRemarketingEmailHtml(data: RemarketingEmailData): string {
                 <tr>
                   <td align="center">
                     <a href="${data.checkoutUrl}"
-                      style="display:inline-block;background-color:#1d4ed8;color:#ffffff;font-size:15px;font-weight:600;
-                             padding:14px 32px;border-radius:6px;text-decoration:none;letter-spacing:0.01em;
+                      style="display:inline-block;background-color:${colors.buttonBg};color:${colors.buttonText};font-size:15px;font-weight:600;
+                             padding:14px 32px;border-radius:${colors.buttonRadius};text-decoration:none;letter-spacing:0.01em;
                              mso-padding-alt:14px 32px">
-                      ${t.button(data.discountPercent)}
+                      ${customTemplate?.customButtonText ? customTemplate.customButtonText.replace("{{discount}}", data.discountPercent.toString()) : t.button(data.discountPercent)}
                     </a>
                   </td>
                 </tr>
@@ -311,8 +349,8 @@ export function renderRemarketingEmailHtml(data: RemarketingEmailData): string {
 
           <!-- Footer -->
           <tr>
-            <td style="padding:16px 48px 24px 48px;border-top:1px solid #e5e7eb;background-color:#f9fafb">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
+            <td style="padding:16px 48px 24px 48px;border-top:1px solid ${colors.border};background-color:${colors.footerBg}">
+              <p style="margin:0;font-size:12px;color:${colors.footerText};line-height:1.5">
                 ${t.footer(data.storeName)}
               </p>
             </td>

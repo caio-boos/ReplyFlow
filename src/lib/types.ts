@@ -39,6 +39,34 @@ export interface EmailDoc {
   classifyConfidence?: "high" | "medium" | "low";
 }
 
+export interface RemarketingTemplateConfig {
+  // Cores
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  borderColor: string;
+
+  // Botão
+  buttonColor: string;
+  buttonTextColor: string;
+  buttonBorderRadius: string;
+
+  // Banner de desconto
+  bannerBackgroundColor: string;
+  bannerBorderColor: string;
+  bannerTextColor: string;
+
+  // Footer
+  footerBackgroundColor: string;
+  footerTextColor: string;
+
+  // Textos customizados (opcional - usa defaults se vazio)
+  customGreeting?: string; // Ex: "Olá {{name}}, tudo bem?"
+  customBody?: string; // Ex: "Vimos que você deixou algo no carrinho..."
+  customButtonText?: string; // Ex: "Aproveitar desconto de {{discount}}%"
+}
+
 export interface AccountDoc {
   id: string;
   label: string;
