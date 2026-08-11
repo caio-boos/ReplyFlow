@@ -1,4 +1,4 @@
-import { RemarketingTemplateConfig } from "./types";
+import { RemarketingTemplateConfig } from "@/lib/types";
 
 function escapeHtml(str: string): string {
   return str
