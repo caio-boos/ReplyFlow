@@ -236,7 +236,7 @@ async function run(req: NextRequest) {
         .doc(accountDoc.id)
         .get();
       const customTemplate = templateDoc.exists
-        ? templateDoc.data()
+        ? (templateDoc.data() as import("@/lib/types").RemarketingTemplateConfig)
         : undefined;
 
       const emailHtml = renderRemarketingEmailHtml(

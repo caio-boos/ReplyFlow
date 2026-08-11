@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
 
 export async function GET(
@@ -16,6 +17,11 @@ export async function GET(
   if (!doc.exists) return new NextResponse("Not found", { status: 404 });
 
   const d = doc.data()!;
+
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (!ownedIds.includes(d.accountId as string)) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
 
   const accountDoc = await db
     .collection("accounts")
@@ -33,7 +39,9 @@ export async function GET(
     .collection("remarketingTemplates")
     .doc(d.accountId as string)
     .get();
-  const customTemplate = templateDoc.exists ? templateDoc.data() : undefined;
+  const customTemplate = templateDoc.exists
+    ? (templateDoc.data() as import("@/lib/types").RemarketingTemplateConfig)
+    : undefined;
 
   const html = renderRemarketingEmailHtml(
     {

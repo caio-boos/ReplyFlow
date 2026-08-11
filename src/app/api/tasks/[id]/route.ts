@@ -1,23 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const body = await req.json();
   const db = getAdminDb();
   const ref = db.collection("tasks").doc(id);
   const doc = await ref.get();
-  if (!doc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!doc.exists)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (!ownedIds.includes(doc.data()?.accountId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const update: Record<string, unknown> = {
+    updatedAt: FieldValue.serverTimestamp(),
+  };
   if (typeof body.completed === "boolean") update.completed = body.completed;
   if (typeof body.note === "string") update.note = body.note;
 
@@ -27,13 +37,24 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
-  await db.collection("tasks").doc(id).delete();
+  const ref = db.collection("tasks").doc(id);
+  const doc = await ref.get();
+  if (!doc.exists)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (!ownedIds.includes(doc.data()?.accountId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await ref.delete();
   return NextResponse.json({ ok: true });
 }

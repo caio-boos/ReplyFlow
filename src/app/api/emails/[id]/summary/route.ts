@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { FieldPath } from "firebase-admin/firestore";
 import OpenAI from "openai";
 
@@ -15,15 +16,23 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
 
   const emailDoc = await db.collection("emails").doc(id).get();
-  if (!emailDoc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!emailDoc.exists)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const emailData = emailDoc.data()!;
+
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (!ownedIds.includes(emailData.accountId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const customerId = emailData.customerId;
 
   // Fetch all emails for this customer
@@ -58,13 +67,17 @@ export async function POST(
         fromName: d.fromName ?? "",
         bodyText: d.bodyText ?? "",
         aiResponse: d.aiResponse ?? null,
-        receivedAt: d.receivedAt ? { seconds: d.receivedAt.seconds ?? d.receivedAt._seconds } : null,
+        receivedAt: d.receivedAt
+          ? { seconds: d.receivedAt.seconds ?? d.receivedAt._seconds }
+          : null,
         status: d.status ?? "",
       });
     }
   }
 
-  allEmails.sort((a, b) => (a.receivedAt?.seconds ?? 0) - (b.receivedAt?.seconds ?? 0));
+  allEmails.sort(
+    (a, b) => (a.receivedAt?.seconds ?? 0) - (b.receivedAt?.seconds ?? 0),
+  );
 
   const emailsBlock = allEmails
     .map((e, i) => {
@@ -112,7 +125,10 @@ Reply only with the summary. Do not add any preamble.`;
   const completion = await getClient().chat.completions.create({
     model: "gpt-4o",
     messages: [
-      { role: "system", content: "You are a customer support analyst. Be factual and concise." },
+      {
+        role: "system",
+        content: "You are a customer support analyst. Be factual and concise.",
+      },
       { role: "user", content: prompt },
     ],
     temperature: 0.2,

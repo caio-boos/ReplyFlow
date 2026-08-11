@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { decrypt } from "@/lib/crypto/encryption";
 import { generateReply, extractFlags, computeCostUsd } from "@/lib/ai/openai";
 import { sendEmail } from "@/lib/email/smtp";
@@ -28,11 +29,18 @@ export async function POST(
 
   let resend = false;
   let manualReply: string | null = null;
-  let manualAttachments: Array<{ filename: string; contentType: string; data: string }> = [];
+  let manualAttachments: Array<{
+    filename: string;
+    contentType: string;
+    data: string;
+  }> = [];
   try {
     const body = await req.json();
     resend = body?.resend === true;
-    manualReply = typeof body?.manualReply === "string" && body.manualReply.trim() ? body.manualReply.trim() : null;
+    manualReply =
+      typeof body?.manualReply === "string" && body.manualReply.trim()
+        ? body.manualReply.trim()
+        : null;
     if (Array.isArray(body?.manualAttachments)) {
       manualAttachments = body.manualAttachments.filter(
         (a: unknown) =>
@@ -54,6 +62,12 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const emailData = emailDoc.data()!;
+
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (!ownedIds.includes(emailData.accountId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const allowedStatuses =
     manualReply || resend
       ? ["sent", "failed", "cancelled", "pending", "processing"]
@@ -86,7 +100,10 @@ export async function POST(
       contextDoc.data()?.systemPrompt ??
       "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
-    const emailHistory = await getCustomerEmailHistory(emailData.customerId, emailData.accountId);
+    const emailHistory = await getCustomerEmailHistory(
+      emailData.customerId,
+      emailData.accountId,
+    );
 
     // Lookup Shopify order if account has Shopify integration
     let orderInfo: string | null = null;
@@ -190,10 +207,15 @@ export async function POST(
         to: emailData.from,
         subject: emailData.subject,
         text: aiResponse,
-        html: renderEmailHtml(aiResponse, accountData.label || accountData.email),
+        html: renderEmailHtml(
+          aiResponse,
+          accountData.label || accountData.email,
+        ),
         inReplyTo: emailData.messageId,
         references: [...(emailData.references ?? []), emailData.messageId],
-        ...(manualAttachments.length > 0 ? { attachments: manualAttachments } : {}),
+        ...(manualAttachments.length > 0
+          ? { attachments: manualAttachments }
+          : {}),
       },
     );
 
@@ -204,7 +226,9 @@ export async function POST(
       smtpMessageId: sendResult.messageId,
       smtpResponse: sendResult.smtpResponse,
       error: null,
-      ...(aiGenerateCost > 0 ? { aiCostUsd: FieldValue.increment(aiGenerateCost) } : {}),
+      ...(aiGenerateCost > 0
+        ? { aiCostUsd: FieldValue.increment(aiGenerateCost) }
+        : {}),
     });
 
     // Extract flags (non-blocking)

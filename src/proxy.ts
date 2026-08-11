@@ -5,8 +5,8 @@ const PUBLIC_PATHS = [
   "/",
   "/login",
   "/register",
-  "/api/auth/login",
-  "/api/auth/register",
+  "/api/auth/",
+  "/api/shopify/",
 ];
 
 export async function proxy(req: NextRequest) {
@@ -40,5 +40,7 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|images/).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|images/|logotipoproduto/).*)",
+  ],
 };
