@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Paginator from "../Paginator";
+import { useStoreContext } from "../store-context";
 
 interface Customer {
   id: string;
@@ -38,21 +39,27 @@ function avatarGradient(id: string) {
 }
 
 export default function CustomersPage() {
+  const { selectedAccountId } = useStoreContext();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    fetch("/api/customers", { credentials: "include" })
+    setLoading(true);
+    const params = new URLSearchParams({ limit: "500" });
+    if (selectedAccountId && selectedAccountId !== "all") {
+      params.set("accountId", selectedAccountId);
+    }
+    fetch(`/api/customers?${params}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setCustomers(d.customers ?? []))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedAccountId]);
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, selectedAccountId]);
 
   const filtered = search.trim()
     ? customers.filter((c) => {
