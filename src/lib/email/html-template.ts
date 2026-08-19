@@ -1,4 +1,14 @@
-import { RemarketingTemplateConfig } from "@/lib/types";
+import { RemarketingTemplateConfig, ReplyTemplateConfig } from "@/lib/types";
+
+const REPLY_DEFAULTS: ReplyTemplateConfig = {
+  primaryColor: "#1d4ed8",
+  backgroundColor: "#f3f4f6",
+  borderColor: "#e5e7eb",
+  textColor: "#374151",
+  footerBackgroundColor: "#f9fafb",
+  footerTextColor: "#9ca3af",
+  showLogo: false,
+};
 
 function escapeHtml(str: string): string {
   return str
@@ -366,7 +376,14 @@ export function renderRemarketingEmailHtml(
 </html>`;
 }
 
-export function renderEmailHtml(text: string, storeName: string): string {
+export function renderEmailHtml(
+  text: string,
+  storeName: string,
+  config?: Partial<ReplyTemplateConfig>,
+  logoUrl?: string | null,
+): string {
+  const c = { ...REPLY_DEFAULTS, ...config };
+
   const paragraphs = text
     .split(/\n{2,}/)
     .map((block) => block.trim())
@@ -375,9 +392,18 @@ export function renderEmailHtml(text: string, storeName: string): string {
   const bodyHtml = paragraphs
     .map((block) => {
       const lines = block.split("\n").map(parseInline).join("<br>");
-      return `<p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#374151">${lines}</p>`;
+      return `<p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:${escapeHtml(c.textColor)}">${lines}</p>`;
     })
     .join("");
+
+  const logoBlock =
+    c.showLogo && logoUrl
+      ? `<tr>
+            <td style="padding:24px 48px 0 48px">
+              <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(storeName)}" style="max-height:40px;max-width:160px;object-fit:contain;display:block" />
+            </td>
+          </tr>`
+      : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -386,21 +412,23 @@ export function renderEmailHtml(text: string, storeName: string): string {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+<body style="margin:0;padding:0;background-color:${escapeHtml(c.backgroundColor)};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-    style="background-color:#f3f4f6;padding:40px 16px;min-width:320px">
+    style="background-color:${escapeHtml(c.backgroundColor)};padding:40px 16px;min-width:320px">
     <tr>
       <td align="center" valign="top">
 
         <!-- Card -->
         <table role="presentation" width="580" cellpadding="0" cellspacing="0" border="0"
           style="max-width:580px;width:100%;background-color:#ffffff;border-radius:6px;
-                 border:1px solid #e5e7eb;overflow:hidden">
+                 border:1px solid ${escapeHtml(c.borderColor)};overflow:hidden">
 
           <!-- Top accent bar -->
           <tr>
-            <td style="height:4px;background-color:#1d4ed8;font-size:0;line-height:0">&nbsp;</td>
+            <td style="height:4px;background-color:${escapeHtml(c.primaryColor)};font-size:0;line-height:0">&nbsp;</td>
           </tr>
+
+          ${logoBlock}
 
           <!-- Body -->
           <tr>
@@ -411,8 +439,8 @@ export function renderEmailHtml(text: string, storeName: string): string {
 
           <!-- Divider + footer -->
           <tr>
-            <td style="padding:16px 48px 24px 48px;border-top:1px solid #e5e7eb;background-color:#f9fafb">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
+            <td style="padding:16px 48px 24px 48px;border-top:1px solid ${escapeHtml(c.borderColor)};background-color:${escapeHtml(c.footerBackgroundColor)}">
+              <p style="margin:0;font-size:12px;color:${escapeHtml(c.footerTextColor)};line-height:1.5">
                 ${escapeHtml(storeName)}
               </p>
             </td>

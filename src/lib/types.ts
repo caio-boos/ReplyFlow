@@ -67,6 +67,28 @@ export interface RemarketingTemplateConfig {
   customButtonText?: string; // Ex: "Aproveitar desconto de {{discount}}%"
 }
 
+export type TemplateType = "reply" | "remarketing";
+
+export interface TemplateLibraryItem {
+  id: string;
+  accountId: string;
+  type: TemplateType;
+  name: string;
+  isActive: boolean;
+  createdAt: { seconds: number; nanoseconds: number };
+  config: ReplyTemplateConfig | RemarketingTemplateConfig;
+}
+
+export interface ReplyTemplateConfig {
+  primaryColor: string; // barra topo do email
+  backgroundColor: string; // fundo externo
+  borderColor: string; // borda do card
+  textColor: string; // corpo do texto
+  footerBackgroundColor: string;
+  footerTextColor: string;
+  showLogo: boolean; // exibe logo da conta (account.logoUrl)
+}
+
 export interface AccountDoc {
   id: string;
   label: string;

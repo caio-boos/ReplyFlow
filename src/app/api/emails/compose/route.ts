@@ -68,10 +68,27 @@ export async function POST(req: NextRequest) {
   const db = getAdminDb();
   const accountDoc = await db.collection("accounts").doc(accountId).get();
   if (!accountDoc.exists)
-    return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Conta não encontrada" },
+      { status: 404 },
+    );
 
   const accountData = accountDoc.data()!;
   const password = decrypt(accountData.encryptedPassword);
+
+  // Fetch reply template (non-blocking)
+  let replyTemplate: import("@/lib/types").ReplyTemplateConfig | undefined;
+  try {
+    const replyTemplateDoc = await db
+      .collection("replyTemplates")
+      .doc(accountId)
+      .get();
+    if (replyTemplateDoc.exists)
+      replyTemplate =
+        replyTemplateDoc.data() as import("@/lib/types").ReplyTemplateConfig;
+  } catch {
+    // non-fatal
+  }
 
   try {
     const sendResult = await sendEmail(
@@ -85,7 +102,12 @@ export async function POST(req: NextRequest) {
         to,
         subject,
         text: body,
-        html: renderEmailHtml(body, accountData.label || accountData.email),
+        html: renderEmailHtml(
+          body,
+          accountData.label || accountData.email,
+          replyTemplate,
+          replyTemplate?.showLogo ? (accountData.logoUrl ?? null) : null,
+        ),
         ...(attachments.length > 0 ? { attachments } : {}),
       },
     );
