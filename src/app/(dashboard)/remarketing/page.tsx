@@ -229,6 +229,7 @@ export default function RemarketingPage() {
             />
           </div>
         </div>
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div>
@@ -326,7 +327,6 @@ export default function RemarketingPage() {
               </button>
             </div>
           </div>
-        )}
       </div>
 
       {/* Stats */}
