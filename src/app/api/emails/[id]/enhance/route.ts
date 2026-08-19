@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { decrypt } from "@/lib/crypto/encryption";
-import { getCustomerEmailHistory, extractOrderNumbers } from "@/lib/customer/identifier";
+import {
+  getCustomerEmailHistory,
+  extractOrderNumbers,
+} from "@/lib/customer/identifier";
 import {
   getShopifyOrderByNumber,
   getShopifyOrdersByEmail,
@@ -23,7 +27,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const { draft } = await req.json();
@@ -33,12 +38,22 @@ export async function POST(
 
   const db = getAdminDb();
   const emailDoc = await db.collection("emails").doc(id).get();
-  if (!emailDoc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!emailDoc.exists)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const emailData = emailDoc.data()!;
 
-  const accountDoc = await db.collection("accounts").doc(emailData.accountId).get();
-  if (!accountDoc.exists) return NextResponse.json({ error: "Account not found" }, { status: 400 });
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (!ownedIds.includes(emailData.accountId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const accountDoc = await db
+    .collection("accounts")
+    .doc(emailData.accountId)
+    .get();
+  if (!accountDoc.exists)
+    return NextResponse.json({ error: "Account not found" }, { status: 400 });
   const accountData = accountDoc.data()!;
 
   const systemContext =
@@ -46,25 +61,38 @@ export async function POST(
     "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
   const storeName = accountData.label || accountData.email;
-  const emailHistory = await getCustomerEmailHistory(emailData.customerId, emailData.accountId);
+  const emailHistory = await getCustomerEmailHistory(
+    emailData.customerId,
+    emailData.accountId,
+  );
 
   // Shopify lookup (best-effort)
   let orderInfo: string | null = null;
   if (accountData.shopifyDomain && accountData.encryptedShopifyToken) {
     try {
       const shopifyToken = decrypt(accountData.encryptedShopifyToken);
-      const searchText = (emailData.subject ?? "") + " " + (emailData.bodyText ?? "");
+      const searchText =
+        (emailData.subject ?? "") + " " + (emailData.bodyText ?? "");
       const orderNumbers = extractOrderNumbers(searchText);
       let order = null;
       for (const num of orderNumbers) {
-        order = await getShopifyOrderByNumber(accountData.shopifyDomain, shopifyToken, num);
+        order = await getShopifyOrderByNumber(
+          accountData.shopifyDomain,
+          shopifyToken,
+          num,
+        );
         if (order) break;
       }
       if (!order) {
-        const orders = await getShopifyOrdersByEmail(accountData.shopifyDomain, shopifyToken, emailData.from);
+        const orders = await getShopifyOrdersByEmail(
+          accountData.shopifyDomain,
+          shopifyToken,
+          emailData.from,
+        );
         if (orders.length > 0) order = orders[0];
       }
-      if (order) orderInfo = formatOrderForAI(order, accountData.trackingUrlTemplate);
+      if (order)
+        orderInfo = formatOrderForAI(order, accountData.trackingUrlTemplate);
     } catch {
       /* non-fatal */
     }
@@ -84,10 +112,18 @@ export async function POST(
   const resolvedContext = systemContext.replaceAll("{{STORE_NAME}}", storeName);
 
   const LANGUAGE_NAMES: Record<string, string> = {
-    en: "English", pt: "Portuguese", es: "Spanish", fr: "French",
-    de: "German", it: "Italian", nl: "Dutch", ja: "Japanese", zh: "Chinese (Simplified)",
+    en: "English",
+    pt: "Portuguese",
+    es: "Spanish",
+    fr: "French",
+    de: "German",
+    it: "Italian",
+    nl: "Dutch",
+    ja: "Japanese",
+    zh: "Chinese (Simplified)",
   };
-  const targetLanguage = LANGUAGE_NAMES[accountData.replyLanguage ?? "en"] ?? "English";
+  const targetLanguage =
+    LANGUAGE_NAMES[accountData.replyLanguage ?? "en"] ?? "English";
 
   const systemPrompt = `You are a customer support agent for the store "${storeName}".
 
@@ -129,6 +165,9 @@ Write the final polished reply in ${targetLanguage} based on the agent's draft a
     promptTokens: completion.usage?.prompt_tokens ?? 0,
     completionTokens: completion.usage?.completion_tokens ?? 0,
   });
-  await db.collection("emails").doc(id).update({ aiCostUsd: FieldValue.increment(cost) });
+  await db
+    .collection("emails")
+    .doc(id)
+    .update({ aiCostUsd: FieldValue.increment(cost) });
   return NextResponse.json({ enhanced });
 }

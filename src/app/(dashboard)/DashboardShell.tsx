@@ -1,8 +1,5 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth/session";
-import DashboardShell from "./DashboardShell";
+"use client";
 
-<<<<<<< HEAD
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -109,25 +106,6 @@ const NAV_SECTIONS = [
               strokeLinejoin="round"
               strokeWidth={1.75}
               d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
-            />
-          </svg>
-        ),
-      },
-      {
-        href: "/advertorials",
-        label: "Advertoriais",
-        icon: (
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.75}
-              d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46"
             />
           </svg>
         ),
@@ -411,9 +389,15 @@ function SettingsPanel({
   onToggleTheme: () => void;
 }) {
   const { accounts } = useStoreContext();
-  const [panelView, setPanelView] = useState<"settings" | "accounts">("settings");
-  const [accountInitialView, setAccountInitialView] = useState<"list" | "add">("list");
-  const [accountInitialEditId, setAccountInitialEditId] = useState<string | null>(null);
+  const [panelView, setPanelView] = useState<"settings" | "accounts">(
+    "settings",
+  );
+  const [accountInitialView, setAccountInitialView] = useState<"list" | "add">(
+    "list",
+  );
+  const [accountInitialEditId, setAccountInitialEditId] = useState<
+    string | null
+  >(null);
   // Remount AccountsPanel when opening to pick up fresh initialView/editId
   const [accountsPanelKey, setAccountsPanelKey] = useState(0);
 
@@ -476,10 +460,22 @@ function SettingsPanel({
                 onClick={() => setPanelView("settings")}
                 className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
-                <span className="font-semibold text-white">Contas de E-mail</span>
+                <span className="font-semibold text-white">
+                  Contas de E-mail
+                </span>
               </button>
             ) : (
               <>
@@ -505,8 +501,12 @@ function SettingsPanel({
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-sm font-semibold text-white">Configurações</h1>
-                  <p className="text-xs text-gray-500 mt-0.5">Gerencie sua conta e preferências</p>
+                  <h1 className="text-sm font-semibold text-white">
+                    Configurações
+                  </h1>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Gerencie sua conta e preferências
+                  </p>
                 </div>
               </>
             )}
@@ -516,8 +516,18 @@ function SettingsPanel({
             className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
             aria-label="Fechar configurações"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -533,167 +543,127 @@ function SettingsPanel({
               />
             ) : (
               <>
-            {/* ── Aparência ── */}
-            <section>
-              <div className="mb-4">
-                <h2 className="text-sm font-semibold text-white">Aparência</h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Escolha o tema da interface
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => theme !== "dark" && onToggleTheme()}
-                  className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
-                    theme === "dark"
-                      ? "bg-indigo-500/10 border-indigo-500/30 ring-1 ring-inset ring-indigo-500/30"
-                      : "bg-white/3 border-white/6 hover:bg-white/5"
-                  }`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme === "dark" ? "bg-indigo-500/20" : "bg-white/5"}`}
-                  >
-                    <svg
-                      className={`w-5 h-5 ${theme === "dark" ? "text-indigo-300" : "text-gray-500"}`}
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm font-medium leading-tight ${theme === "dark" ? "text-white" : "text-gray-400"}`}
-                    >
-                      Modo escuro
-                    </p>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      Interface com fundo escuro
+                {/* ── Aparência ── */}
+                <section>
+                  <div className="mb-4">
+                    <h2 className="text-sm font-semibold text-white">
+                      Aparência
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Escolha o tema da interface
                     </p>
                   </div>
-                  {theme === "dark" && (
-                    <svg
-                      className="w-4 h-4 text-indigo-400 shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => theme !== "dark" && onToggleTheme()}
+                      className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
+                        theme === "dark"
+                          ? "bg-indigo-500/10 border-indigo-500/30 ring-1 ring-inset ring-indigo-500/30"
+                          : "bg-white/3 border-white/6 hover:bg-white/5"
+                      }`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M4.5 12.75l6 6 9-13.5"
-                      />
-                    </svg>
-                  )}
-                </button>
-                <button
-                  onClick={() => theme !== "light" && onToggleTheme()}
-                  className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
-                    theme === "light"
-                      ? "bg-indigo-500/10 border-indigo-500/30 ring-1 ring-inset ring-indigo-500/30"
-                      : "bg-white/3 border-white/6 hover:bg-white/5"
-                  }`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme === "light" ? "bg-indigo-500/20" : "bg-white/5"}`}
-                  >
-                    <svg
-                      className={`w-5 h-5 ${theme === "light" ? "text-indigo-300" : "text-gray-500"}`}
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme === "dark" ? "bg-indigo-500/20" : "bg-white/5"}`}
+                      >
+                        <svg
+                          className={`w-5 h-5 ${theme === "dark" ? "text-indigo-300" : "text-gray-500"}`}
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-sm font-medium leading-tight ${theme === "dark" ? "text-white" : "text-gray-400"}`}
+                        >
+                          Modo escuro
+                        </p>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          Interface com fundo escuro
+                        </p>
+                      </div>
+                      {theme === "dark" && (
+                        <svg
+                          className="w-4 h-4 text-indigo-400 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => theme !== "light" && onToggleTheme()}
+                      className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
+                        theme === "light"
+                          ? "bg-indigo-500/10 border-indigo-500/30 ring-1 ring-inset ring-indigo-500/30"
+                          : "bg-white/3 border-white/6 hover:bg-white/5"
+                      }`}
                     >
-                      <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
-                    </svg>
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme === "light" ? "bg-indigo-500/20" : "bg-white/5"}`}
+                      >
+                        <svg
+                          className={`w-5 h-5 ${theme === "light" ? "text-indigo-300" : "text-gray-500"}`}
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-sm font-medium leading-tight ${theme === "light" ? "text-white" : "text-gray-400"}`}
+                        >
+                          Modo claro
+                        </p>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          Interface com fundo claro
+                        </p>
+                      </div>
+                      {theme === "light" && (
+                        <svg
+                          className="w-4 h-4 text-indigo-400 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      )}
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm font-medium leading-tight ${theme === "light" ? "text-white" : "text-gray-400"}`}
-                    >
-                      Modo claro
-                    </p>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      Interface com fundo claro
-                    </p>
-                  </div>
-                  {theme === "light" && (
-                    <svg
-                      className="w-4 h-4 text-indigo-400 shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M4.5 12.75l6 6 9-13.5"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </section>
+                </section>
 
-            {/* ── Lojas conectadas ── */}
-            <section>
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h2 className="text-sm font-semibold text-white">
-                    Lojas conectadas
-                  </h2>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Gerencie suas integrações com a Shopify
-                  </p>
-                </div>
-                <button
-                  onClick={() => openAccounts("add")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"
-                >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Nova conta
-                </button>
-              </div>
-
-              <div className="space-y-2.5">
-                {accounts.length === 0 ? (
-                  <div className="border-2 border-dashed border-white/10 rounded-2xl p-10 text-center">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#96BF48]/10 border border-[#96BF48]/20 flex items-center justify-center">
-                      <Image
-                        src="/images/shopify-logo.png"
-                        alt="Shopify"
-                        width={40}
-                        height={12}
-                        className="opacity-70"
-                        style={{ height: "auto" }}
-                        unoptimized
-                      />
+                {/* ── Lojas conectadas ── */}
+                <section>
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <h2 className="text-sm font-semibold text-white">
+                        Lojas conectadas
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Gerencie suas integrações com a Shopify
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-gray-400 mb-1">
-                      Nenhuma loja conectada
-                    </p>
-                    <p className="text-xs text-gray-600 mb-5">
-                      Conecte sua loja Shopify para começar a usar o ReplyFlow
-                    </p>
                     <button
                       onClick={() => openAccounts("add")}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#96BF48] hover:bg-[#85aa3d] text-white text-sm font-semibold rounded-xl transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"
                     >
-                      Conectar loja Shopify
                       <svg
-                        className="w-4 h-4"
+                        className="w-3.5 h-3.5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -702,75 +672,154 @@ function SettingsPanel({
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M9 5l7 7-7 7"
+                          d="M12 4v16m8-8H4"
                         />
                       </svg>
+                      Nova conta
                     </button>
                   </div>
-                ) : (
-                  <>
-                    {accounts.map((account) => (
-                      <div
-                        key={account.id}
-                        className="flex items-center gap-4 p-4 bg-white/3 border border-white/6 rounded-xl hover:bg-white/5 transition-colors"
-                      >
-                        <StoreAvatar account={account} size="lg" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-semibold text-white truncate">
-                              {account.label}
-                            </span>
-                            {account.shopifyConnected && (
-                              <span className="flex items-center gap-1 px-2 py-0.5 bg-[#96BF48]/10 border border-[#96BF48]/20 rounded-full">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#96BF48]" />
-                                <span className="text-[10px] font-medium text-[#96BF48]">
-                                  Shopify
-                                </span>
-                              </span>
-                            )}
-                            {account.remarketingEnabled && (
-                              <span className="px-2 py-0.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-[10px] font-medium text-yellow-400">
-                                Remarketing
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-500 truncate">
-                            {account.email}
-                          </p>
+
+                  <div className="space-y-2.5">
+                    {accounts.length === 0 ? (
+                      <div className="border-2 border-dashed border-white/10 rounded-2xl p-10 text-center">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#96BF48]/10 border border-[#96BF48]/20 flex items-center justify-center">
+                          <Image
+                            src="/images/shopify-logo.png"
+                            alt="Shopify"
+                            width={40}
+                            height={12}
+                            className="opacity-70"
+                            style={{ height: "auto" }}
+                            unoptimized
+                          />
                         </div>
+                        <p className="text-sm font-medium text-gray-400 mb-1">
+                          Nenhuma loja conectada
+                        </p>
+                        <p className="text-xs text-gray-600 mb-5">
+                          Conecte sua loja Shopify para começar a usar o
+                          ReplyFlow
+                        </p>
                         <button
-                          onClick={() => openAccounts("list", account.id)}
-                          className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all shrink-0"
+                          onClick={() => openAccounts("add")}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#96BF48] hover:bg-[#85aa3d] text-white text-sm font-semibold rounded-xl transition-colors"
                         >
-                          Gerenciar
+                          Conectar loja Shopify
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
                         </button>
                       </div>
-                    ))}
-                    <button
-                      onClick={() => openAccounts("add")}
-                      className="flex items-center gap-4 p-4 w-full text-left border border-dashed border-white/10 rounded-xl hover:border-[#96BF48]/40 hover:bg-[#96BF48]/5 transition-all group"
-                    >
-                      <div className="w-14 h-14 rounded-xl bg-[#96BF48]/10 border border-[#96BF48]/20 flex items-center justify-center shrink-0">
-                        <Image
-                          src="/images/shopify-logo.png"
-                          alt="Shopify"
-                          width={36}
-                          height={11}
-                          unoptimized
-                          style={{ height: "auto" }}
-                          className="opacity-60 group-hover:opacity-90 transition-opacity"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
-                          Conectar nova loja
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          Adicione mais uma loja Shopify ao ReplyFlow
-                        </p>
-                      </div>
+                    ) : (
+                      <>
+                        {accounts.map((account) => (
+                          <div
+                            key={account.id}
+                            className="flex items-center gap-4 p-4 bg-white/3 border border-white/6 rounded-xl hover:bg-white/5 transition-colors"
+                          >
+                            <StoreAvatar account={account} size="lg" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold text-white truncate">
+                                  {account.label}
+                                </span>
+                                {account.shopifyConnected && (
+                                  <span className="flex items-center gap-1 px-2 py-0.5 bg-[#96BF48]/10 border border-[#96BF48]/20 rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#96BF48]" />
+                                    <span className="text-[10px] font-medium text-[#96BF48]">
+                                      Shopify
+                                    </span>
+                                  </span>
+                                )}
+                                {account.remarketingEnabled && (
+                                  <span className="px-2 py-0.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-[10px] font-medium text-yellow-400">
+                                    Remarketing
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 truncate">
+                                {account.email}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => openAccounts("list", account.id)}
+                              className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all shrink-0"
+                            >
+                              Gerenciar
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => openAccounts("add")}
+                          className="flex items-center gap-4 p-4 w-full text-left border border-dashed border-white/10 rounded-xl hover:border-[#96BF48]/40 hover:bg-[#96BF48]/5 transition-all group"
+                        >
+                          <div className="w-14 h-14 rounded-xl bg-[#96BF48]/10 border border-[#96BF48]/20 flex items-center justify-center shrink-0">
+                            <Image
+                              src="/images/shopify-logo.png"
+                              alt="Shopify"
+                              width={36}
+                              height={11}
+                              unoptimized
+                              style={{ height: "auto" }}
+                              className="opacity-60 group-hover:opacity-90 transition-opacity"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
+                              Conectar nova loja
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              Adicione mais uma loja Shopify ao ReplyFlow
+                            </p>
+                          </div>
+                          <svg
+                            className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </section>
+
+                {/* ── Contexto de IA ── */}
+                <section>
+                  <div className="mb-5">
+                    <h2 className="text-sm font-semibold text-white">
+                      Contexto de IA
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Configure o tom de voz e o comportamento das respostas
+                      automáticas
+                    </p>
+                  </div>
+                  <Link
+                    href="/context"
+                    onClick={onClose}
+                    className="flex items-center gap-4 p-4 bg-white/3 border border-white/6 rounded-xl hover:bg-white/5 transition-colors group"
+                  >
+                    <div className="w-14 h-14 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
                       <svg
-                        className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors shrink-0"
+                        className="w-6 h-6 text-indigo-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -778,124 +827,89 @@ function SettingsPanel({
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
+                          strokeWidth={1.75}
+                          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
                         />
                       </svg>
-                    </button>
-                  </>
-                )}
-              </div>
-            </section>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-white">
+                        Prompt e tom de voz
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Personalize como a IA responde seus clientes
+                      </p>
+                    </div>
+                    <svg
+                      className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
+                </section>
 
-            {/* ── Contexto de IA ── */}
-            <section>
-              <div className="mb-5">
-                <h2 className="text-sm font-semibold text-white">
-                  Contexto de IA
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Configure o tom de voz e o comportamento das respostas
-                  automáticas
-                </p>
-              </div>
-              <Link
-                href="/context"
-                onClick={onClose}
-                className="flex items-center gap-4 p-4 bg-white/3 border border-white/6 rounded-xl hover:bg-white/5 transition-colors group"
-              >
-                <div className="w-14 h-14 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                  <svg
-                    className="w-6 h-6 text-indigo-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                {/* ── Recuperação de carrinho ── */}
+                <section>
+                  <div className="mb-5">
+                    <h2 className="text-sm font-semibold text-white">
+                      Recuperação de carrinho
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Campanhas automáticas para carrinhos abandonados
+                    </p>
+                  </div>
+                  <Link
+                    href="/remarketing"
+                    onClick={onClose}
+                    className="flex items-center gap-4 p-4 bg-white/3 border border-white/6 rounded-xl hover:bg-white/5 transition-colors group"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.75}
-                      d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
-                    />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">
-                    Prompt e tom de voz
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Personalize como a IA responde seus clientes
-                  </p>
-                </div>
-                <svg
-                  className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
-            </section>
-
-            {/* ── Recuperação de carrinho ── */}
-            <section>
-              <div className="mb-5">
-                <h2 className="text-sm font-semibold text-white">
-                  Recuperação de carrinho
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Campanhas automáticas para carrinhos abandonados
-                </p>
-              </div>
-              <Link
-                href="/remarketing"
-                onClick={onClose}
-                className="flex items-center gap-4 p-4 bg-white/3 border border-white/6 rounded-xl hover:bg-white/5 transition-colors group"
-              >
-                <div className="w-14 h-14 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
-                  <svg
-                    className="w-6 h-6 text-yellow-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.75}
-                      d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
-                    />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">
-                    Campanhas de remarketing
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Acompanhe e configure a recuperação de carrinhos abandonados
-                  </p>
-                </div>
-                <svg
-                  className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
-            </section>
+                    <div className="w-14 h-14 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
+                      <svg
+                        className="w-6 h-6 text-yellow-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.75}
+                          d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-white">
+                        Campanhas de remarketing
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Acompanhe e configure a recuperação de carrinhos
+                        abandonados
+                      </p>
+                    </div>
+                    <svg
+                      className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
+                </section>
               </>
             )}
           </div>
@@ -1148,15 +1162,22 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
 
 // ─── Root layout export ───────────────────────────────────────────────────────
 
-export default function DashboardLayout({
-=======
-export default async function DashboardLayout({
->>>>>>> a6bbc631af160a463909bab59ebb5529da18cd89
+export default function DashboardShell({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <StoreProvider>
+      <ConfirmProvider>
+        <SidebarLayout>{children}</SidebarLayout>
+      </ConfirmProvider>
+      <Toaster
+        position="bottom-right"
+        theme="dark"
+        richColors
+        toastOptions={{ classNames: { toast: "!font-sans !text-xs" } }}
+      />
+    </StoreProvider>
+  );
 }

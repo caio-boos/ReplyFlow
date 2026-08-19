@@ -21,7 +21,12 @@ function buildCheckoutUrl(url: string, coupon: string): string {
 function buildPlainText(
   customerName: string,
   storeName: string,
-  items: Array<{ title: string; quantity: number; price: number; currency: string }>,
+  items: Array<{
+    title: string;
+    quantity: number;
+    price: number;
+    currency: string;
+  }>,
   totalPrice: number,
   currency: string,
   discountPercent: number,
@@ -29,7 +34,12 @@ function buildPlainText(
   language?: string,
 ): string {
   const lang = (language ?? "pt-BR").toLowerCase();
-  const itemsList = items.map((i) => `• ${i.quantity}x ${i.title} — ${i.currency} ${i.price.toFixed(2)}`).join("\n");
+  const itemsList = items
+    .map(
+      (i) =>
+        `• ${i.quantity}x ${i.title} — ${i.currency} ${i.price.toFixed(2)}`,
+    )
+    .join("\n");
 
   if (lang.startsWith("en"))
     return `Hi, ${customerName}!\n\nYou left some items in your cart at ${storeName}.\n\nYour cart:\n${itemsList}\n\nTotal: ${currency} ${totalPrice.toFixed(2)}\n\n🎁 ${discountPercent}% discount applied automatically:\n${checkoutUrl}\n\nOffer valid for 48 hours. Questions? Just reply to this email.\n\n— ${storeName}`;
@@ -62,14 +72,22 @@ function buildPlainText(
 /** Subject line per language */
 function buildSubject(discountPercent: number, language?: string): string {
   const lang = (language ?? "pt-BR").toLowerCase();
-  if (lang.startsWith("en")) return `You left something behind — ${discountPercent}% off just for you!`;
-  if (lang.startsWith("es")) return `¡Olvidaste algo! Descuento de ${discountPercent}% esperándote`;
-  if (lang.startsWith("ja")) return `カートに商品が残っています — ${discountPercent}%割引の特別オファー`;
-  if (lang.startsWith("fr")) return `Vous avez oublié quelque chose — ${discountPercent}% de réduction rien que pour vous !`;
-  if (lang.startsWith("de")) return `Du hast etwas vergessen — ${discountPercent}% Rabatt nur für dich!`;
-  if (lang.startsWith("it")) return `Hai dimenticato qualcosa — ${discountPercent}% di sconto solo per te!`;
-  if (lang.startsWith("nl")) return `Je hebt iets achtergelaten — ${discountPercent}% korting speciaal voor jou!`;
-  if (lang.startsWith("zh")) return `您的购物车在等待您 — 专属${discountPercent}%折扣`;
+  if (lang.startsWith("en"))
+    return `You left something behind — ${discountPercent}% off just for you!`;
+  if (lang.startsWith("es"))
+    return `¡Olvidaste algo! Descuento de ${discountPercent}% esperándote`;
+  if (lang.startsWith("ja"))
+    return `カートに商品が残っています — ${discountPercent}%割引の特別オファー`;
+  if (lang.startsWith("fr"))
+    return `Vous avez oublié quelque chose — ${discountPercent}% de réduction rien que pour vous !`;
+  if (lang.startsWith("de"))
+    return `Du hast etwas vergessen — ${discountPercent}% Rabatt nur für dich!`;
+  if (lang.startsWith("it"))
+    return `Hai dimenticato qualcosa — ${discountPercent}% di sconto solo per te!`;
+  if (lang.startsWith("nl"))
+    return `Je hebt iets achtergelaten — ${discountPercent}% korting speciaal voor jou!`;
+  if (lang.startsWith("zh"))
+    return `您的购物车在等待您 — 专属${discountPercent}%折扣`;
   return `Você esqueceu alguns itens no carrinho — ${discountPercent}% de desconto para você!`;
 }
 
@@ -118,7 +136,9 @@ async function run(req: NextRequest) {
     try {
       shopifyToken = decrypt(data.encryptedShopifyToken);
     } catch {
-      console.error(`Failed to decrypt Shopify token for account ${accountDoc.id}`);
+      console.error(
+        `Failed to decrypt Shopify token for account ${accountDoc.id}`,
+      );
       continue;
     }
 
@@ -126,14 +146,17 @@ async function run(req: NextRequest) {
     try {
       password = decrypt(data.encryptedPassword);
     } catch {
-      console.error(`Failed to decrypt email password for account ${accountDoc.id}`);
+      console.error(
+        `Failed to decrypt email password for account ${accountDoc.id}`,
+      );
       continue;
     }
 
     // When force=true (manual trigger), use the account's recoveryLookbackDays (default 30d)
     // so old checkouts not yet processed can be caught. Normal scheduled runs keep 72h.
     const forceLookbackDays =
-      typeof data.recoveryLookbackDays === "number" && data.recoveryLookbackDays > 0
+      typeof data.recoveryLookbackDays === "number" &&
+      data.recoveryLookbackDays > 0
         ? data.recoveryLookbackDays
         : 30;
     const lookbackHours = force ? forceLookbackDays * 24 : MAX_ABANDON_HOURS;
@@ -141,16 +164,27 @@ async function run(req: NextRequest) {
 
     let checkouts;
     try {
-      checkouts = await getAbandonedCheckouts(data.shopifyDomain, shopifyToken, since);
+      checkouts = await getAbandonedCheckouts(
+        data.shopifyDomain,
+        shopifyToken,
+        since,
+      );
     } catch (err) {
-      console.error(`Failed to fetch abandoned checkouts for account ${accountDoc.id}:`, err);
+      console.error(
+        `Failed to fetch abandoned checkouts for account ${accountDoc.id}:`,
+        err,
+      );
       continue;
     }
 
     for (const checkout of checkouts) {
       const updatedAt = new Date(checkout.updatedAt);
       const hoursAgo = (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60);
-      if (!force && (hoursAgo < MIN_ABANDON_HOURS || hoursAgo > MAX_ABANDON_HOURS)) continue;
+      if (
+        !force &&
+        (hoursAgo < MIN_ABANDON_HOURS || hoursAgo > MAX_ABANDON_HOURS)
+      )
+        continue;
 
       // Deduplication: skip if already sent for this checkout token
       const existingSnap = await db
@@ -168,30 +202,56 @@ async function run(req: NextRequest) {
           .split(",")
           .map((e) => e.trim().toLowerCase())
           .filter(Boolean);
-        if (allowed.length > 0 && !allowed.includes(checkout.email.toLowerCase())) continue;
+        if (
+          allowed.length > 0 &&
+          !allowed.includes(checkout.email.toLowerCase())
+        )
+          continue;
       }
 
-      const storeName = (data.fantasyName as string | undefined) || (data.label as string) || data.shopifyDomain;
+      const storeName =
+        (data.fantasyName as string | undefined) ||
+        (data.label as string) ||
+        data.shopifyDomain;
       const language = (data.replyLanguage as string | undefined) ?? "pt-BR";
-      const couponCode = (data.couponCode as string | undefined) || DEFAULT_COUPON_CODE;
-      const discountPercent = typeof data.discountPercent === "number" ? data.discountPercent : DEFAULT_DISCOUNT_PERCENT;
-      const checkoutUrl = buildCheckoutUrl(checkout.abandonedCheckoutUrl, couponCode);
+      const couponCode =
+        (data.couponCode as string | undefined) || DEFAULT_COUPON_CODE;
+      const discountPercent =
+        typeof data.discountPercent === "number"
+          ? data.discountPercent
+          : DEFAULT_DISCOUNT_PERCENT;
+      const checkoutUrl = buildCheckoutUrl(
+        checkout.abandonedCheckoutUrl,
+        couponCode,
+      );
 
       const emailItems = checkout.lineItems.map((item) => ({
         ...item,
         currency: checkout.currency,
       }));
 
-      const emailHtml = renderRemarketingEmailHtml({
-        customerName: checkout.customerName,
-        storeName,
-        items: emailItems,
-        totalPrice: checkout.totalPrice,
-        currency: checkout.currency,
-        discountPercent,
-        checkoutUrl,
-        language,
-      });
+      // Buscar template customizado se existir
+      const templateDoc = await db
+        .collection("remarketingTemplates")
+        .doc(accountDoc.id)
+        .get();
+      const customTemplate = templateDoc.exists
+        ? (templateDoc.data() as import("@/lib/types").RemarketingTemplateConfig)
+        : undefined;
+
+      const emailHtml = renderRemarketingEmailHtml(
+        {
+          customerName: checkout.customerName,
+          storeName,
+          items: emailItems,
+          totalPrice: checkout.totalPrice,
+          currency: checkout.currency,
+          discountPercent,
+          checkoutUrl,
+          language,
+        },
+        customTemplate,
+      );
 
       const emailText = buildPlainText(
         checkout.customerName,
@@ -248,9 +308,14 @@ async function run(req: NextRequest) {
         });
 
         totalSent++;
-        console.log(`Remarketing sent to ${checkout.email} (checkout ${checkout.token})`);
+        console.log(
+          `Remarketing sent to ${checkout.email} (checkout ${checkout.token})`,
+        );
       } catch (err) {
-        console.error(`Failed to send remarketing email to ${checkout.email}:`, err);
+        console.error(
+          `Failed to send remarketing email to ${checkout.email}:`,
+          err,
+        );
 
         await remarketingRef.set({
           accountId: accountDoc.id,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 
 export async function GET(
   _req: NextRequest,
@@ -24,6 +25,11 @@ export async function GET(
 
   if (!customerDoc.exists)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (!ownedIds.includes(customerDoc.data()?.accountId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const emails = emailsSnap.docs.map((d) => {
     const data = d.data();
@@ -66,6 +72,11 @@ export async function PATCH(
   const doc = await ref.get();
   if (!doc.exists)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const ownedIds = await getOwnedAccountIds(db, session.uid);
+  if (!ownedIds.includes(doc.data()?.accountId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   await ref.update(update);
   return NextResponse.json({ ok: true, ...update });

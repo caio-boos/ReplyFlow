@@ -5,8 +5,8 @@ const PUBLIC_PATHS = [
   "/",
   "/login",
   "/register",
-  "/api/auth/login",
-  "/api/auth/register",
+  "/api/auth/",
+  "/api/shopify/",
 ];
 
 // Root-level segments that belong to authenticated areas
@@ -62,5 +62,7 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|images/).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|images/|logotipoproduto/).*)",
+  ],
 };

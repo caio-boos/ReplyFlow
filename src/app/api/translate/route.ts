@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { computeCostUsd } from "@/lib/ai/openai";
 import { FieldValue } from "firebase-admin/firestore";
 import OpenAI from "openai";
@@ -13,7 +14,8 @@ function getClient() {
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { text, emailId } = await req.json();
   if (!text || typeof text !== "string") {
@@ -36,16 +38,26 @@ export async function POST(req: NextRequest) {
 
   const translated = completion.choices[0]?.message?.content?.trim() ?? "";
 
-  // Save cost to email doc if emailId was provided
+  // Save cost to email doc only if emailId belongs to the current user
   if (emailId && typeof emailId === "string") {
     const cost = computeCostUsd("gpt-4o-mini", {
       promptTokens: completion.usage?.prompt_tokens ?? 0,
       completionTokens: completion.usage?.completion_tokens ?? 0,
     });
     try {
-      await getAdminDb().collection("emails").doc(emailId).update({
-        aiCostUsd: FieldValue.increment(cost),
-      });
+      const db = getAdminDb();
+      const emailDoc = await db.collection("emails").doc(emailId).get();
+      if (emailDoc.exists) {
+        const ownedIds = await getOwnedAccountIds(db, session.uid);
+        if (ownedIds.includes(emailDoc.data()?.accountId)) {
+          await db
+            .collection("emails")
+            .doc(emailId)
+            .update({
+              aiCostUsd: FieldValue.increment(cost),
+            });
+        }
+      }
     } catch {
       /* non-fatal */
     }
