@@ -107,6 +107,18 @@ export interface RemarketingDoc {
 
 export type TaskPriority = "high" | "medium" | "low";
 
+export interface AdvertorialDoc {
+  id: string;
+  userId: string;
+  title: string;
+  slug: string;
+  html: string;
+  customDomain: string | null;
+  active: boolean;
+  createdAt: { seconds: number; nanoseconds: number };
+  updatedAt: { seconds: number; nanoseconds: number };
+}
+
 export interface TaskDoc {
   id: string;
   emailId: string;
