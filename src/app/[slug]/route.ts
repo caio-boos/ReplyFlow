@@ -38,7 +38,18 @@ export async function GET(
     });
   }
 
-  const html = snap.docs[0].data().html as string;
+  const rawHtml = snap.docs[0].data().html as string;
+
+  // Force visibility of elements that Shopify themes hide until their JS runs.
+  // Injected right before </head> so it overrides theme CSS.
+  const fixCss = `<style id="rf-visibility-fix">
+.scroll-trigger,.animate--fade-in,.animate--slide-in,.animate--zoom-in,[class*="scroll-trigger"]{opacity:1!important;visibility:visible!important;transform:none!important;animation:none!important;transition:none!important;}
+body,html{opacity:1!important;visibility:visible!important;}
+</style>`;
+
+  const html = rawHtml.includes("</head>")
+    ? rawHtml.replace("</head>", fixCss + "</head>")
+    : fixCss + rawHtml;
 
   return new Response(html, {
     headers: {
