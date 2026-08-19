@@ -196,6 +196,20 @@ export async function POST(
       }
     }
 
+    // Fetch reply template for this account (non-blocking, falls back to default)
+    let replyTemplate: import("@/lib/types").ReplyTemplateConfig | undefined;
+    try {
+      const replyTemplateDoc = await db
+        .collection("replyTemplates")
+        .doc(emailData.accountId)
+        .get();
+      if (replyTemplateDoc.exists)
+        replyTemplate =
+          replyTemplateDoc.data() as import("@/lib/types").ReplyTemplateConfig;
+    } catch {
+      // non-fatal — use default template
+    }
+
     const sendResult = await sendEmail(
       {
         smtpHost: accountData.smtpHost,
@@ -210,6 +224,8 @@ export async function POST(
         html: renderEmailHtml(
           aiResponse,
           accountData.label || accountData.email,
+          replyTemplate,
+          replyTemplate?.showLogo ? (accountData.logoUrl ?? null) : null,
         ),
         inReplyTo: emailData.messageId,
         references: [...(emailData.references ?? []), emailData.messageId],

@@ -5,7 +5,6 @@ import Link from "next/link";
 import Paginator from "../Paginator";
 import { useStoreContext } from "../store-context";
 import { toast } from "sonner";
-import TemplateEditor from "./TemplateEditor";
 
 interface AccountOption {
   id: string;
@@ -85,7 +84,6 @@ const ACCOUNT_FILTER_KEY = "replyflow.remarketing.accountFilter"; // kept for lo
 
 export default function RemarketingPage() {
   const { selectedAccountId, loading: storeLoading } = useStoreContext();
-  const [activeTab, setActiveTab] = useState<"list" | "template">("list");
   const [items, setItems] = useState<RemarketingItem[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -231,9 +229,7 @@ export default function RemarketingPage() {
             />
           </div>
         </div>
-      )}
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-100">Remarketing</h1>
@@ -242,9 +238,8 @@ export default function RemarketingPage() {
             automaticamente
           </p>
         </div>
-        {activeTab === "list" && (
-          <div className="flex flex-col sm:items-end gap-2">
-            <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:items-end gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={checkRecovery}
                 disabled={checkingRecovery}
@@ -334,36 +329,7 @@ export default function RemarketingPage() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-white/10">
-        <button
-          onClick={() => setActiveTab("list")}
-          className={`px-4 py-2 text-sm font-medium transition-all border-b-2 ${
-            activeTab === "list"
-              ? "border-blue-500 text-blue-400"
-              : "border-transparent text-gray-400 hover:text-gray-300"
-          }`}
-        >
-          Lista de Remarketing
-        </button>
-        <button
-          onClick={() => setActiveTab("template")}
-          className={`px-4 py-2 text-sm font-medium transition-all border-b-2 ${
-            activeTab === "template"
-              ? "border-blue-500 text-blue-400"
-              : "border-transparent text-gray-400 hover:text-gray-300"
-          }`}
-        >
-          Gerenciar Template
-        </button>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === "template" ? (
-        <TemplateEditor accountId={selectedAccountId} />
-      ) : (
-        <>
-          {/* Stats */}
+      {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               {
@@ -665,15 +631,13 @@ export default function RemarketingPage() {
             </div>
           )}
 
-          {!loading && totalPages > 1 && activeTab === "list" && (
+          {!loading && totalPages > 1 && (
             <Paginator
               page={safePage}
               totalPages={totalPages}
               onPageChange={setPage}
             />
           )}
-        </>
-      )}
     </div>
   );
 }
