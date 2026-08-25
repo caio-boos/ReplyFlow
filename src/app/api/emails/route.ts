@@ -38,7 +38,11 @@ export async function GET(req: NextRequest) {
   if (status) query = query.where("status", "==", status);
   query = query.where("accountId", "in", ids);
   if (sinceSeconds > 0) {
-    query = query.where("receivedAt", ">=", Timestamp.fromMillis(sinceSeconds * 1000));
+    query = query.where(
+      "receivedAt",
+      ">=",
+      Timestamp.fromMillis(sinceSeconds * 1000),
+    );
   }
   if (cursorSeconds > 0) {
     query = query.startAfter(Timestamp.fromMillis(cursorSeconds * 1000));
@@ -46,8 +50,17 @@ export async function GET(req: NextRequest) {
   if (slim) {
     // Only return fields needed for the conversation list — omits bodyText/bodyHtml/aiResponse
     query = query.select(
-      "accountId", "customerId", "from", "fromName", "subject",
-      "status", "receivedAt", "chargebackRisk", "remarketing", "classifyConfidence",
+      "accountId",
+      "customerId",
+      "from",
+      "fromName",
+      "subject",
+      "status",
+      "receivedAt",
+      "chargebackRisk",
+      "remarketing",
+      "classifyConfidence",
+      "attachments",
     );
   }
 

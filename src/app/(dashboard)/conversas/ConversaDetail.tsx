@@ -52,6 +52,7 @@ interface HistoryEmail {
   fromName?: string;
   bodyText?: string;
   aiResponse?: string | null;
+  attachments?: Array<{ filename: string; contentType: string; url: string }>;
 }
 
 interface TaskItem {
@@ -145,6 +146,194 @@ function Spinner({ className = "w-4 h-4" }: { className?: string }) {
         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
       />
     </svg>
+  );
+}
+
+function ImageCarousel({
+  attachments,
+}: {
+  attachments: Array<{ filename: string; contentType: string; url: string }>;
+}) {
+  const [current, setCurrent] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
+
+  const prev = useCallback(
+    () => setCurrent((c) => (c - 1 + attachments.length) % attachments.length),
+    [attachments.length],
+  );
+  const next = useCallback(
+    () => setCurrent((c) => (c + 1) % attachments.length),
+    [attachments.length],
+  );
+
+  useEffect(() => {
+    if (!lightbox) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setLightbox(false);
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, prev, next]);
+
+  const att = attachments[current];
+
+  return (
+    <>
+      <div className="relative rounded-xl overflow-hidden border border-white/8 bg-black/20 group">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={att.url}
+          alt={att.filename}
+          className="w-full max-h-48 object-contain cursor-zoom-in"
+          onClick={() => setLightbox(true)}
+        />
+        {attachments.length > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label="Anterior"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.75 19.5L8.25 12l7.5-7.5"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label="Próxima"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                />
+              </svg>
+            </button>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+              {attachments.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrent(i)}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    i === current ? "bg-white" : "bg-white/30 hover:bg-white/60"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="flex items-center justify-between mt-1">
+        <p className="text-[11px] text-gray-600 truncate">{att.filename}</p>
+        {attachments.length > 1 && (
+          <p className="text-[11px] text-gray-600 shrink-0 ml-2">
+            {current + 1} / {attachments.length}
+          </p>
+        )}
+      </div>
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightbox(false)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            onClick={() => setLightbox(false)}
+            aria-label="Fechar"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={att.url}
+            alt={att.filename}
+            className="max-w-[90vw] max-h-[85vh] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {attachments.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prev();
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                aria-label="Anterior"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.75 19.5L8.25 12l7.5-7.5"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  next();
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                aria-label="Próxima"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                  />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -835,7 +1024,7 @@ export default function ConversaDetail({ emailId, onBack, onRefresh }: Props) {
                 </div>
 
                 {/* Customer bubble */}
-                {text && (
+                {(text || (item.attachments?.length ?? 0) > 0) && (
                   <div className="flex items-start gap-2.5">
                     <div className="w-7 h-7 rounded-full bg-gray-700 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-[11px] font-bold text-gray-300 select-none">
@@ -849,9 +1038,16 @@ export default function ConversaDetail({ emailId, onBack, onRefresh }: Props) {
                           : "border border-white/8"
                       }`}
                     >
-                      <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
-                        {text}
-                      </pre>
+                      {text && (
+                        <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+                          {text}
+                        </pre>
+                      )}
+                      {(item.attachments?.length ?? 0) > 0 && (
+                        <div className={text ? "mt-2.5" : ""}>
+                          <ImageCarousel attachments={item.attachments!} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

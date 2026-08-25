@@ -84,6 +84,7 @@ export default function ConversasList({
 }: Props) {
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
+  const [imagesOnly, setImagesOnly] = useState(false);
 
   const counts = useMemo(() => {
     const c: Record<Tab, number> = {
@@ -99,9 +100,21 @@ export default function ConversasList({
     return c;
   }, [groups]);
 
+  const imagesCount = useMemo(
+    () =>
+      groups.filter((g) =>
+        g.emails.some((e) => (e.attachments?.length ?? 0) > 0),
+      ).length,
+    [groups],
+  );
+
   const filtered = useMemo(() => {
     let result =
       tab === "all" ? groups : groups.filter((g) => getGroupTab(g) === tab);
+    if (imagesOnly)
+      result = result.filter((g) =>
+        g.emails.some((e) => (e.attachments?.length ?? 0) > 0),
+      );
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -112,7 +125,7 @@ export default function ConversasList({
       );
     }
     return result;
-  }, [groups, tab, search]);
+  }, [groups, tab, search, imagesOnly]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -191,6 +204,37 @@ export default function ConversasList({
               </button>
             )}
           </div>
+          {/* Images filter toggle */}
+          {imagesCount > 0 && (
+            <button
+              onClick={() => setImagesOnly((v) => !v)}
+              title="Filtrar conversas com imagens"
+              className={`relative shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border transition-all ${
+                imagesOnly
+                  ? "text-indigo-300 bg-indigo-500/15 border-indigo-500/30"
+                  : "text-gray-600 hover:text-gray-300 hover:bg-white/5 border-white/8"
+              }`}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.75}
+                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                />
+              </svg>
+              {imagesOnly && (
+                <span className="absolute -top-1 -right-1 min-w-3.5 h-3.5 px-0.5 text-[9px] flex items-center justify-center bg-indigo-500 text-white rounded-full font-semibold leading-none">
+                  {imagesCount}
+                </span>
+              )}
+            </button>
+          )}
           {/* Pause toggle button (when not paused) */}
           {showPauseToggle && !paused && (
             <button

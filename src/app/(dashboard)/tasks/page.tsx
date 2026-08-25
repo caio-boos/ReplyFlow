@@ -144,6 +144,18 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
   low: 2,
 };
 
+function relativeTime(seconds: number): string {
+  const diff = Math.floor(Date.now() / 1000 - seconds);
+  if (diff < 60) return "agora";
+  if (diff < 3600) return `há ${Math.floor(diff / 60)}min`;
+  if (diff < 86400) return `há ${Math.floor(diff / 3600)}h`;
+  if (diff < 604800) return `há ${Math.floor(diff / 86400)}d`;
+  return new Date(seconds * 1000).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 function groupByCustomer(
   tasks: TaskDoc[],
   accounts: AccountOption[],
@@ -303,13 +315,7 @@ function TaskRow({
             );
           })}
           <Link
-            href={`/emails/${task.emailId}`}
-            onClick={() => {
-              sessionStorage.setItem(
-                "taskNavCtx",
-                JSON.stringify({ taskId: task.id }),
-              );
-            }}
+            href={`/conversas?id=${task.emailId}`}
             className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-indigo-400 transition-colors truncate max-w-xs"
           >
             <svg
@@ -322,11 +328,19 @@ function TaskRow({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1.75}
-                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+                d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
               />
             </svg>
             {task.emailSubject}
           </Link>
+          {task.createdAt && (
+            <>
+              <span className="text-gray-800">·</span>
+              <span className="text-xs text-gray-700">
+                {relativeTime(task.createdAt.seconds)}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Existing note display */}
@@ -483,6 +497,9 @@ export default function TasksPage() {
   );
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "done">(
     "all",
+  );
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(
+    new Set(),
   );
 
   const loadTasks = useCallback(async () => {
@@ -804,11 +821,12 @@ export default function TasksPage() {
                       )}
                     </div>
                     <div>
-                      <span
-                        className={`text-sm font-medium ${allDone ? "text-gray-500" : "text-gray-200"}`}
+                      <Link
+                        href={`/customers/${group.customerId}`}
+                        className={`text-sm font-medium hover:text-indigo-400 transition-colors ${allDone ? "text-gray-500" : "text-gray-200"}`}
                       >
                         {group.customerName}
-                      </span>
+                      </Link>
                       <span className="inline-flex items-center gap-1 text-xs text-gray-600 ml-2">
                         {group.accountLogoUrl ? (
                           <img
@@ -854,31 +872,63 @@ export default function TasksPage() {
                   </div>
                 )}
 
-                {/* History divider + completed tasks */}
+                {/* History: collapsible toggle when pending tasks exist */}
                 {group.done.length > 0 && (
                   <>
                     {group.pending.length > 0 && (
-                      <div className="flex items-center gap-3 px-4 py-2 border-t border-white/4 bg-black/20">
+                      <button
+                        onClick={() =>
+                          setExpandedHistory((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(group.customerId))
+                              next.delete(group.customerId);
+                            else next.add(group.customerId);
+                            return next;
+                          })
+                        }
+                        className="w-full flex items-center gap-3 px-4 py-2 border-t border-white/4 bg-black/20 hover:bg-black/30 transition-colors"
+                      >
                         <div className="h-px flex-1 bg-white/5" />
-                        <span className="text-xs text-gray-700 font-medium uppercase tracking-wider">
-                          Histórico
+                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-700 font-medium uppercase tracking-wider select-none">
+                          <svg
+                            className={`w-3 h-3 transition-transform duration-200 ${
+                              expandedHistory.has(group.customerId)
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                          {group.done.length} concluída
+                          {group.done.length !== 1 ? "s" : ""}
                         </span>
                         <div className="h-px flex-1 bg-white/5" />
+                      </button>
+                    )}
+                    {(group.pending.length === 0 ||
+                      expandedHistory.has(group.customerId)) && (
+                      <div className="divide-y divide-white/3">
+                        {group.done.map((task) => (
+                          <TaskRow
+                            key={task.id}
+                            task={task}
+                            onToggle={toggleComplete}
+                            onDelete={deleteTask}
+                            onSaveNote={saveNote}
+                            isCompleting={completing.has(task.id)}
+                            isHighlighted={highlightedTaskId === task.id}
+                          />
+                        ))}
                       </div>
                     )}
-                    <div className="divide-y divide-white/3">
-                      {group.done.map((task) => (
-                        <TaskRow
-                          key={task.id}
-                          task={task}
-                          onToggle={toggleComplete}
-                          onDelete={deleteTask}
-                          onSaveNote={saveNote}
-                          isCompleting={completing.has(task.id)}
-                          isHighlighted={highlightedTaskId === task.id}
-                        />
-                      ))}
-                    </div>
                   </>
                 )}
               </div>
