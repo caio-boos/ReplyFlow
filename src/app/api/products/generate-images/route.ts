@@ -12,7 +12,12 @@ function getClient() {
 
 // Known logo file paths relative to /public
 const LOGO_FILES: Record<string, string> = {
-  ralph_lauren: path.join(process.cwd(), "public", "logotipoproduto", "ralph-lauren.png"),
+  ralph_lauren: path.join(
+    /*turbopackIgnore: true*/ process.cwd(),
+    "public",
+    "logotipoproduto",
+    "ralph-lauren.png",
+  ),
 };
 
 function positionToDescription(x: number, y: number): string {
@@ -38,7 +43,10 @@ export async function POST(req: NextRequest) {
   const logoPositionRaw = formData.get("logoPosition") as string | null;
 
   if (!imageFile) {
-    return NextResponse.json({ error: "No reference image provided" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No reference image provided" },
+      { status: 400 },
+    );
   }
   if (!color) {
     return NextResponse.json({ error: "No color specified" }, { status: 400 });
@@ -84,7 +92,7 @@ ${logoRule}
     const garmentFile = await toFile(
       imageBuffer,
       imageFile.name || "reference.jpg",
-      { type: imageFile.type || "image/jpeg" }
+      { type: imageFile.type || "image/jpeg" },
     );
 
     // Build image input: garment reference + logo reference (if selected)
@@ -94,7 +102,7 @@ ${logoRule}
           await toFile(
             await fs.readFile(LOGO_FILES[logoType]),
             `${logoType}.png`,
-            { type: "image/png" }
+            { type: "image/png" },
           ),
         ]
       : garmentFile;
@@ -120,8 +128,8 @@ ${logoRule}
     return NextResponse.json({ url: finalUrl, color, costUsd: 0.25 });
   } catch (err) {
     console.error(`generate-images error for color "${color}":`, err);
-    const message = err instanceof Error ? err.message : "Failed to generate image";
+    const message =
+      err instanceof Error ? err.message : "Failed to generate image";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
