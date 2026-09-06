@@ -67,6 +67,7 @@ function ConversasContent() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [dayRange, setDayRange] = useState(30);
+  const [backToTask, setBackToTask] = useState(false);
   const initialLoaded = useRef(false);
 
   // Pause state — synced from selectedAccount, updated optimistically on toggle
@@ -141,6 +142,24 @@ function ConversasContent() {
     return () => clearInterval(id);
   }, [refreshEmails, storeLoading]);
 
+  useEffect(() => {
+    if (!selectedId) {
+      setBackToTask(false);
+      return;
+    }
+    const raw = sessionStorage.getItem("taskNavCtx");
+    if (!raw) {
+      setBackToTask(false);
+      return;
+    }
+    try {
+      const { emailId } = JSON.parse(raw) as { emailId?: string };
+      setBackToTask(!emailId || emailId === selectedId);
+    } catch {
+      setBackToTask(false);
+    }
+  }, [selectedId]);
+
   async function handleTogglePause() {
     if (toggling || selectedAccountId === "all" || !selectedAccount) return;
     setToggling(true);
@@ -160,11 +179,34 @@ function ConversasContent() {
   const groups = groupByCustomer(emails);
 
   function select(emailId: string) {
+    sessionStorage.removeItem("taskNavCtx");
+    setBackToTask(false);
     router.push(`/conversas?id=${emailId}`, { scroll: false });
   }
 
   function clearSelection() {
     router.push("/conversas", { scroll: false });
+  }
+
+  function backFromDetail() {
+    const raw = sessionStorage.getItem("taskNavCtx");
+    if (raw) {
+      try {
+        const { taskId, emailId } = JSON.parse(raw) as {
+          taskId?: string;
+          emailId?: string;
+        };
+        if (!emailId || emailId === selectedId) {
+          sessionStorage.removeItem("taskNavCtx");
+          if (taskId) sessionStorage.setItem("highlightTask", taskId);
+          router.push("/tasks");
+          return;
+        }
+      } catch {
+        sessionStorage.removeItem("taskNavCtx");
+      }
+    }
+    clearSelection();
   }
 
   const showPauseToggle = selectedAccountId !== "all";
@@ -202,7 +244,8 @@ function ConversasContent() {
       >
         <ConversaDetail
           emailId={selectedId}
-          onBack={clearSelection}
+          onBack={backFromDetail}
+          backLabel={backToTask ? "Tarefas" : undefined}
           onRefresh={refreshEmails}
         />
       </div>

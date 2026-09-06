@@ -236,6 +236,13 @@ function TaskRow({
     setNoteOpen(false);
   }
 
+  function handleOpenConversation() {
+    sessionStorage.setItem(
+      "taskNavCtx",
+      JSON.stringify({ taskId: task.id, emailId: task.emailId }),
+    );
+  }
+
   return (
     <div
       id={`task-${task.id}`}
@@ -316,6 +323,7 @@ function TaskRow({
           })}
           <Link
             href={`/conversas?id=${task.emailId}`}
+            onClick={handleOpenConversation}
             className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-indigo-400 transition-colors truncate max-w-xs"
           >
             <svg

@@ -340,10 +340,11 @@ function ImageCarousel({
 interface Props {
   emailId: string | null;
   onBack: () => void;
+  backLabel?: string;
   onRefresh: () => void;
 }
 
-export default function ConversaDetail({ emailId, onBack, onRefresh }: Props) {
+export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }: Props) {
   const [email, setEmail] = useState<EmailDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEmail[] | null>(null);
@@ -681,11 +682,11 @@ export default function ConversaDetail({ emailId, onBack, onRefresh }: Props) {
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/6 shrink-0 bg-gray-900/40">
-        {/* Mobile back button */}
+        {/* Back button */}
         <button
           onClick={onBack}
-          className="md:hidden w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/8 transition-all shrink-0"
-          aria-label="Voltar"
+          className={`${backLabel ? "flex w-auto px-2" : "flex md:hidden w-7"} h-7 items-center justify-center gap-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/8 transition-all shrink-0`}
+          aria-label={backLabel ? `Voltar para ${backLabel}` : "Voltar"}
         >
           <svg
             className="w-4 h-4"
@@ -700,6 +701,11 @@ export default function ConversaDetail({ emailId, onBack, onRefresh }: Props) {
               d="M15.75 19.5L8.25 12l7.5-7.5"
             />
           </svg>
+          {backLabel && (
+            <span className="hidden md:inline text-xs font-medium">
+              {backLabel}
+            </span>
+          )}
         </button>
 
         {/* Customer info */}
