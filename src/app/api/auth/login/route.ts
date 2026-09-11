@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSession, COOKIE_NAME, MAX_AGE } from "@/lib/auth/session";
+import {
+  createSession,
+  COOKIE_NAME,
+  sessionCookieOptions,
+} from "@/lib/auth/session";
 import { getAdminAuth } from "@/lib/firebase/admin";
 
 export async function POST(req: NextRequest) {
@@ -22,13 +26,7 @@ export async function POST(req: NextRequest) {
     const token = await createSession(decoded.uid, decoded.email!);
 
     const res = NextResponse.json({ ok: true });
-    res.cookies.set(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: MAX_AGE,
-      path: "/",
-    });
+    res.cookies.set(COOKIE_NAME, token, sessionCookieOptions);
 
     return res;
   } catch {

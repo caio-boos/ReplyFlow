@@ -20,6 +20,8 @@ export interface FetchedEmail {
   references: string[];
   from: string;
   fromName: string;
+  replyTo: string | null;
+  replyToName: string | null;
   to: string;
   subject: string;
   bodyText: string;
@@ -114,6 +116,14 @@ export async function fetchNewEmails(
             references,
             from: parsed.from?.value[0]?.address ?? "",
             fromName: parsed.from?.value[0]?.name ?? "",
+            replyTo:
+              (Array.isArray(parsed.replyTo)
+                ? parsed.replyTo[0]?.value?.[0]?.address
+                : parsed.replyTo?.value?.[0]?.address) ?? null,
+            replyToName:
+              (Array.isArray(parsed.replyTo)
+                ? parsed.replyTo[0]?.value?.[0]?.name
+                : parsed.replyTo?.value?.[0]?.name) ?? null,
             to: account.email,
             subject: parsed.subject ?? "(sem assunto)",
             bodyText: parsed.text ?? "",

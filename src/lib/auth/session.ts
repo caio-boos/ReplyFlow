@@ -2,7 +2,10 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
 const COOKIE_NAME = "rf_session";
-const MAX_AGE = 60 * 60 * 8; // 8 hours
+const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+// Once less than this is left, any authenticated request re-issues the cookie,
+// so an active user is never logged out.
+const REFRESH_THRESHOLD = 60 * 60 * 24 * 15; // 15 days
 
 function getSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET;
@@ -13,7 +16,16 @@ function getSecret(): Uint8Array {
 export interface SessionPayload {
   uid: string;
   email: string;
+  exp?: number;
 }
+
+export const sessionCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  maxAge: MAX_AGE,
+  path: "/",
+};
 
 export async function createSession(
   uid: string,
@@ -30,11 +42,23 @@ export async function verifySession(
   token: string,
 ): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
-    return { uid: payload["uid"] as string, email: payload["email"] as string };
+    const { payload } = await jwtVerify(token, getSecret(), {
+      clockTolerance: 60,
+    });
+    return {
+      uid: payload["uid"] as string,
+      email: payload["email"] as string,
+      exp: payload.exp,
+    };
   } catch {
     return null;
   }
+}
+
+/** True when the cookie is past half its lifetime and should be renewed. */
+export function shouldRefreshSession(session: SessionPayload): boolean {
+  if (!session.exp) return true;
+  return session.exp - Math.floor(Date.now() / 1000) < REFRESH_THRESHOLD;
 }
 
 export async function getSession(): Promise<SessionPayload | null> {

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { stripQuotedText } from "@/lib/email/quoted-text";
 
 let _client: OpenAI | null = null;
 
@@ -26,26 +27,6 @@ export function computeCostUsd(model: string, usage: TokenUsage): number {
     (usage.promptTokens / 1_000_000) * rates.input +
     (usage.completionTokens / 1_000_000) * rates.output
   );
-}
-
-/**
- * Strips quoted reply lines from an email body so the AI only sees the
- * customer's NEW text, not the full thread history pasted by the email client.
- * Removes lines starting with ">", "On ... wrote:" separators, and common
- * email client reply headers.
- */
-function stripQuotedText(body: string): string {
-  const lines = body.split("\n");
-  const clean: string[] = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith(">")) break;
-    if (/^on .{5,} wrote:/i.test(trimmed)) break;
-    if (/^[-_]{4,}/.test(trimmed)) break;
-    if (/^(from|sent|to|subject)\s*:/i.test(trimmed) && clean.length > 0) break;
-    clean.push(line);
-  }
-  return clean.join("\n").trim() || body.trim();
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {

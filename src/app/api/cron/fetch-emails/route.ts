@@ -9,25 +9,76 @@ import type { EmailAttachment } from "@/lib/types";
 import { randomUUID } from "crypto";
 
 const REPLY_DELAY_MINUTES = 10;
-const SHOPIFY_MAILER = "mailer@shopify.com";
+const SHOPIFY_RELAY_DOMAINS = ["shopify.com", "myshopify.com"];
+
+function isRelayAddress(address: string): boolean {
+  const domain = address.toLowerCase().split("@")[1] ?? "";
+  return SHOPIFY_RELAY_DOMAINS.some(
+    (d) => domain === d || domain.endsWith(`.${d}`),
+  );
+}
+
+// Contact-form notifications localize their labels, so match every storefront language.
+const EMAIL_LABELS = [
+  "e-?mail",
+  "correo(?:\\s+electr[oó]nico)?",
+  "courriel",
+  "メール(?:アドレス)?",
+  "邮箱",
+  "電子郵件",
+  "이메일",
+  "البريد الإلكتروني",
+  "почта",
+];
+const NAME_LABELS = [
+  "name",
+  "nome",
+  "nombre",
+  "nom",
+  "名前",
+  "お名前",
+  "姓名",
+  "이름",
+  "الاسم",
+  "имя",
+];
+
+const EMAIL_IN_TEXT = /[^\s<>()[\]{},;:"']+@[^\s<>()[\]{},;:"']+\.[a-z]{2,}/gi;
+
+function labelledValue(bodyText: string, labels: string[]): string | null {
+  const pattern = new RegExp(
+    `(?:^|\\n)[ \\t]*(?:${labels.join("|")})[ \\t]*[:：][ \\t]*\\r?\\n?[ \\t]*([^\\r\\n]+)`,
+    "i",
+  );
+  const match = bodyText.match(pattern);
+  return match ? match[1].trim() : null;
+}
+
+function findEmails(text: string): string[] {
+  return (text.match(EMAIL_IN_TEXT) ?? []).map((e) =>
+    e.replace(/[.,;:]+$/, ""),
+  );
+}
 
 /**
- * When Shopify sends a contact form notification, the real customer's
- * name and email are embedded in the body text, e.g.:
- *   Name:\nRoy mohamad\n\nEmail:\nroymo2007@gmail.com
- * Extract them so we can identify/contact the actual customer.
+ * Shopify contact-form notifications are sent by a Shopify relay address; the real
+ * customer's name/email live in the body. Never fall back to the relay address —
+ * doing so would merge unrelated customers into one profile.
  */
 function extractShopifyContactInfo(
   bodyText: string,
 ): { email: string; name: string } | null {
-  const emailMatch = bodyText.match(
-    /\bEmail:\s*\r?\n([^\r\n@\s]+@[^\r\n@\s]+)/i,
-  );
-  const nameMatch = bodyText.match(/\bName:\s*\r?\n([^\r\n]+)/i);
-  if (!emailMatch) return null;
+  const labelled = labelledValue(bodyText, EMAIL_LABELS);
+  const candidates = labelled ? findEmails(labelled) : [];
+  // Fallback: first non-relay address anywhere in the body.
+  const email =
+    candidates.find((c) => !isRelayAddress(c)) ??
+    findEmails(bodyText).find((c) => !isRelayAddress(c));
+
+  if (!email) return null;
   return {
-    email: emailMatch[1].trim(),
-    name: nameMatch ? nameMatch[1].trim() : "",
+    email: email.toLowerCase().trim(),
+    name: labelledValue(bodyText, NAME_LABELS) ?? "",
   };
 }
 
@@ -195,6 +246,13 @@ export async function POST(req: NextRequest) {
     let maxUid = data.lastUid ?? 0;
 
     for (const email of emails) {
+      // Our own outgoing replies can land back in the INBOX — never store them as
+      // incoming customer messages, it makes the thread mix both sides.
+      if (email.from.toLowerCase().trim() === data.email.toLowerCase().trim()) {
+        maxUid = Math.max(maxUid, email.uid);
+        continue;
+      }
+
       // Check if this messageId was already saved
       const existing = await db
         .collection("emails")
@@ -267,11 +325,19 @@ export async function POST(req: NextRequest) {
       // customer info is embedded in the body — extract it.
       let effectiveFrom = email.from;
       let effectiveFromName = email.fromName;
-      if (email.from.toLowerCase().includes(SHOPIFY_MAILER)) {
+      if (isRelayAddress(email.from)) {
         const shopifyContact = extractShopifyContactInfo(email.bodyText);
         if (shopifyContact) {
           effectiveFrom = shopifyContact.email;
           effectiveFromName = shopifyContact.name || email.fromName;
+        } else if (email.replyTo && !isRelayAddress(email.replyTo)) {
+          effectiveFrom = email.replyTo.toLowerCase().trim();
+          effectiveFromName = email.replyToName || email.fromName;
+        } else {
+          // Unknown sender behind the relay: give it a unique identity so it is
+          // never merged into a shared "mailer@shopify.com" customer profile.
+          effectiveFrom = `unknown+${emailRef.id}@relay.invalid`;
+          effectiveFromName = email.subject || "Contato via formulário";
         }
       }
 

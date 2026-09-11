@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import { stripQuotedText } from "@/lib/email/quoted-text";
 
 interface FirestoreTimestamp {
   seconds?: number;
@@ -105,16 +106,7 @@ const STATUS_CFG: Record<
   },
 };
 
-function extractNewText(bodyText: string): string {
-  const lines = bodyText.split("\n");
-  const result: string[] = [];
-  for (const line of lines) {
-    if (line.trimStart().startsWith(">")) break;
-    result.push(line);
-  }
-  const trimmed = result.join("\n").trim();
-  return trimmed || bodyText.trim();
-}
+const extractNewText = stripQuotedText;
 
 const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -364,6 +356,10 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
   const [marking, setMarking] = useState(false);
   const [customerPaused, setCustomerPaused] = useState(false);
   const [togglingCustomerPause, setTogglingCustomerPause] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const threadEndRef = useRef<HTMLDivElement>(null);
 
@@ -395,6 +391,9 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
     setAttachments([]);
     setCustomerPaused(false);
     setTasks([]);
+    setSummary(null);
+    setSummaryError(null);
+    setShowSummary(false);
 
     fetch(`/api/emails/${emailId}`)
       .then((r) => r.json())
@@ -479,6 +478,31 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
     await reloadEmail(emailId);
     onRefresh();
     setCancelling(false);
+  }
+
+  async function handleSummarize() {
+    if (!emailId) return;
+    if (summary) {
+      setShowSummary((v) => !v);
+      return;
+    }
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const res = await fetch(`/api/emails/${emailId}/summary`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao gerar resumo");
+      setSummary(data.summary);
+      setShowSummary(true);
+    } catch (err) {
+      setSummaryError(
+        err instanceof Error ? err.message : "Erro ao gerar resumo",
+      );
+    } finally {
+      setSummaryLoading(false);
+    }
   }
 
   async function handleEnhance() {
@@ -844,6 +868,31 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
             </button>
           )}
 
+          {/* AI summary */}
+          <button
+            onClick={handleSummarize}
+            disabled={summaryLoading}
+            title="Resumir a conversa com IA (em português)"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-50 border border-amber-500/20 rounded-lg text-xs font-medium text-amber-300 transition-all"
+          >
+            {summaryLoading ? (
+              <Spinner className="w-3 h-3" />
+            ) : (
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            )}
+            <span className="hidden sm:inline">
+              {summaryLoading
+                ? "Resumindo..."
+                : summary
+                  ? showSummary
+                    ? "Ocultar"
+                    : "Mostrar"
+                  : "Resumir"}
+            </span>
+          </button>
+
           {/* Open full page */}
           <Link
             href={`/emails/${emailId}`}
@@ -961,6 +1010,68 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
             />
           </svg>
           {sendError}
+        </div>
+      )}
+
+      {/* ── AI summary ──────────────────────────────────────────────────────── */}
+      {summaryError && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-500/5 border-b border-red-500/10 text-xs text-red-400 shrink-0">
+          <svg
+            className="w-3.5 h-3.5 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
+          </svg>
+          {summaryError}
+        </div>
+      )}
+
+      {showSummary && summary && (
+        <div className="shrink-0 max-h-64 overflow-y-auto border-b border-amber-500/10 bg-amber-500/3 px-4 py-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider">
+              Resumo do cliente
+            </h3>
+            <button
+              onClick={handleSummarize}
+              disabled={summaryLoading}
+              className="text-[10px] text-gray-600 hover:text-amber-400 disabled:opacity-40 transition-colors"
+            >
+              Ocultar
+            </button>
+          </div>
+          <div className="space-y-3">
+            {summary.split(/\n(?=\*\*)/).map((block, i) => {
+              const titleMatch = block.match(/^\*\*(.+?)\*\*/);
+              if (titleMatch) {
+                return (
+                  <div key={i} className="space-y-0.5">
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {titleMatch[1]}
+                    </p>
+                    <p className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
+                      {block.replace(/^\*\*.+?\*\*\n?/, "").trim()}
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <p
+                  key={i}
+                  className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed"
+                >
+                  {block.trim()}
+                </p>
+              );
+            })}
+          </div>
         </div>
       )}
 

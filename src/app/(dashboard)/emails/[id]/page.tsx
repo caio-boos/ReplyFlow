@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { stripQuotedText } from "@/lib/email/quoted-text";
 
 interface FirestoreTimestamp {
   seconds?: number;
@@ -281,16 +282,7 @@ interface HistoryEmail {
   aiResponse?: string | null;
 }
 
-function extractNewText(bodyText: string): string {
-  const lines = bodyText.split("\n");
-  const result: string[] = [];
-  for (const line of lines) {
-    if (line.trimStart().startsWith(">")) break;
-    result.push(line);
-  }
-  const newText = result.join("\n").trim();
-  return newText || bodyText.trim();
-}
+const extractNewText = stripQuotedText;
 
 const STATUS_CONFIG: Record<
   string,

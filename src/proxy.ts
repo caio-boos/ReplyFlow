@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySession, COOKIE_NAME } from "@/lib/auth/session";
+import {
+  verifySession,
+  createSession,
+  shouldRefreshSession,
+  sessionCookieOptions,
+  COOKIE_NAME,
+} from "@/lib/auth/session";
 
 const PUBLIC_PATHS = [
   "/",
@@ -58,7 +64,12 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+  if (shouldRefreshSession(session)) {
+    const renewed = await createSession(session.uid, session.email);
+    res.cookies.set(COOKIE_NAME, renewed, sessionCookieOptions);
+  }
+  return res;
 }
 
 export const config = {
