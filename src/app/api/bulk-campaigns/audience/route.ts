@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     total: filtered.length,
     totalBeforeConsentFilter: buyers.length,
-    sample: filtered.slice(0, 25).map((b) => ({
+    members: filtered.map((b) => ({
       email: b.email,
       name: b.name,
       orderName: b.orderName,

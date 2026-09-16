@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useConfirm } from "../../ConfirmDialog";
+import { applyTokens } from "@/lib/shopify/audience";
 
 export interface BulkAccount {
   id: string;
   email: string;
   label?: string;
+  testEmail?: string | null;
   shopifyConnected?: boolean;
 }
 
@@ -30,7 +32,7 @@ interface AudienceMember {
 interface AudiencePreview {
   total: number;
   totalBeforeConsentFilter: number;
-  sample: AudienceMember[];
+  members: AudienceMember[];
 }
 
 interface Progress {
@@ -39,6 +41,11 @@ interface Progress {
   sentCount: number;
   failedCount: number;
   done: boolean;
+}
+
+interface FailedRecipient {
+  email: string;
+  error: string | null;
 }
 
 function Spinner({ className = "w-4 h-4" }: { className?: string }) {
@@ -95,6 +102,9 @@ export default function BulkComposer({
   const [audience, setAudience] = useState<AudiencePreview | null>(null);
   const [audienceLoading, setAudienceLoading] = useState(false);
   const [audienceError, setAudienceError] = useState<string | null>(null);
+  const [showAudienceModal, setShowAudienceModal] = useState(false);
+  const [audienceSearch, setAudienceSearch] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -103,6 +113,14 @@ export default function BulkComposer({
   const [progress, setProgress] = useState<Progress | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [failures, setFailures] = useState<FailedRecipient[]>([]);
+
+  const [testEmail, setTestEmail] = useState("");
+  const [testSending, setTestSending] = useState(false);
+  const [testFeedback, setTestFeedback] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   // Single-store users don't need to pick anything.
   const effectiveAccountId =
@@ -153,6 +171,43 @@ export default function BulkComposer({
   }, [products, productSearch, productsReady]);
 
   const selectedProduct = products.find((p) => p.id === productId) ?? null;
+
+  useEffect(() => {
+    if (!showAudienceModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowAudienceModal(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showAudienceModal]);
+
+  const audienceResults = useMemo(() => {
+    if (!audience) return [];
+    const term = audienceSearch.trim().toLowerCase();
+    if (!term) return audience.members;
+    return audience.members.filter(
+      (m) =>
+        m.email.includes(term) ||
+        m.name.toLowerCase().includes(term) ||
+        m.orderName.toLowerCase().includes(term),
+    );
+  }, [audience, audienceSearch]);
+
+  async function handleCopyEmails() {
+    try {
+      await navigator.clipboard.writeText(
+        audienceResults.map((m) => m.email).join(", "),
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard blocked by the browser — nothing to do
+    }
+  }
+
+  const selectedAccount =
+    shopifyAccounts.find((a) => a.id === effectiveAccountId) ?? null;
+  const fallbackTestEmail = selectedAccount?.testEmail || selectedAccount?.email || "";
 
   function rangePayload() {
     return {
@@ -219,6 +274,61 @@ export default function BulkComposer({
         failedCount: data.failedCount ?? 0,
         done,
       });
+      if (done && (data.failedCount ?? 0) > 0) await loadFailures(campaignId);
+    }
+  }
+
+  async function loadFailures(campaignId: string) {
+    try {
+      const res = await fetch(`/api/bulk-campaigns/${campaignId}`);
+      const data = await res.json();
+      if (!res.ok) return;
+      const recipients = (data.campaign?.recipients ?? []) as Array<
+        FailedRecipient & { status: string }
+      >;
+      setFailures(
+        recipients
+          .filter((r) => r.status === "failed")
+          .map((r) => ({ email: r.email, error: r.error })),
+      );
+    } catch {
+      // non-fatal — the counters already reflect the failures
+    }
+  }
+
+  async function handleTestSend() {
+    const target = testEmail.trim() || fallbackTestEmail;
+    if (!target || !subject.trim() || !body.trim()) return;
+
+    setTestSending(true);
+    setTestFeedback(null);
+    try {
+      const preview = audience?.members[0];
+      const vars = {
+        name: preview?.name ?? "Cliente",
+        product: selectedProduct?.title ?? "seu produto",
+        order: preview?.orderName ?? "#1001",
+      };
+      const res = await fetch("/api/emails/compose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId: effectiveAccountId,
+          to: target,
+          subject: `[TESTE] ${applyTokens(subject.trim(), vars)}`,
+          body: applyTokens(body.trim(), vars),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar teste");
+      setTestFeedback({ ok: true, message: `E-mail de teste enviado para ${target}.` });
+    } catch (err) {
+      setTestFeedback({
+        ok: false,
+        message: err instanceof Error ? err.message : "Erro ao enviar teste",
+      });
+    } finally {
+      setTestSending(false);
     }
   }
 
@@ -236,6 +346,7 @@ export default function BulkComposer({
     setSending(true);
     setSendError(null);
     setProgress(null);
+    setFailures([]);
     try {
       const res = await fetch("/api/bulk-campaigns", {
         method: "POST",
@@ -286,6 +397,12 @@ export default function BulkComposer({
     subject.trim().length > 0 &&
     body.trim().length > 0 &&
     !sending;
+
+  const processed = progress ? progress.sentCount + progress.failedCount : 0;
+  const percent =
+    progress && progress.total > 0
+      ? Math.round((processed / progress.total) * 100)
+      : 0;
 
   if (accountsLoading) {
     return (
@@ -549,20 +666,31 @@ export default function BulkComposer({
 
         {audience && (
           <div className="space-y-2">
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold text-gray-100">
-                {audience.total}
-              </span>
-              <span className="text-xs text-gray-500">
-                cliente(s) elegíveis
-                {onlySubscribed &&
-                  audience.totalBeforeConsentFilter > audience.total &&
-                  ` · ${audience.totalBeforeConsentFilter - audience.total} sem opt-in ignorados`}
-              </span>
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-semibold text-gray-100">
+                  {audience.total}
+                </span>
+                <span className="text-xs text-gray-500">
+                  cliente(s) elegíveis
+                  {onlySubscribed &&
+                    audience.totalBeforeConsentFilter > audience.total &&
+                    ` · ${audience.totalBeforeConsentFilter - audience.total} sem opt-in ignorados`}
+                </span>
+              </div>
+              {audience.members.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAudienceModal(true)}
+                  className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/8 rounded-md text-xs text-gray-300 transition-colors shrink-0"
+                >
+                  Ver todos
+                </button>
+              )}
             </div>
-            {audience.sample.length > 0 && (
+            {audience.members.length > 0 && (
               <div className="max-h-48 overflow-y-auto border border-white/6 rounded-lg divide-y divide-white/5">
-                {audience.sample.map((m) => (
+                {audience.members.slice(0, 25).map((m) => (
                   <div
                     key={m.email}
                     className="flex items-center justify-between gap-3 px-3 py-1.5"
@@ -577,10 +705,14 @@ export default function BulkComposer({
                     </span>
                   </div>
                 ))}
-                {audience.total > audience.sample.length && (
-                  <p className="text-[11px] text-gray-600 px-3 py-1.5">
-                    + {audience.total - audience.sample.length} outros...
-                  </p>
+                {audience.total > 25 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAudienceModal(true)}
+                    className="w-full text-left text-[11px] text-indigo-400 hover:text-indigo-300 px-3 py-1.5"
+                  >
+                    + {audience.total - 25} outros — ver lista completa
+                  </button>
                 )}
               </div>
             )}
@@ -639,39 +771,147 @@ export default function BulkComposer({
             <code className="text-gray-400">{"{{pedido}}"}</code>
           </p>
         </div>
+
+        {/* Test send */}
+        <div className="border-t border-white/5 pt-4 space-y-2">
+          <label className="text-xs text-gray-500 uppercase tracking-wider">
+            Enviar teste
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="email"
+              value={testEmail}
+              onChange={(e) => {
+                setTestEmail(e.target.value);
+                setTestFeedback(null);
+              }}
+              placeholder={fallbackTestEmail || "seu@email.com"}
+              className="flex-1 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <button
+              type="button"
+              onClick={handleTestSend}
+              disabled={
+                testSending ||
+                !effectiveAccountId ||
+                !subject.trim() ||
+                !body.trim() ||
+                !(testEmail.trim() || fallbackTestEmail)
+              }
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed border border-white/8 rounded-lg text-xs text-gray-300 transition-colors shrink-0"
+            >
+              {testSending && <Spinner className="w-3 h-3" />}
+              {testSending ? "Enviando teste..." : "Enviar e-mail de teste"}
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-600">
+            O teste usa os dados do primeiro cliente da lista para preencher as
+            variáveis e vai com o prefixo [TESTE] no assunto.
+          </p>
+          {testFeedback && (
+            <p
+              className={`text-xs rounded-lg px-3 py-2 border ${
+                testFeedback.ok
+                  ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                  : "text-red-400 bg-red-500/10 border-red-500/20"
+              }`}
+            >
+              {testFeedback.message}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Send */}
       <div className="bg-gray-900/60 border border-white/6 rounded-xl px-5 py-4 space-y-3">
         {progress && (
-          <div className="space-y-1.5">
-            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+          <div
+            className={`rounded-lg border px-4 py-3 space-y-2.5 ${
+              progress.done
+                ? progress.failedCount > 0
+                  ? "border-amber-500/20 bg-amber-500/5"
+                  : "border-emerald-500/20 bg-emerald-500/5"
+                : "border-indigo-500/20 bg-indigo-500/5"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {progress.done ? (
+                  <svg
+                    className={`w-4 h-4 ${progress.failedCount > 0 ? "text-amber-400" : "text-emerald-400"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                ) : (
+                  <Spinner className="w-4 h-4 text-indigo-400" />
+                )}
+                <span className="text-sm font-medium text-gray-200">
+                  {progress.done
+                    ? "Campanha concluída"
+                    : "Enviando campanha..."}
+                </span>
+              </div>
+              <span className="text-xl font-semibold tabular-nums text-gray-100">
+                {percent}%
+              </span>
+            </div>
+
+            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-indigo-500 transition-all"
-                style={{
-                  width: `${
-                    progress.total > 0
-                      ? ((progress.sentCount + progress.failedCount) /
-                          progress.total) *
-                        100
-                      : 0
-                  }%`,
-                }}
+                className={`h-full rounded-full transition-all duration-500 ${
+                  progress.done
+                    ? progress.failedCount > 0
+                      ? "bg-amber-500"
+                      : "bg-emerald-500"
+                    : "bg-indigo-500 animate-pulse"
+                }`}
+                style={{ width: `${percent}%` }}
               />
             </div>
-            <p className="text-xs text-gray-400">
-              {progress.sentCount + progress.failedCount} de {progress.total}{" "}
-              processados · {progress.sentCount} enviados
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              <span className="text-gray-400 tabular-nums">
+                {processed} de {progress.total} processados
+              </span>
+              <span className="text-emerald-400 tabular-nums">
+                {progress.sentCount} enviados
+              </span>
               {progress.failedCount > 0 && (
-                <span className="text-red-400">
-                  {" "}
-                  · {progress.failedCount} falhas
+                <span className="text-red-400 tabular-nums">
+                  {progress.failedCount} falhas
                 </span>
               )}
-              {progress.done && (
-                <span className="text-emerald-400"> · concluído</span>
+              {!progress.done && (
+                <span className="text-gray-600 tabular-nums">
+                  {progress.total - processed} restantes
+                </span>
               )}
-            </p>
+            </div>
+
+            {failures.length > 0 && (
+              <div className="max-h-32 overflow-y-auto border border-white/6 rounded-lg divide-y divide-white/5">
+                {failures.map((f) => (
+                  <div key={f.email} className="px-3 py-1.5">
+                    <p className="text-[11px] text-gray-300 truncate">
+                      {f.email}
+                    </p>
+                    {f.error && (
+                      <p className="text-[10px] text-red-400 truncate">
+                        {f.error}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -692,9 +932,11 @@ export default function BulkComposer({
 
         <div className="flex items-center justify-between gap-4">
           <p className="text-[11px] text-gray-600">
-            {audience
-              ? `Pronto para disparar para ${audience.total} cliente(s).`
-              : "Busque os clientes antes de disparar."}
+            {sending
+              ? `Enviando ${processed} de ${progress?.total ?? 0} — não feche esta aba.`
+              : audience
+                ? `Pronto para disparar para ${audience.total} cliente(s).`
+                : "Busque os clientes antes de disparar."}
           </p>
           <button
             type="button"
@@ -703,10 +945,125 @@ export default function BulkComposer({
             className="flex items-center gap-2 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all"
           >
             {sending && <Spinner className="w-3 h-3" />}
-            {sending ? "Enviando..." : "Disparar campanha"}
+            {sending
+              ? `Enviando... ${percent}%`
+              : progress?.done
+                ? "Disparar novamente"
+                : "Disparar campanha"}
           </button>
         </div>
       </div>
+
+      {showAudienceModal && audience && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowAudienceModal(false)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[80vh] flex flex-col bg-gray-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-white/5">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-100">
+                  Clientes selecionados
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {audience.total} cliente(s) que compraram
+                  {selectedProduct ? ` "${selectedProduct.title}"` : ""} entre{" "}
+                  {new Date(`${from}T00:00:00`).toLocaleDateString("pt-BR")} e{" "}
+                  {new Date(`${to}T00:00:00`).toLocaleDateString("pt-BR")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAudienceModal(false)}
+                className="text-gray-600 hover:text-gray-300 transition-colors shrink-0"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-white/5">
+              <input
+                type="text"
+                value={audienceSearch}
+                onChange={(e) => setAudienceSearch(e.target.value)}
+                placeholder="Filtrar por nome, e-mail ou pedido..."
+                className="flex-1 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={handleCopyEmails}
+                className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/8 rounded-lg text-xs text-gray-300 transition-colors shrink-0"
+              >
+                {copied ? "Copiado!" : "Copiar e-mails"}
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+              {audienceResults.length === 0 ? (
+                <p className="text-xs text-gray-600 px-5 py-6 text-center">
+                  Nenhum cliente corresponde ao filtro.
+                </p>
+              ) : (
+                audienceResults.map((m, idx) => (
+                  <div
+                    key={m.email}
+                    className="flex items-center justify-between gap-3 px-5 py-2"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-[10px] text-gray-700 tabular-nums w-8 shrink-0">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-200 truncate">
+                          {m.name}
+                        </p>
+                        <p className="text-[11px] text-gray-500 truncate">
+                          {m.email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[11px] text-gray-400">{m.orderName}</p>
+                      <p className="text-[10px] text-gray-600">
+                        {new Date(m.orderDate).toLocaleDateString("pt-BR")} ·{" "}
+                        {m.quantity}x
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-4 px-5 py-3 border-t border-white/5">
+              <p className="text-[11px] text-gray-600">
+                Exibindo {audienceResults.length} de {audience.total}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAudienceModal(false)}
+                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/8 rounded-lg text-xs text-gray-300 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ interface Account {
   id: string;
   email: string;
   label?: string;
+  testEmail?: string | null;
   shopifyConnected?: boolean;
 }
 
