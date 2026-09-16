@@ -3,11 +3,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "../../ConfirmDialog";
+import BulkComposer from "./BulkComposer";
 
 interface Account {
   id: string;
   email: string;
   label?: string;
+  shopifyConnected?: boolean;
 }
 
 interface ManualAttachment {
@@ -46,6 +48,8 @@ function SpinnerIcon({ className = "w-4 h-4" }: { className?: string }) {
 
 export default function NewEmailPage() {
   const router = useRouter();
+
+  const [mode, setMode] = useState<"individual" | "bulk">("individual");
 
   // Form state
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -227,7 +231,7 @@ export default function NewEmailPage() {
     !sending;
 
   // ---------- success state ----------
-  if (sent) {
+  if (sent && mode === "individual") {
     return (
       <div className="p-6 max-w-6xl mx-auto">
         <div className="bg-gray-900/60 border border-white/6 rounded-xl p-8 flex flex-col items-center gap-4 text-center">
@@ -328,12 +332,40 @@ export default function NewEmailPage() {
             Compor Novo E-mail
           </h1>
           <p className="text-xs text-gray-500">
-            Envie um e-mail a qualquer destinatário sem precisar de um contato
-            anterior.
+            {mode === "individual"
+              ? "Envie um e-mail a qualquer destinatário sem precisar de um contato anterior."
+              : "Dispare uma campanha para quem comprou um produto específico na sua loja Shopify."}
           </p>
         </div>
       </div>
 
+      {/* Mode tabs */}
+      <div className="inline-flex p-0.5 bg-gray-900/60 border border-white/6 rounded-lg">
+        {(
+          [
+            ["individual", "Envio individual"],
+            ["bulk", "Campanha em lote"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setMode(value)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              mode === value
+                ? "bg-indigo-600 text-white"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === "bulk" ? (
+        <BulkComposer accounts={accounts} accountsLoading={accountsLoading} />
+      ) : (
+        <>
       {/* Form card */}
       <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
         <div className="px-5 py-5 space-y-4">
@@ -603,6 +635,8 @@ export default function NewEmailPage() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

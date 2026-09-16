@@ -155,6 +155,39 @@ export interface RemarketingDoc {
   createdAt: { seconds: number; nanoseconds: number };
 }
 
+export interface BulkCampaignRecipient {
+  email: string;
+  name: string;
+  orderName: string;
+  quantity: number;
+  status: "pending" | "sent" | "failed";
+  error: string | null;
+}
+
+export interface BulkCampaignDoc {
+  id: string;
+  userId: string;
+  accountId: string;
+  accountEmail: string;
+  shopDomain: string;
+  productId: number;
+  productTitle: string;
+  periodFrom: string;
+  periodTo: string;
+  onlySubscribed: boolean;
+  subject: string;
+  body: string;
+  total: number;
+  cursor: number;
+  sentCount: number;
+  failedCount: number;
+  status: "pending" | "sending" | "completed" | "cancelled";
+  recipients: BulkCampaignRecipient[];
+  createdAt: { seconds: number; nanoseconds: number };
+  updatedAt: { seconds: number; nanoseconds: number };
+  completedAt: { seconds: number; nanoseconds: number } | null;
+}
+
 export type TaskPriority = "high" | "medium" | "low";
 
 export interface AdvertorialDoc {

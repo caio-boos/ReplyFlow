@@ -58,12 +58,23 @@ function parseOrder(order: Record<string, unknown>): ShopifyOrder {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-async function shopifyFetch(
+export class ShopifyApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: string,
+  ) {
+    super(`Shopify API ${status}: ${body}`);
+    this.name = "ShopifyApiError";
+  }
+}
+
+async function shopifyRequest(
   domain: string,
   token: string,
   endpoint: string,
   retries = 3,
-): Promise<Record<string, unknown> | null> {
+  throwOnError = false,
+): Promise<Response | null> {
   const base = domain.includes("myshopify.com") ? domain : `${domain}.myshopify.com`;
   const url = `https://${base}/admin/api/${SHOPIFY_API_VERSION}/${endpoint}`;
 
@@ -78,6 +89,7 @@ async function shopifyFetch(
     if (res.status === 429) {
       if (attempt === retries) {
         console.error(`Shopify API rate limit exceeded after ${retries + 1} attempts for ${url}`);
+        if (throwOnError) throw new ShopifyApiError(429, "rate limit");
         return null;
       }
       // Respect Retry-After header; default to exponential backoff (1s, 2s, 4s)
@@ -91,13 +103,76 @@ async function shopifyFetch(
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`Shopify API error ${res.status} for ${url}: ${text}`);
+      if (throwOnError) throw new ShopifyApiError(res.status, text);
       return null;
     }
 
-    return res.json();
+    return res;
   }
 
   return null;
+}
+
+async function shopifyFetch(
+  domain: string,
+  token: string,
+  endpoint: string,
+  retries = 3,
+): Promise<Record<string, unknown> | null> {
+  const res = await shopifyRequest(domain, token, endpoint, retries);
+  return res ? res.json() : null;
+}
+
+/** Extracts the `page_info` cursor from the REST `Link: <...>; rel="next"` header. */
+function parseNextPageInfo(linkHeader: string | null): string | null {
+  if (!linkHeader) return null;
+  for (const part of linkHeader.split(",")) {
+    if (!part.includes('rel="next"')) continue;
+    const match = part.match(/[?&]page_info=([^&>]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+}
+
+/**
+ * Walks Shopify's cursor pagination. `firstQuery` carries the filters; follow-up
+ * pages may only send `limit`, `fields` and `page_info`.
+ */
+async function shopifyFetchAllPages(
+  domain: string,
+  token: string,
+  resource: string,
+  firstQuery: URLSearchParams,
+  maxPages: number,
+  throwOnError = false,
+): Promise<Record<string, unknown>[]> {
+  const limit = firstQuery.get("limit") ?? "250";
+  const fields = firstQuery.get("fields");
+  const out: Record<string, unknown>[] = [];
+  let query = firstQuery.toString();
+
+  for (let page = 0; page < maxPages; page++) {
+    const res = await shopifyRequest(
+      domain,
+      token,
+      `${resource}.json?${query}`,
+      3,
+      throwOnError,
+    );
+    if (!res) break;
+    const body = (await res.json()) as Record<string, unknown>;
+    const items = (body[resource] as Record<string, unknown>[]) ?? [];
+    out.push(...items);
+
+    const pageInfo = parseNextPageInfo(res.headers.get("Link"));
+    if (!pageInfo || items.length === 0) break;
+
+    const next = new URLSearchParams({ limit, page_info: pageInfo });
+    if (fields) next.set("fields", fields);
+    query = next.toString();
+  }
+
+  return out;
 }
 
 export interface AbandonedCheckoutLineItem {
@@ -297,4 +372,167 @@ export async function getRefundedOrders(
   }
 
   return result;
+}
+
+export interface ShopifyProductSummary {
+  id: number;
+  title: string;
+  handle: string;
+  status: string;
+  imageUrl: string | null;
+  productType: string | null;
+  vendor: string | null;
+}
+
+/** Lists store products (newest first). Requires the `read_products` scope. */
+export async function getShopifyProducts(
+  domain: string,
+  token: string,
+  opts: { search?: string; maxPages?: number } = {},
+): Promise<ShopifyProductSummary[]> {
+  const params = new URLSearchParams({
+    limit: "250",
+    fields: "id,title,handle,status,image,product_type,vendor",
+  });
+
+  const products = await shopifyFetchAllPages(
+    domain,
+    token,
+    "products",
+    params,
+    opts.maxPages ?? 4,
+    true,
+  );
+
+  const search = opts.search?.trim().toLowerCase();
+
+  return products
+    .map((p) => {
+      const image = p.image as Record<string, unknown> | null;
+      return {
+        id: p.id as number,
+        title: (p.title as string) ?? "",
+        handle: (p.handle as string) ?? "",
+        status: (p.status as string) ?? "active",
+        imageUrl: (image?.src as string | undefined) ?? null,
+        productType: (p.product_type as string) || null,
+        vendor: (p.vendor as string) || null,
+      };
+    })
+    .filter((p) => !search || p.title.toLowerCase().includes(search));
+}
+
+export interface ProductBuyer {
+  email: string;
+  name: string;
+  orderId: number;
+  orderName: string;
+  orderDate: string;
+  quantity: number;
+  orderTotal: number;
+  currency: string;
+  acceptsMarketing: boolean;
+}
+
+/** Order states that must never receive a campaign. */
+const EXCLUDED_FINANCIAL_STATUSES = new Set([
+  "refunded",
+  "partially_refunded",
+  "voided",
+]);
+
+/**
+ * Returns the unique buyers of a product within a date range, skipping orders
+ * that were cancelled, refunded (fully or partially) or voided.
+ */
+export async function getProductBuyers(
+  domain: string,
+  token: string,
+  productId: number,
+  from: Date,
+  to: Date,
+  opts: { maxPages?: number } = {},
+): Promise<ProductBuyer[]> {
+  const params = new URLSearchParams({
+    status: "any",
+    limit: "250",
+    created_at_min: from.toISOString(),
+    created_at_max: to.toISOString(),
+    fields:
+      "id,name,email,contact_email,customer,created_at,cancelled_at,financial_status,line_items,current_total_price,total_price,currency,refunds,test",
+  });
+
+  const orders = await shopifyFetchAllPages(
+    domain,
+    token,
+    "orders",
+    params,
+    opts.maxPages ?? 20,
+    true,
+  );
+
+  const byEmail = new Map<string, ProductBuyer>();
+
+  for (const order of orders) {
+    if (order.test === true) continue;
+    if (order.cancelled_at) continue;
+
+    const financialStatus = ((order.financial_status as string) ?? "").toLowerCase();
+    if (EXCLUDED_FINANCIAL_STATUSES.has(financialStatus)) continue;
+
+    // Safety net: Shopify sometimes keeps `paid` while refunds[] is populated.
+    const refunds = (order.refunds as Record<string, unknown>[]) ?? [];
+    if (refunds.length > 0) continue;
+
+    const lineItems = (order.line_items as Record<string, unknown>[]) ?? [];
+    const matched = lineItems.filter((li) => (li.product_id as number) === productId);
+    if (matched.length === 0) continue;
+
+    const customer = order.customer as Record<string, unknown> | null;
+    const rawEmail =
+      (order.email as string | null) ??
+      (order.contact_email as string | null) ??
+      (customer?.email as string | null) ??
+      "";
+    const email = rawEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
+
+    const consent = customer?.email_marketing_consent as Record<string, unknown> | null;
+    const acceptsMarketing =
+      (consent?.state as string | undefined) === "subscribed" ||
+      customer?.accepts_marketing === true;
+
+    const name =
+      `${(customer?.first_name as string) ?? ""} ${(customer?.last_name as string) ?? ""}`.trim() ||
+      email.split("@")[0];
+
+    const quantity = matched.reduce((sum, li) => sum + ((li.quantity as number) ?? 0), 0);
+    const orderDate = (order.created_at as string) ?? "";
+
+    const existing = byEmail.get(email);
+    if (existing) {
+      existing.quantity += quantity;
+      // Keep the most recent order as the reference for personalization.
+      if (orderDate > existing.orderDate) {
+        existing.orderId = order.id as number;
+        existing.orderName = (order.name as string) ?? "";
+        existing.orderDate = orderDate;
+      }
+      continue;
+    }
+
+    byEmail.set(email, {
+      email,
+      name,
+      orderId: order.id as number,
+      orderName: (order.name as string) ?? "",
+      orderDate,
+      quantity,
+      orderTotal: parseFloat((order.total_price as string) ?? "0"),
+      currency: (order.currency as string) ?? "BRL",
+      acceptsMarketing,
+    });
+  }
+
+  return [...byEmail.values()].sort((a, b) => b.orderDate.localeCompare(a.orderDate));
 }
