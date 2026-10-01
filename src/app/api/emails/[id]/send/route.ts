@@ -10,7 +10,7 @@ import {
   getCustomerEmailHistory,
   extractOrderNumbers,
 } from "@/lib/customer/identifier";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import {
   getShopifyOrderByNumber,
   getShopifyOrdersByEmail,
@@ -80,7 +80,10 @@ export async function POST(
     );
   }
 
-  await emailRef.update({ status: "processing" });
+  await emailRef.update({
+    status: "processing",
+    processingStartedAt: Timestamp.now(),
+  });
 
   try {
     const accountDoc = await db

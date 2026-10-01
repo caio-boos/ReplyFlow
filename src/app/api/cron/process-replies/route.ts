@@ -22,6 +22,14 @@ export const maxDuration = 300;
 const BATCH_SIZE_CRON = 5;
 const BATCH_SIZE_FORCE = 10; // when manually triggered from dashboard
 
+// A run can die mid-flight (timeout/deploy/crash) leaving docs stuck in "processing" forever.
+const STALE_PROCESSING_MS = 15 * 60 * 1000;
+const STALE_RECLAIM_LIMIT = 50;
+
+// Deferred emails (paused account/customer) must not re-occupy the front of the
+// queue every minute, or newer emails are never reached.
+const DEFER_MINUTES = 15;
+
 // Vercel Cron Jobs send GET requests
 export async function GET(req: NextRequest) {
   return POST(req);
@@ -44,6 +52,22 @@ export async function POST(req: NextRequest) {
   const db = getAdminDb();
   const now = Timestamp.now();
 
+  // Requeue emails abandoned mid-processing by a previous run.
+  const staleSnap = await db
+    .collection("emails")
+    .where("status", "==", "processing")
+    .limit(STALE_RECLAIM_LIMIT)
+    .get();
+  let reclaimed = 0;
+  for (const doc of staleSnap.docs) {
+    const startedAt: Timestamp | undefined =
+      doc.get("processingStartedAt") ?? doc.get("receivedAt");
+    if (startedAt && now.toMillis() - startedAt.toMillis() < STALE_PROCESSING_MS)
+      continue;
+    await doc.ref.update({ status: "pending", scheduledReplyAt: now });
+    reclaimed++;
+  }
+
   // Find emails due for reply. When force=true, skip the scheduledReplyAt filter.
   const batchSize = force ? BATCH_SIZE_FORCE : BATCH_SIZE_CRON;
   const baseQuery = db.collection("emails").where("status", "==", "pending");
@@ -54,8 +78,12 @@ export async function POST(req: NextRequest) {
   ).get();
 
   if (dueSnap.empty) {
-    return NextResponse.json({ message: "No emails due", processed: 0 });
+    return NextResponse.json({ message: "No emails due", processed: 0, reclaimed });
   }
+
+  const deferUntil = Timestamp.fromMillis(
+    now.toMillis() + DEFER_MINUTES * 60 * 1000,
+  );
 
   const DEFAULT_CONTEXT =
     "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
@@ -67,7 +95,10 @@ export async function POST(req: NextRequest) {
     const emailRef = emailDoc.ref;
 
     // Mark as processing to prevent duplicate processing
-    await emailRef.update({ status: "processing" });
+    await emailRef.update({
+      status: "processing",
+      processingStartedAt: now,
+    });
 
     const emailData = emailDoc.data();
 
@@ -87,7 +118,10 @@ export async function POST(req: NextRequest) {
 
       // If the account has paused AI replies, revert to pending and skip
       if (accountData.pausedReplies === true) {
-        await emailRef.update({ status: "pending" });
+        await emailRef.update({
+          status: "pending",
+          scheduledReplyAt: deferUntil,
+        });
         continue;
       }
 
@@ -110,7 +144,10 @@ export async function POST(req: NextRequest) {
         }
         if (customerData?.pausedReplies === true) {
           // Revert to pending — will retry when pause is lifted
-          await emailRef.update({ status: "pending" });
+          await emailRef.update({
+            status: "pending",
+            scheduledReplyAt: deferUntil,
+          });
           continue;
         }
       }
@@ -290,5 +327,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ message: "OK", processed, failed });
+  return NextResponse.json({ message: "OK", processed, failed, reclaimed });
 }
