@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { EmailDoc } from "@/lib/types";
 import { useStoreContext } from "../store-context";
 import ConversasList from "./ConversasList";
@@ -73,6 +74,9 @@ function ConversasContent() {
   // Pause state — synced from selectedAccount, updated optimistically on toggle
   const [paused, setPaused] = useState(false);
   const [toggling, setToggling] = useState(false);
+
+  const [sendingPending, setSendingPending] = useState(false);
+  const [sentProgress, setSentProgress] = useState(0);
 
   useEffect(() => {
     setPaused(selectedAccount?.pausedReplies === true);
@@ -176,7 +180,42 @@ function ConversasContent() {
     }
   }
 
+  // The cron handles 10 per call, so loop until a run reports nothing left to do.
+  async function handleSendPending() {
+    if (sendingPending) return;
+    setSendingPending(true);
+    setSentProgress(0);
+    let total = 0;
+    try {
+      for (let i = 0; i < 50; i++) {
+        const res = await fetch("/api/admin/trigger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "process-replies", force: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast.error(data.error ?? "Erro ao processar pendentes");
+          break;
+        }
+        const done = (data.processed ?? 0) + (data.failed ?? 0);
+        if (done === 0) break;
+        total += done;
+        setSentProgress(total);
+      }
+      if (total > 0) toast.success(`${total} e-mail(s) processado(s)`);
+      else toast.info("Nenhum e-mail pendente pronto para envio");
+    } catch {
+      toast.error("Erro de conex\u00e3o");
+    } finally {
+      setSendingPending(false);
+      initialLoaded.current = false;
+      await refreshEmails();
+    }
+  }
+
   const groups = groupByCustomer(emails);
+  const pendingCount = emails.filter((e) => e.status === "pending").length;
 
   function select(emailId: string) {
     sessionStorage.removeItem("taskNavCtx");
@@ -233,6 +272,10 @@ function ConversasContent() {
           onTogglePause={handleTogglePause}
           dayRange={dayRange}
           onDayRangeChange={setDayRange}
+          pendingCount={pendingCount}
+          sendingPending={sendingPending}
+          sentProgress={sentProgress}
+          onSendPending={handleSendPending}
         />
       </div>
 

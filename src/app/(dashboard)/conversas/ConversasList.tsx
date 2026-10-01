@@ -65,6 +65,10 @@ interface Props {
   onTogglePause: () => void;
   dayRange: number;
   onDayRangeChange: (days: number) => void;
+  pendingCount: number;
+  sendingPending: boolean;
+  sentProgress: number;
+  onSendPending: () => void;
 }
 
 export default function ConversasList({
@@ -81,6 +85,10 @@ export default function ConversasList({
   onTogglePause,
   dayRange,
   onDayRangeChange,
+  pendingCount,
+  sendingPending,
+  sentProgress,
+  onSendPending,
 }: Props) {
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
@@ -156,6 +164,61 @@ export default function ConversasList({
             className="shrink-0 text-xs text-amber-400 hover:text-amber-200 underline underline-offset-2 disabled:opacity-50 transition-colors"
           >
             {toggling ? "..." : "Retomar"}
+          </button>
+        </div>
+      )}
+
+      {/* Pending backlog — manual flush of the reply queue */}
+      {(pendingCount > 0 || sendingPending) && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-sky-500/10 border-b border-sky-500/15 shrink-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {sendingPending ? (
+              <svg
+                className="w-3.5 h-3.5 text-sky-400 shrink-0 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="w-3.5 h-3.5 text-sky-400 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            )}
+            <span className="text-xs text-sky-300 font-medium truncate">
+              {sendingPending
+                ? `Enviando... ${sentProgress} processado(s)`
+                : `${pendingCount} e-mail(s) pendente(s)`}
+            </span>
+          </div>
+          <button
+            onClick={onSendPending}
+            disabled={sendingPending}
+            className="shrink-0 text-xs text-sky-300 hover:text-sky-100 underline underline-offset-2 disabled:opacity-50 disabled:no-underline transition-colors"
+          >
+            {sendingPending ? "Aguarde" : "Enviar todos"}
           </button>
         </div>
       )}
