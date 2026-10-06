@@ -6,19 +6,21 @@ import {
   sessionCookieOptions,
   COOKIE_NAME,
 } from "@/lib/auth/jwt";
+import {
+  hasAccess,
+  landingPathFor,
+  requiredAccessFor,
+} from "@/lib/auth/permissions";
 
-/** Lido por `getSession()` para resolver a permissão exigida pela rota. */
-const PATHNAME_HEADER = "x-rf-pathname";
+const PUBLIC_EXACT = new Set(["/", "/login", "/register", "/api/team/accept"]);
 
-const PUBLIC_PATHS = [
-  "/",
-  "/login",
-  "/register",
+const PUBLIC_PREFIXES = [
+  "/login/",
+  "/register/",
   "/convite/",
   "/api/auth/",
   "/api/shopify/",
   "/api/team/invite/",
-  "/api/team/accept",
 ];
 
 // Root-level segments that belong to authenticated areas
@@ -45,8 +47,12 @@ export async function proxy(req: NextRequest) {
   if (isCustomDomain) return NextResponse.next();
 
   // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p)))
+  if (
+    PUBLIC_EXACT.has(pathname) ||
+    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+  ) {
     return NextResponse.next();
+  }
 
   // Allow root-level advertorial slug paths
   const firstSegment = pathname.split("/")[1];
@@ -71,13 +77,31 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Forward the real pathname so server code can resolve route permissions.
-  const forwarded = new Headers(req.headers);
-  forwarded.set(PATHNAME_HEADER, pathname);
+  // Permission gate — members only reach what the owner released to them.
+  if (!session.isOwner) {
+    if (session.permissions.length === 0) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (pathname !== "/sem-acesso") {
+        return NextResponse.redirect(new URL("/sem-acesso", req.url));
+      }
+    } else {
+      const requirement = requiredAccessFor(pathname);
+      if (!hasAccess(requirement, session.isOwner, session.permissions)) {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        return NextResponse.redirect(
+          new URL(landingPathFor(session.permissions), req.url),
+        );
+      }
+    }
+  }
 
-  const res = NextResponse.next({ request: { headers: forwarded } });
+  const res = NextResponse.next();
   if (shouldRefreshSession(session)) {
-    const renewed = await createSession(session.uid, session.email);
+    const renewed = await createSession(session.uid, session.email, session);
     res.cookies.set(COOKIE_NAME, renewed, sessionCookieOptions);
   }
   return res;

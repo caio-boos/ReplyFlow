@@ -3,6 +3,7 @@ import {
   createSession,
   COOKIE_NAME,
   sessionCookieOptions,
+  resolveSessionClaims,
 } from "@/lib/auth/session";
 import { getAdminAuth } from "@/lib/firebase/admin";
 
@@ -23,7 +24,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const token = await createSession(decoded.uid, decoded.email!);
+    const claims = await resolveSessionClaims(decoded.uid);
+    const token = await createSession(decoded.uid, decoded.email!, claims);
 
     const res = NextResponse.json({ ok: true });
     res.cookies.set(COOKIE_NAME, token, sessionCookieOptions);

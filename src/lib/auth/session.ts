@@ -1,14 +1,8 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { cache } from "react";
 import { getAdminDb } from "@/lib/firebase/admin";
-import {
-  ALL_PERMISSIONS,
-  Permission,
-  hasAccess,
-  requiredAccessFor,
-  sanitizePermissions,
-} from "./permissions";
-import { COOKIE_NAME, verifySession } from "./jwt";
+import { ALL_PERMISSIONS, Permission, sanitizePermissions } from "./permissions";
+import { COOKIE_NAME, SessionClaims, verifySession } from "./jwt";
 
 export {
   COOKIE_NAME,
@@ -18,10 +12,7 @@ export {
   shouldRefreshSession,
   verifySession,
 } from "./jwt";
-export type { JwtSession } from "./jwt";
-
-/** Header injetado pelo proxy com o pathname real da requisição. */
-export const PATHNAME_HEADER = "x-rf-pathname";
+export type { JwtSession, SessionClaims } from "./jwt";
 
 export const MEMBER_INDEX_COLLECTION = "memberIndex";
 export const MEMBERSHIPS_COLLECTION = "memberships";
@@ -80,6 +71,9 @@ async function resolveContext(): Promise<SessionPayload | null> {
   const member = memberSnap.data();
   if (!memberSnap.exists || !member || member.status !== "active") return null;
 
+  // Cookie emitido antes da última mudança de permissões: força novo login.
+  if (Number(member.permVersion ?? 0) !== jwt.permVersion) return null;
+
   const accountIds: string[] = Array.isArray(member.accountIds)
     ? member.accountIds.filter((id: unknown): id is string => typeof id === "string")
     : [];
@@ -97,8 +91,8 @@ async function resolveContext(): Promise<SessionPayload | null> {
 }
 
 /**
- * Contexto de autenticação sem verificação de permissão de rota.
- * Use em layouts, onde o redirecionamento é tratado manualmente.
+ * Contexto de autenticação resolvido no Firestore (fonte da verdade).
+ * O bloqueio por rota acontece no proxy, a partir do snapshot do cookie.
  */
 export const getAuthContext = cache(
   async (): Promise<SessionPayload | null> => {
@@ -110,31 +104,52 @@ export const getAuthContext = cache(
   },
 );
 
-/**
- * Contexto de autenticação já validado contra a permissão exigida pela rota
- * atual. Retorna `null` quando o usuário não tem acesso, fazendo as rotas de
- * API responderem 401 sem precisar de checagem extra em cada arquivo.
- */
 export async function getSession(): Promise<SessionPayload | null> {
-  const ctx = await getAuthContext();
-  if (!ctx || ctx.isOwner) return ctx;
-
-  let pathname: string | null = null;
-  try {
-    pathname = (await headers()).get(PATHNAME_HEADER);
-  } catch {
-    pathname = null;
-  }
-  if (!pathname) return ctx;
-
-  const requirement = requiredAccessFor(pathname);
-  if (!hasAccess(requirement, ctx.isOwner, ctx.permissions)) return null;
-
-  return ctx;
+  return getAuthContext();
 }
 
 /** Contexto restrito ao dono do workspace. */
 export async function getOwnerSession(): Promise<SessionPayload | null> {
   const ctx = await getAuthContext();
   return ctx?.isOwner ? ctx : null;
+}
+
+/**
+ * Snapshot de acesso para gravar no cookie de sessão no login.
+ * Lê direto do Firestore — não depende de cookie existente.
+ */
+export async function resolveSessionClaims(
+  uid: string,
+): Promise<SessionClaims> {
+  const db = getAdminDb();
+  const indexSnap = await db
+    .collection(MEMBER_INDEX_COLLECTION)
+    .doc(uid)
+    .get();
+
+  const membershipId = indexSnap.data()?.membershipId as string | undefined;
+  if (!membershipId) {
+    return {
+      ownerId: uid,
+      isOwner: true,
+      permissions: ALL_PERMISSIONS,
+      permVersion: 0,
+    };
+  }
+
+  const memberSnap = await db
+    .collection(MEMBERSHIPS_COLLECTION)
+    .doc(membershipId)
+    .get();
+  const member = memberSnap.data();
+  if (!member || member.status !== "active") {
+    return { ownerId: uid, isOwner: false, permissions: [], permVersion: 0 };
+  }
+
+  return {
+    ownerId: member.ownerId as string,
+    isOwner: false,
+    permissions: sanitizePermissions(member.permissions),
+    permVersion: Number(member.permVersion ?? 0),
+  };
 }

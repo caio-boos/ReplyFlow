@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
     memberUid: uid,
     status: "active",
     name: name || data.name || null,
+    permVersion: Date.now(),
     inviteTokenHash: FieldValue.delete(),
     inviteExpiresAt: FieldValue.delete(),
     acceptedAt: FieldValue.serverTimestamp(),

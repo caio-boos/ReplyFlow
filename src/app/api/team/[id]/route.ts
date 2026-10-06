@@ -45,7 +45,7 @@ export async function PATCH(
     );
   }
 
-  await ref.update({ permissions, accountIds });
+  await ref.update({ permissions, accountIds, permVersion: Date.now() });
   return NextResponse.json({ ok: true });
 }
 

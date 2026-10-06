@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { Permission, sanitizePermissions } from "./permissions";
 
 const COOKIE_NAME = "rf_session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -12,7 +13,20 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export interface JwtSession {
+/**
+ * Snapshot de acesso gravado no cookie para o proxy decidir rotas sem tocar o
+ * Firestore. O Firestore segue sendo a fonte da verdade: `getAuthContext()`
+ * invalida a sessão quando `permVersion` não bate mais.
+ */
+export interface SessionClaims {
+  /** Workspace ao qual o usuário pertence (uid do dono). */
+  ownerId: string;
+  isOwner: boolean;
+  permissions: Permission[];
+  permVersion: number;
+}
+
+export interface JwtSession extends SessionClaims {
   uid: string;
   email: string;
   exp?: number;
@@ -29,8 +43,16 @@ export const sessionCookieOptions = {
 export async function createSession(
   uid: string,
   email: string,
+  claims?: Partial<SessionClaims>,
 ): Promise<string> {
-  return new SignJWT({ uid, email })
+  return new SignJWT({
+    uid,
+    email,
+    o: claims?.ownerId ?? uid,
+    ow: claims?.isOwner ?? true,
+    p: claims?.permissions ?? [],
+    pv: claims?.permVersion ?? 0,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE}s`)
@@ -44,9 +66,14 @@ export async function verifySession(
     const { payload } = await jwtVerify(token, getSecret(), {
       clockTolerance: 60,
     });
+    const uid = payload["uid"] as string;
     return {
-      uid: payload["uid"] as string,
+      uid,
       email: payload["email"] as string,
+      ownerId: (payload["o"] as string) ?? uid,
+      isOwner: payload["ow"] !== false,
+      permissions: sanitizePermissions(payload["p"]),
+      permVersion: Number(payload["pv"] ?? 0),
       exp: payload.exp,
     };
   } catch {
