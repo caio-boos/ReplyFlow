@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { getOwnerSession, getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { encrypt } from "@/lib/crypto/encryption";
 import { FieldValue } from "firebase-admin/firestore";
@@ -34,7 +34,12 @@ export async function GET() {
     .where("userId", "==", session.uid)
     .get();
 
+  const allowed = session.allowedAccountIds
+    ? new Set(session.allowedAccountIds)
+    : null;
+
   const accounts = snap.docs
+    .filter((d) => !allowed || allowed.has(d.id))
     .sort((a, b) => {
       const aT = a.data().createdAt?.seconds ?? 0;
       const bT = b.data().createdAt?.seconds ?? 0;
@@ -60,7 +65,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
+  const session = await getOwnerSession();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

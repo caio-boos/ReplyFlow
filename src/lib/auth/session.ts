@@ -1,71 +1,140 @@
-import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { cache } from "react";
+import { getAdminDb } from "@/lib/firebase/admin";
+import {
+  ALL_PERMISSIONS,
+  Permission,
+  hasAccess,
+  requiredAccessFor,
+  sanitizePermissions,
+} from "./permissions";
+import { COOKIE_NAME, verifySession } from "./jwt";
 
-const COOKIE_NAME = "rf_session";
-const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
-// Once less than this is left, any authenticated request re-issues the cookie,
-// so an active user is never logged out.
-const REFRESH_THRESHOLD = 60 * 60 * 24 * 15; // 15 days
+export {
+  COOKIE_NAME,
+  MAX_AGE,
+  createSession,
+  sessionCookieOptions,
+  shouldRefreshSession,
+  verifySession,
+} from "./jwt";
+export type { JwtSession } from "./jwt";
 
-function getSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error("JWT_SECRET environment variable is required");
-  return new TextEncoder().encode(secret);
-}
+/** Header injetado pelo proxy com o pathname real da requisição. */
+export const PATHNAME_HEADER = "x-rf-pathname";
+
+export const MEMBER_INDEX_COLLECTION = "memberIndex";
+export const MEMBERSHIPS_COLLECTION = "memberships";
 
 export interface SessionPayload {
+  /**
+   * Identificador do workspace. Para o dono é o próprio uid; para um membro
+   * de equipe é o uid do dono — todos os dados são lidos/escritos nesse escopo.
+   */
   uid: string;
   email: string;
+  /** uid real do usuário logado (difere de `uid` quando é membro de equipe). */
+  actorUid: string;
+  isOwner: boolean;
+  permissions: Permission[];
+  /** Lojas liberadas para o membro. `null` = todas as lojas do workspace. */
+  allowedAccountIds: string[] | null;
+  membershipId: string | null;
   exp?: number;
 }
 
-export const sessionCookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  maxAge: MAX_AGE,
-  path: "/",
-};
-
-export async function createSession(
-  uid: string,
-  email: string,
-): Promise<string> {
-  return new SignJWT({ uid, email })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${MAX_AGE}s`)
-    .sign(getSecret());
-}
-
-export async function verifySession(
-  token: string,
-): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecret(), {
-      clockTolerance: 60,
-    });
-    return {
-      uid: payload["uid"] as string,
-      email: payload["email"] as string,
-      exp: payload.exp,
-    };
-  } catch {
-    return null;
-  }
-}
-
-/** True when the cookie is past half its lifetime and should be renewed. */
-export function shouldRefreshSession(session: SessionPayload): boolean {
-  if (!session.exp) return true;
-  return session.exp - Math.floor(Date.now() / 1000) < REFRESH_THRESHOLD;
-}
-
-export async function getSession(): Promise<SessionPayload | null> {
+async function resolveContext(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
-  return verifySession(token);
+
+  const jwt = await verifySession(token);
+  if (!jwt) return null;
+
+  const db = getAdminDb();
+  const indexSnap = await db
+    .collection(MEMBER_INDEX_COLLECTION)
+    .doc(jwt.uid)
+    .get();
+
+  if (!indexSnap.exists) {
+    return {
+      uid: jwt.uid,
+      email: jwt.email,
+      actorUid: jwt.uid,
+      isOwner: true,
+      permissions: ALL_PERMISSIONS,
+      allowedAccountIds: null,
+      membershipId: null,
+      exp: jwt.exp,
+    };
+  }
+
+  const membershipId = indexSnap.data()?.membershipId as string | undefined;
+  if (!membershipId) return null;
+
+  const memberSnap = await db
+    .collection(MEMBERSHIPS_COLLECTION)
+    .doc(membershipId)
+    .get();
+  const member = memberSnap.data();
+  if (!memberSnap.exists || !member || member.status !== "active") return null;
+
+  const accountIds: string[] = Array.isArray(member.accountIds)
+    ? member.accountIds.filter((id: unknown): id is string => typeof id === "string")
+    : [];
+
+  return {
+    uid: member.ownerId as string,
+    email: jwt.email,
+    actorUid: jwt.uid,
+    isOwner: false,
+    permissions: sanitizePermissions(member.permissions),
+    allowedAccountIds: accountIds,
+    membershipId,
+    exp: jwt.exp,
+  };
 }
 
-export { COOKIE_NAME, MAX_AGE };
+/**
+ * Contexto de autenticação sem verificação de permissão de rota.
+ * Use em layouts, onde o redirecionamento é tratado manualmente.
+ */
+export const getAuthContext = cache(
+  async (): Promise<SessionPayload | null> => {
+    try {
+      return await resolveContext();
+    } catch {
+      return null;
+    }
+  },
+);
+
+/**
+ * Contexto de autenticação já validado contra a permissão exigida pela rota
+ * atual. Retorna `null` quando o usuário não tem acesso, fazendo as rotas de
+ * API responderem 401 sem precisar de checagem extra em cada arquivo.
+ */
+export async function getSession(): Promise<SessionPayload | null> {
+  const ctx = await getAuthContext();
+  if (!ctx || ctx.isOwner) return ctx;
+
+  let pathname: string | null = null;
+  try {
+    pathname = (await headers()).get(PATHNAME_HEADER);
+  } catch {
+    pathname = null;
+  }
+  if (!pathname) return ctx;
+
+  const requirement = requiredAccessFor(pathname);
+  if (!hasAccess(requirement, ctx.isOwner, ctx.permissions)) return null;
+
+  return ctx;
+}
+
+/** Contexto restrito ao dono do workspace. */
+export async function getOwnerSession(): Promise<SessionPayload | null> {
+  const ctx = await getAuthContext();
+  return ctx?.isOwner ? ctx : null;
+}

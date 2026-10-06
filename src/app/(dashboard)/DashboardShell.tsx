@@ -3,21 +3,54 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import { StoreProvider, useStoreContext, StoreAccount } from "./store-context";
 import { ConfirmProvider } from "./ConfirmDialog";
 import { Toaster } from "sonner";
 import AccountsPanel from "./AccountsPanel";
+import IntegrationsSection from "./IntegrationsSection";
+import type { Permission } from "@/lib/auth/permissions";
+
+// ─── Access context ──────────────────────────────────────────────────
+
+interface AccessValue {
+  isOwner: boolean;
+  permissions: Permission[];
+}
+
+const AccessContext = createContext<AccessValue>({
+  isOwner: true,
+  permissions: [],
+});
+
+function useAccess() {
+  return useContext(AccessContext);
+}
 
 // ─── Navigation structure ────────────────────────────────────────────────────
 
-const NAV_SECTIONS = [
+const NAV_SECTIONS: {
+  label: string | null;
+  items: {
+    href: string;
+    label: string;
+    perm: Permission | "owner";
+    icon: React.ReactNode;
+  }[];
+}[] = [
   {
     label: null,
     items: [
       {
         href: "/dashboard",
         label: "Dashboard",
+        perm: "dashboard",
         icon: (
           <svg
             className="w-4 h-4"
@@ -37,6 +70,7 @@ const NAV_SECTIONS = [
       {
         href: "/conversas",
         label: "Conversas",
+        perm: "conversas",
         icon: (
           <svg
             className="w-4 h-4"
@@ -56,6 +90,7 @@ const NAV_SECTIONS = [
       {
         href: "/tasks",
         label: "Tarefas",
+        perm: "tasks",
         icon: (
           <svg
             className="w-4 h-4"
@@ -75,6 +110,7 @@ const NAV_SECTIONS = [
       {
         href: "/customers",
         label: "Clientes",
+        perm: "customers",
         icon: (
           <svg
             className="w-4 h-4"
@@ -94,6 +130,7 @@ const NAV_SECTIONS = [
       {
         href: "/remarketing",
         label: "Remarketing",
+        perm: "remarketing",
         icon: (
           <svg
             className="w-4 h-4"
@@ -113,6 +150,7 @@ const NAV_SECTIONS = [
       {
         href: "/stats",
         label: "Relatórios",
+        perm: "stats",
         icon: (
           <svg
             className="w-4 h-4"
@@ -137,6 +175,7 @@ const NAV_SECTIONS = [
       {
         href: "/templates",
         label: "Templates",
+        perm: "templates",
         icon: (
           <svg
             className="w-4 h-4"
@@ -156,6 +195,7 @@ const NAV_SECTIONS = [
       {
         href: "/advertorials",
         label: "Advertoriais",
+        perm: "advertorials",
         icon: (
           <svg
             className="w-4 h-4"
@@ -175,6 +215,7 @@ const NAV_SECTIONS = [
       {
         href: "/emails/new",
         label: "Compor E-mail",
+        perm: "emails",
         icon: (
           <svg
             className="w-4 h-4"
@@ -187,6 +228,71 @@ const NAV_SECTIONS = [
               strokeLinejoin="round"
               strokeWidth={1.75}
               d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+            />
+          </svg>
+        ),
+      },
+      {
+        href: "/ferramentas/marca-dagua",
+        label: "Remover Marca d'Água",
+        perm: "watermark",
+        icon: (
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.75}
+              d="M12 21a6.75 6.75 0 006.75-6.75c0-3.3-3.2-7.4-5.47-9.85a1.75 1.75 0 00-2.56 0C8.45 6.85 5.25 10.95 5.25 14.25A6.75 6.75 0 0012 21zM9 9.75l6 6m0-6l-6 6"
+            />
+          </svg>
+        ),
+      },
+      {
+        href: "/ferramentas/clonar-video",
+        label: "Clonar Vídeo com IA",
+        perm: "video_clone",
+        icon: (
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.75}
+              d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
+            />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    label: "Equipe",
+    items: [
+      {
+        href: "/membros",
+        label: "Membros",
+        perm: "owner",
+        icon: (
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.75}
+              d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
             />
           </svg>
         ),
@@ -427,6 +533,7 @@ function SettingsPanel({
   onToggleTheme: () => void;
 }) {
   const { accounts } = useStoreContext();
+  const { isOwner, permissions } = useAccess();
   const [panelView, setPanelView] = useState<"settings" | "accounts">(
     "settings",
   );
@@ -685,6 +792,10 @@ function SettingsPanel({
                   </div>
                 </section>
 
+                {isOwner && (
+                  <>
+                <IntegrationsSection />
+
                 {/* ── Lojas conectadas ── */}
                 <section>
                   <div className="flex items-center justify-between mb-5">
@@ -894,7 +1005,11 @@ function SettingsPanel({
                   </Link>
                 </section>
 
+                  </>
+                )}
+
                 {/* ── Recuperação de carrinho ── */}
+                {(isOwner || permissions.includes("remarketing")) && (
                 <section>
                   <div className="mb-5">
                     <h2 className="text-sm font-semibold text-white">
@@ -948,6 +1063,7 @@ function SettingsPanel({
                     </svg>
                   </Link>
                 </section>
+                )}
               </>
             )}
           </div>
@@ -961,9 +1077,17 @@ function SettingsPanel({
 function SidebarLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { isOwner, permissions } = useAccess();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  const visibleSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) =>
+      isOwner ? true : item.perm !== "owner" && permissions.includes(item.perm),
+    ),
+  })).filter((section) => section.items.length > 0);
 
   useEffect(() => {
     const saved = localStorage.getItem("replyflow.theme");
@@ -1085,7 +1209,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
 
           {/* Nav */}
           <nav className="flex-1 px-3 pb-3 overflow-y-auto space-y-4 min-h-0">
-            {NAV_SECTIONS.map((section, si) => (
+            {visibleSections.map((section, si) => (
               <div key={si}>
                 {section.label && (
                   <p className="px-3 mb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">
@@ -1202,20 +1326,26 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
 
 export default function DashboardShell({
   children,
+  isOwner,
+  permissions,
 }: {
   children: React.ReactNode;
+  isOwner: boolean;
+  permissions: Permission[];
 }) {
   return (
-    <StoreProvider>
-      <ConfirmProvider>
-        <SidebarLayout>{children}</SidebarLayout>
-      </ConfirmProvider>
-      <Toaster
-        position="bottom-right"
-        theme="dark"
-        richColors
-        toastOptions={{ classNames: { toast: "!font-sans !text-xs" } }}
-      />
-    </StoreProvider>
+    <AccessContext.Provider value={{ isOwner, permissions }}>
+      <StoreProvider>
+        <ConfirmProvider>
+          <SidebarLayout>{children}</SidebarLayout>
+        </ConfirmProvider>
+        <Toaster
+          position="bottom-right"
+          theme="dark"
+          richColors
+          toastOptions={{ classNames: { toast: "!font-sans !text-xs" } }}
+        />
+      </StoreProvider>
+    </AccessContext.Provider>
   );
 }

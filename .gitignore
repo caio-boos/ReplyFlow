@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 replyflow-6d249-firebase-adminsdk-fbsvc-861caf8a61.json
+
+# ffmpeg.wasm assets (gerados pelo postinstall)
+/public/ffmpeg

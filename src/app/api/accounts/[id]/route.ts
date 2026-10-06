@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { getOwnerSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { encrypt } from "@/lib/crypto/encryption";
 import { FieldValue } from "firebase-admin/firestore";
@@ -8,7 +8,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
+  const session = await getOwnerSession();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -83,7 +83,7 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
+  const session = await getOwnerSession();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

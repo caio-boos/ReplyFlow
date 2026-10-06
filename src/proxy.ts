@@ -5,20 +5,27 @@ import {
   shouldRefreshSession,
   sessionCookieOptions,
   COOKIE_NAME,
-} from "@/lib/auth/session";
+} from "@/lib/auth/jwt";
+
+/** Lido por `getSession()` para resolver a permissão exigida pela rota. */
+const PATHNAME_HEADER = "x-rf-pathname";
 
 const PUBLIC_PATHS = [
   "/",
   "/login",
   "/register",
+  "/convite/",
   "/api/auth/",
   "/api/shopify/",
+  "/api/team/invite/",
+  "/api/team/accept",
 ];
 
 // Root-level segments that belong to authenticated areas
 const RESERVED_SEGMENTS = new Set([
   "dashboard", "accounts", "conversas", "customers", "context",
   "emails", "products", "remarketing", "stats", "tasks", "advertorials",
+  "templates", "ferramentas", "membros", "sem-acesso",
   "login", "register", "api",
 ]);
 
@@ -64,7 +71,11 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  const res = NextResponse.next();
+  // Forward the real pathname so server code can resolve route permissions.
+  const forwarded = new Headers(req.headers);
+  forwarded.set(PATHNAME_HEADER, pathname);
+
+  const res = NextResponse.next({ request: { headers: forwarded } });
   if (shouldRefreshSession(session)) {
     const renewed = await createSession(session.uid, session.email);
     res.cookies.set(COOKIE_NAME, renewed, sessionCookieOptions);
