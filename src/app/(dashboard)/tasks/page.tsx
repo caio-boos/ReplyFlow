@@ -5,6 +5,7 @@ import Link from "next/link";
 import { TaskDoc, TaskPriority } from "@/lib/types";
 import { useStoreContext } from "../store-context";
 import { useConfirm } from "../ConfirmDialog";
+import AnnotationModal from "../anotacoes/AnnotationModal";
 
 interface AccountOption {
   id: string;
@@ -221,6 +222,7 @@ function TaskRow({
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteValue, setNoteValue] = useState(task.note ?? "");
   const [noteSaving, setNoteSaving] = useState(false);
+  const [annotationOpen, setAnnotationOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function openNote() {
@@ -467,25 +469,58 @@ function TaskRow({
         )}
       </div>
 
-      <button
-        onClick={() => onDelete(task.id)}
-        className="opacity-0 group-hover:opacity-100 text-gray-700 hover:text-red-400 transition-all shrink-0 mt-0.5 p-1 rounded-md hover:bg-red-500/10"
-        title="Remover tarefa"
-      >
-        <svg
-          className="w-3.5 h-3.5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      <div className="flex flex-col items-center gap-1 shrink-0 mt-0.5">
+        <button
+          onClick={() => setAnnotationOpen(true)}
+          className="opacity-0 group-hover:opacity-100 text-gray-700 hover:text-amber-400 transition-all p-1 rounded-md hover:bg-amber-500/10"
+          title="Criar anotação vinculada a esta tarefa"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75"
+            />
+          </svg>
+        </button>
+        <button
+          onClick={() => onDelete(task.id)}
+          className="opacity-0 group-hover:opacity-100 text-gray-700 hover:text-red-400 transition-all p-1 rounded-md hover:bg-red-500/10"
+          title="Remover tarefa"
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <AnnotationModal
+        open={annotationOpen}
+        onClose={() => setAnnotationOpen(false)}
+        accountId={task.accountId}
+        defaults={{
+          title: `Acompanhar: ${task.description}`,
+          linkedTaskId: task.id,
+          linkedEmailId: task.emailId || undefined,
+          customerName: task.customerName || undefined,
+        }}
+      />
     </div>
   );
 }

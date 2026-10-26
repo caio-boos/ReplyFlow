@@ -15,10 +15,20 @@ export interface StoreAccount {
   label: string;
   email: string;
   logoUrl?: string | null;
+  shopifyDomain?: string | null;
   shopifyConnected?: boolean;
   remarketingEnabled?: boolean;
   active?: boolean;
   pausedReplies?: boolean;
+}
+
+/** ID curto da loja Shopify (ex.: "y10mq7" de "y10mq7.myshopify.com"). */
+export function shopifyStoreId(
+  account: { shopifyDomain?: string | null } | null,
+): string | null {
+  const domain = account?.shopifyDomain;
+  if (!domain) return null;
+  return domain.replace(/\.myshopify\.com.*$/i, "").trim() || null;
 }
 
 interface StoreContextValue {

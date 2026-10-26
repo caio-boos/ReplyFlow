@@ -4,6 +4,14 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "../../ConfirmDialog";
 import BulkComposer from "./BulkComposer";
+import {
+  COMPOSE_TEMPLATES,
+  fillTemplate,
+  getTemplateContent,
+  type TemplateVars,
+} from "@/lib/email/compose-templates";
+import type { ShopifyOrderDetails } from "@/lib/shopify/client";
+import { shopifyStoreId } from "../../store-context";
 
 interface Account {
   id: string;
@@ -11,6 +19,8 @@ interface Account {
   label?: string;
   testEmail?: string | null;
   shopifyConnected?: boolean;
+  shopifyDomain?: string | null;
+  replyLanguage?: string;
 }
 
 interface ManualAttachment {
@@ -22,6 +32,18 @@ interface ManualAttachment {
 // Same limits as email detail page
 const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: "English",
+  pt: "Português",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  it: "Italiano",
+  nl: "Nederlands",
+  ja: "日本語",
+  zh: "中文（简体）",
+};
 
 function SpinnerIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -47,6 +69,12 @@ function SpinnerIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+interface OrderLookupResult {
+  order: ShopifyOrderDetails;
+  storeLabel: string;
+  trackingUrlTemplate: string | null;
+}
+
 export default function NewEmailPage() {
   const router = useRouter();
 
@@ -59,6 +87,20 @@ export default function NewEmailPage() {
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+
+  // Shopify template helper
+  const [lookupQuery, setLookupQuery] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupResult, setLookupResult] = useState<OrderLookupResult | null>(
+    null,
+  );
+  const [templateId, setTemplateId] = useState("");
+  const [appliedTemplateName, setAppliedTemplateName] = useState<string | null>(
+    null,
+  );
+  const [createAnnotation, setCreateAnnotation] = useState(true);
+  const [annotationCreated, setAnnotationCreated] = useState(false);
 
   // Attachments
   const [attachments, setAttachments] = useState<ManualAttachment[]>([]);
@@ -190,6 +232,102 @@ export default function NewEmailPage() {
 
   const openConfirm = useConfirm();
 
+  // ---------- Shopify template helper ----------
+  async function handleLookup() {
+    if (!accountId || !lookupQuery.trim()) return;
+    setLookupLoading(true);
+    setLookupError(null);
+    setLookupResult(null);
+    try {
+      const params = new URLSearchParams({
+        accountId,
+        query: lookupQuery.trim(),
+      });
+      const res = await fetch(`/api/shopify/order-lookup?${params}`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao buscar pedido");
+      setLookupResult(data as OrderLookupResult);
+    } catch (err) {
+      setLookupError(
+        err instanceof Error ? err.message : "Erro ao buscar pedido",
+      );
+    } finally {
+      setLookupLoading(false);
+    }
+  }
+
+  function buildTemplateVars(result: OrderLookupResult): TemplateVars {
+    const { order, storeLabel, trackingUrlTemplate } = result;
+    const nome = order.customer?.name ?? "";
+    const trackingLink =
+      trackingUrlTemplate && order.trackingNumber
+        ? trackingUrlTemplate.replace("{{tracking_number}}", order.trackingNumber)
+        : (order.trackingUrl ?? "");
+    return {
+      nome,
+      primeiroNome: order.customer?.firstName ?? nome.split(" ")[0] ?? "",
+      pedido: order.name,
+      itens: order.lineItems
+        .map((i) => `${i.quantity}x ${i.title}`)
+        .join(", "),
+      loja: storeLabel,
+      rastreio: order.trackingNumber ?? "",
+      linkRastreio: trackingLink,
+      endereco: order.shippingAddress ?? "",
+      total:
+        order.totalPrice != null
+          ? `${order.currency ?? ""} ${order.totalPrice.toFixed(2)}`.trim()
+          : "",
+    };
+  }
+
+  function handleApplyTemplate() {
+    if (!lookupResult || !templateId) return;
+    const template = COMPOSE_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return;
+    const account = accounts.find((a) => a.id === accountId);
+    const content = getTemplateContent(template, account?.replyLanguage);
+    const vars = buildTemplateVars(lookupResult);
+    if (lookupResult.order.customer?.email)
+      setTo(lookupResult.order.customer.email);
+    setSubject(fillTemplate(content.subject, vars));
+    setBody(fillTemplate(content.body, vars));
+    setAppliedTemplateName(template.name);
+  }
+
+  async function maybeCreateAnnotation(emailId: string | null) {
+    if (!createAnnotation || !lookupResult) return;
+    const { order } = lookupResult;
+    const titleBase = appliedTemplateName ?? "E-mail enviado";
+    try {
+      const res = await fetch("/api/annotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          title: `${titleBase} — Pedido ${order.name}`,
+          text: [
+            order.customer?.name ? `Cliente: ${order.customer.name}` : null,
+            order.customer?.email ? `E-mail: ${order.customer.email}` : null,
+            `Assunto: ${subject.trim()}`,
+            "Aguardando retorno do cliente.",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          linkedEmailId: emailId ?? undefined,
+          orderNumber: order.name,
+          customerName: order.customer?.name ?? undefined,
+          customerEmail: order.customer?.email ?? undefined,
+        }),
+      });
+      if (res.ok) setAnnotationCreated(true);
+    } catch {
+      // non-fatal — e-mail already sent
+    }
+  }
+
   async function handleSend() {
     if (!accountId || !to.trim() || !subject.trim() || !body.trim()) return;
     const confirmed = await openConfirm({
@@ -216,6 +354,9 @@ export default function NewEmailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
+      await maybeCreateAnnotation(
+        typeof data.emailId === "string" ? data.emailId : null,
+      );
       setSent(true);
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Erro ao enviar");
@@ -258,6 +399,18 @@ export default function NewEmailPage() {
             <p className="text-sm text-gray-500">
               Sua mensagem foi entregue ao destinatário.
             </p>
+            {annotationCreated && (
+              <p className="text-xs text-amber-400/90">
+                Uma anotação de acompanhamento foi criada em{" "}
+                <button
+                  onClick={() => router.push("/anotacoes")}
+                  className="underline hover:text-amber-300"
+                >
+                  Anotações
+                </button>
+                .
+              </p>
+            )}
           </div>
           <div className="flex gap-3 pt-2">
             <button
@@ -267,6 +420,12 @@ export default function NewEmailPage() {
                 setSubject("");
                 setBody("");
                 setAttachments([]);
+                setLookupQuery("");
+                setLookupResult(null);
+                setLookupError(null);
+                setTemplateId("");
+                setAppliedTemplateName(null);
+                setAnnotationCreated(false);
               }}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/8 rounded-lg text-sm text-gray-300 transition-colors"
             >
@@ -367,6 +526,224 @@ export default function NewEmailPage() {
         <BulkComposer accounts={accounts} accountsLoading={accountsLoading} />
       ) : (
         <>
+      {/* Shopify templates card */}
+      <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2.5">
+          <img
+            src="/images/shopify-logo.png"
+            alt="Shopify"
+            className="w-4 h-4 object-contain"
+          />
+          <div>
+            <p className="text-sm font-medium text-gray-200 leading-tight">
+              Templates prontos
+            </p>
+            <p className="text-xs text-gray-500 leading-tight">
+              Busque um pedido na Shopify e preencha o e-mail automaticamente.
+            </p>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Lookup */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-500 uppercase tracking-wider">
+              Pedido ou e-mail do cliente
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={lookupQuery}
+                onChange={(e) => setLookupQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleLookup();
+                  }
+                }}
+                placeholder="#2361 ou cliente@email.com"
+                className="flex-1 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+              />
+              <button
+                type="button"
+                onClick={handleLookup}
+                disabled={!accountId || !lookupQuery.trim() || lookupLoading}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-white transition-colors shrink-0"
+              >
+                {lookupLoading ? (
+                  <SpinnerIcon className="w-3.5 h-3.5" />
+                ) : (
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                    />
+                  </svg>
+                )}
+                {lookupLoading ? "Buscando..." : "Buscar na Shopify"}
+              </button>
+            </div>
+            {!accountId && (
+              <p className="text-xs text-gray-600">
+                Selecione a loja no campo &quot;Enviar de&quot; abaixo para
+                buscar o pedido.
+              </p>
+            )}
+            {accountId &&
+              !accounts.find((a) => a.id === accountId)?.shopifyConnected && (
+                <p className="text-xs text-amber-400">
+                  A conta selecionada não tem a Shopify conectada.
+                </p>
+              )}
+          </div>
+
+          {lookupError && (
+            <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+              {lookupError}
+            </p>
+          )}
+
+          {/* Order summary */}
+          {lookupResult && (
+            <div className="bg-gray-800/40 border border-white/5 rounded-lg px-4 py-3 space-y-1 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border bg-violet-500/10 text-violet-400 border-violet-500/20 font-medium">
+                  Pedido {lookupResult.order.name}
+                </span>
+                <span className="text-gray-500">
+                  {lookupResult.order.fulfillmentStatus ?? "não enviado"} ·{" "}
+                  {lookupResult.order.financialStatus}
+                </span>
+              </div>
+              {lookupResult.order.customer?.name && (
+                <p className="text-gray-400">
+                  Cliente:{" "}
+                  <span className="text-gray-200">
+                    {lookupResult.order.customer.name}
+                  </span>
+                  {lookupResult.order.customer.email && (
+                    <span className="text-gray-500">
+                      {" "}
+                      &lt;{lookupResult.order.customer.email}&gt;
+                    </span>
+                  )}
+                </p>
+              )}
+              {lookupResult.order.lineItems.length > 0 && (
+                <p className="text-gray-500">
+                  Itens:{" "}
+                  {lookupResult.order.lineItems
+                    .map((i) => `${i.quantity}x ${i.title}`)
+                    .join(", ")}
+                </p>
+              )}
+              {lookupResult.order.shippingAddress && (
+                <p className="text-gray-500 whitespace-pre-line">
+                  Endereço: {lookupResult.order.shippingAddress}
+                </p>
+              )}
+              {lookupResult.order.trackingNumber && (
+                <p className="text-gray-500">
+                  Rastreio: {lookupResult.order.trackingNumber}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Template picker */}
+          {lookupResult && (() => {
+            const account = accounts.find((a) => a.id === accountId);
+            const accountLang = (account?.replyLanguage ?? "en")
+              .toLowerCase()
+              .split("-")[0];
+            const selectedTemplate = COMPOSE_TEMPLATES.find(
+              (t) => t.id === templateId,
+            );
+            const effectiveLang = selectedTemplate
+              ? selectedTemplate.content[accountLang]
+                ? accountLang
+                : "en"
+              : accountLang;
+            const langLabel =
+              LANGUAGE_LABELS[effectiveLang] ?? effectiveLang.toUpperCase();
+            return (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-gray-500 uppercase tracking-wider">
+                  Template
+                </label>
+                <span className="text-xs text-gray-600">
+                  Idioma da loja:{" "}
+                  <span className="text-gray-400">{langLabel}</span>
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="flex-1 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                >
+                  <option value="" disabled>
+                    Selecione um template...
+                  </option>
+                  {COMPOSE_TEMPLATES.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleApplyTemplate}
+                  disabled={!templateId}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-white transition-colors shrink-0"
+                >
+                  Preencher e-mail
+                </button>
+              </div>
+              {templateId && (
+                <p className="text-xs text-gray-600">
+                  {
+                    COMPOSE_TEMPLATES.find((t) => t.id === templateId)
+                      ?.description
+                  }
+                </p>
+              )}
+              {appliedTemplateName && (
+                <p className="text-xs text-emerald-400">
+                  Template &quot;{appliedTemplateName}&quot; aplicado —
+                  revise o e-mail abaixo antes de enviar.
+                </p>
+              )}
+            </div>
+            );
+          })()}
+
+          {/* Annotation toggle */}
+          {lookupResult && (
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={createAnnotation}
+                onChange={(e) => setCreateAnnotation(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-amber-500/40"
+              />
+              <span className="text-xs text-gray-400">
+                Criar anotação de acompanhamento ao enviar (fica em{" "}
+                <span className="text-amber-400">Anotações</span>)
+              </span>
+            </label>
+          )}
+        </div>
+      </div>
+
       {/* Form card */}
       <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
         <div className="px-5 py-5 space-y-4">
@@ -395,11 +772,17 @@ export default function NewEmailPage() {
                     Selecione uma conta...
                   </option>
                 )}
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.label ? `${a.label} <${a.email}>` : a.email}
-                  </option>
-                ))}
+                {accounts.map((a) => {
+                  const shopId = shopifyStoreId(a);
+                  const name = a.label
+                    ? `${a.label}${shopId ? `(${shopId})` : ""}`
+                    : null;
+                  return (
+                    <option key={a.id} value={a.id}>
+                      {name ? `${name} <${a.email}>` : a.email}
+                    </option>
+                  );
+                })}
               </select>
             )}
           </div>

@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     );
 
     const now = FieldValue.serverTimestamp();
-    await db.collection("emails").add({
+    const emailRef = await db.collection("emails").add({
       accountId,
       accountEmail: accountData.email,
       from: to,
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
       references: [],
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, emailId: emailRef.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

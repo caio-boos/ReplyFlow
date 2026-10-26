@@ -202,6 +202,23 @@ export interface AdvertorialDoc {
   updatedAt: { seconds: number; nanoseconds: number };
 }
 
+export interface AnnotationDoc {
+  id: string;
+  accountId: string;
+  title: string;
+  text: string;
+  status: "open" | "done";
+  linkedEmailId: string | null;
+  linkedTaskId: string | null;
+  orderNumber: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  createdBy: string;
+  createdByEmail: string | null;
+  createdAt: { seconds: number; nanoseconds: number };
+  updatedAt: { seconds: number; nanoseconds: number } | null;
+}
+
 export interface TaskDoc {
   id: string;
   emailId: string;

@@ -295,6 +295,122 @@ export async function getShopifyOrdersByEmail(
   return orders.map(parseOrder);
 }
 
+// ─── Order lookup with customer details (used by the email composer) ─────────
+
+export interface ShopifyOrderCustomerDetails {
+  firstName: string | null;
+  lastName: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface ShopifyOrderDetails extends ShopifyOrder {
+  currency: string | null;
+  customer: ShopifyOrderCustomerDetails | null;
+  /** Human-readable shipping address (multi-line). */
+  shippingAddress: string | null;
+}
+
+function parseOrderDetails(order: Record<string, unknown>): ShopifyOrderDetails {
+  const base = parseOrder(order);
+
+  const rawCustomer = order.customer as Record<string, unknown> | null | undefined;
+  const shipping = order.shipping_address as Record<string, unknown> | null | undefined;
+
+  const firstName =
+    (rawCustomer?.first_name as string | null) ??
+    (shipping?.first_name as string | null) ??
+    null;
+  const lastName =
+    (rawCustomer?.last_name as string | null) ??
+    (shipping?.last_name as string | null) ??
+    null;
+  const fullName =
+    [firstName, lastName].filter(Boolean).join(" ").trim() ||
+    ((shipping?.name as string | null) ?? null);
+
+  const customerEmail =
+    (order.email as string | null) ??
+    (rawCustomer?.email as string | null) ??
+    null;
+  const customerPhone =
+    (rawCustomer?.phone as string | null) ??
+    (shipping?.phone as string | null) ??
+    (order.phone as string | null) ??
+    null;
+
+  const customer: ShopifyOrderCustomerDetails | null =
+    fullName || customerEmail
+      ? {
+          firstName,
+          lastName,
+          name: fullName || null,
+          email: customerEmail,
+          phone: customerPhone,
+        }
+      : null;
+
+  let shippingAddress: string | null = null;
+  if (shipping) {
+    const lines = [
+      [shipping.address1, shipping.address2].filter(Boolean).join(", "),
+      [shipping.city, shipping.province, shipping.zip].filter(Boolean).join(" - "),
+      shipping.country,
+    ]
+      .map((l) => (typeof l === "string" ? l.trim() : ""))
+      .filter(Boolean);
+    shippingAddress = lines.length > 0 ? lines.join("\n") : null;
+  }
+
+  return {
+    ...base,
+    currency: (order.currency as string | null) ?? null,
+    customer,
+    shippingAddress,
+  };
+}
+
+/** Looks up a single order (with customer + address) by its "#1234" number. */
+export async function getShopifyOrderDetailsByNumber(
+  domain: string,
+  token: string,
+  orderNumber: string,
+): Promise<ShopifyOrderDetails | null> {
+  const clean = orderNumber.replace(/^#/, "").trim();
+  const res = await shopifyRequest(
+    domain,
+    token,
+    `orders.json?name=%23${encodeURIComponent(clean)}&status=any`,
+    3,
+    true,
+  );
+  if (!res) return null;
+  const data = (await res.json()) as Record<string, unknown>;
+  const orders = (data.orders as Record<string, unknown>[]) ?? [];
+  if (orders.length === 0) return null;
+  return parseOrderDetails(orders[0]);
+}
+
+/** Looks up the most recent orders (with customer + address) for an email. */
+export async function getShopifyOrderDetailsByEmail(
+  domain: string,
+  token: string,
+  email: string,
+): Promise<ShopifyOrderDetails[]> {
+  const res = await shopifyRequest(
+    domain,
+    token,
+    `orders.json?email=${encodeURIComponent(email)}&status=any&limit=5`,
+    3,
+    true,
+  );
+  if (!res) return [];
+  const data = (await res.json()) as Record<string, unknown>;
+  const orders = (data.orders as Record<string, unknown>[]) ?? [];
+  return orders.map(parseOrderDetails);
+}
+
 export function formatOrderForAI(order: ShopifyOrder, trackingUrlTemplate?: string | null): string {
   const lines: string[] = [];
   lines.push(`Order: ${order.name}`);
