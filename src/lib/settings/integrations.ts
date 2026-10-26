@@ -43,3 +43,20 @@ export async function getReplicateStatus(
     username: typeof data?.replicateUsername === "string" ? data.replicateUsername : null,
   };
 }
+
+/** E-mail que recebe notificações quando um cliente acompanhado responde. */
+export async function getNotificationEmail(userId: string): Promise<string | null> {
+  const doc = await getAdminDb().collection(COLLECTION).doc(userId).get();
+  const stored = doc.data()?.notificationEmail;
+  return typeof stored === "string" && stored.trim() ? stored.trim() : null;
+}
+
+export async function setNotificationEmail(
+  userId: string,
+  email: string | null,
+): Promise<void> {
+  await getAdminDb()
+    .collection(COLLECTION)
+    .doc(userId)
+    .set({ notificationEmail: email?.trim() || null }, { merge: true });
+}

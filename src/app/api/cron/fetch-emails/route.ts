@@ -4,6 +4,8 @@ import { fetchNewEmails } from "@/lib/email/imap";
 import { decrypt } from "@/lib/crypto/encryption";
 import { matchOrCreateCustomer } from "@/lib/customer/identifier";
 import { classifyEmail, computeCostUsd } from "@/lib/ai/openai";
+import { getNotificationEmail } from "@/lib/settings/integrations";
+import { sendEmail } from "@/lib/email/smtp";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type { EmailAttachment } from "@/lib/types";
 import { randomUUID } from "crypto";
@@ -183,6 +185,127 @@ async function uploadEmailAttachments(
         r.status === "fulfilled" && r.value !== null,
     )
     .map((r) => r.value);
+}
+
+// ─── Reply notification ───────────────────────────────────────────────────────
+
+function appBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+  const domain = (process.env.MAIN_DOMAIN ?? "reply.picdev.com.br").split(":")[0];
+  return `https://${domain}`;
+}
+
+/**
+ * Sends a heads-up email to the workspace's configured notification address
+ * when a watched customer replies: either the sender has an open annotation
+ * or the message references an email sent via "Compor E-mail".
+ */
+async function maybeNotifyReply(params: {
+  db: FirebaseFirestore.Firestore;
+  accountData: FirebaseFirestore.DocumentData;
+  accountId: string;
+  smtpPassword: string;
+  emailDocId: string;
+  fromEmail: string;
+  fromName: string;
+  subject: string;
+  bodyText: string;
+  inReplyTo: string | null;
+  references: string[];
+}): Promise<void> {
+  const {
+    db,
+    accountData,
+    accountId,
+    smtpPassword,
+    emailDocId,
+    fromEmail,
+    fromName,
+    subject,
+    bodyText,
+    inReplyTo,
+    references,
+  } = params;
+
+  try {
+    const notificationEmail = await getNotificationEmail(
+      accountData.userId as string,
+    );
+    if (!notificationEmail) return;
+
+    const senderNorm = fromEmail.toLowerCase().trim();
+    let reason: string | null = null;
+
+    // 1. Sender has an open annotation in this store
+    const annotationSnap = await db
+      .collection("annotations")
+      .where("accountId", "==", accountId)
+      .where("customerEmail", "==", senderNorm)
+      .where("status", "==", "open")
+      .limit(1)
+      .get();
+    if (!annotationSnap.empty) {
+      reason = `Anotação aberta: "${annotationSnap.docs[0].data().title}"`;
+    }
+
+    // 2. Message is a direct reply to an email sent via "Compor E-mail"
+    if (!reason) {
+      const candidateIds = [...(inReplyTo ? [inReplyTo] : []), ...references];
+      for (const msgId of candidateIds) {
+        if (!msgId) continue;
+        const sentSnap = await db
+          .collection("emails")
+          .where("smtpMessageId", "==", msgId)
+          .limit(1)
+          .get();
+        if (!sentSnap.empty && sentSnap.docs[0].data().direction === "outbound") {
+          reason = `Resposta ao e-mail "${sentSnap.docs[0].data().subject}"`;
+          break;
+        }
+      }
+    }
+
+    if (!reason) return;
+
+    const storeLabel =
+      (accountData.label as string) || (accountData.email as string);
+    const conversationUrl = `${appBaseUrl()}/conversas?id=${emailDocId}`;
+    const preview = bodyText.trim().slice(0, 500);
+
+    await sendEmail(
+      {
+        smtpHost: accountData.smtpHost,
+        smtpPort: accountData.smtpPort,
+        email: accountData.email,
+        password: smtpPassword,
+      },
+      {
+        to: notificationEmail,
+        subject: `📬 [${storeLabel}] ${fromName || fromEmail} respondeu: ${subject}`,
+        text: `Um cliente que você está acompanhando respondeu.
+
+Loja: ${storeLabel}
+Cliente: ${fromName ? `${fromName} <${fromEmail}>` : fromEmail}
+Assunto: ${subject}
+Motivo do acompanhamento: ${reason}
+
+Mensagem:
+${preview}${bodyText.trim().length > 500 ? "\n[...]" : ""}
+
+Abrir a conversa:
+${conversationUrl}
+
+— ReplyFlow`,
+      },
+    );
+    console.log(
+      `Reply notification sent to ${notificationEmail} for email ${emailDocId}`,
+    );
+  } catch (err) {
+    // Notification must never break email ingestion
+    console.error(`Failed to send reply notification for ${emailDocId}:`, err);
+  }
 }
 
 // Vercel Cron Jobs send GET requests
@@ -402,6 +525,21 @@ export async function POST(req: NextRequest) {
           repliedEmailId: emailRef.id,
         });
       }
+
+      // Notify the owner when a watched customer replies
+      await maybeNotifyReply({
+        db,
+        accountData: data,
+        accountId: email.accountId,
+        smtpPassword: password,
+        emailDocId: emailRef.id,
+        fromEmail: effectiveFrom,
+        fromName: effectiveFromName,
+        subject: email.subject,
+        bodyText: email.bodyText,
+        inReplyTo: email.inReplyTo,
+        references: email.references,
+      });
 
       if (classification.type === "alert" && classification.taskDescription) {
         await db.collection("tasks").add({

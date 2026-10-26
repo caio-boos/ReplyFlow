@@ -4,6 +4,7 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
 import { sendEmail } from "@/lib/email/smtp";
 import { renderEmailHtml } from "@/lib/email/html-template";
+import { matchOrCreateCustomer } from "@/lib/customer/identifier";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
@@ -15,7 +16,8 @@ export async function POST(req: NextRequest) {
     to: string,
     subject: string,
     body: string,
-    customerId: string | undefined;
+    customerId: string | undefined,
+    customerName: string;
   let attachments: Array<{
     filename: string;
     contentType: string;
@@ -32,6 +34,8 @@ export async function POST(req: NextRequest) {
       typeof parsed.customerId === "string" && parsed.customerId.trim()
         ? parsed.customerId.trim()
         : undefined;
+    customerName =
+      typeof parsed.customerName === "string" ? parsed.customerName.trim() : "";
     if (Array.isArray(parsed.attachments)) {
       attachments = (
         parsed.attachments as Array<Record<string, unknown>>
@@ -113,17 +117,37 @@ export async function POST(req: NextRequest) {
     );
 
     const now = FieldValue.serverTimestamp();
-    const emailRef = await db.collection("emails").add({
+    const emailRef = db.collection("emails").doc();
+
+    // Link the composed email to a customer (creating one if needed) so the
+    // customer's future reply lands in the same conversation thread.
+    let resolvedCustomerId = customerId ?? null;
+    if (!resolvedCustomerId) {
+      try {
+        const match = await matchOrCreateCustomer({
+          fromEmail: to,
+          fromName: customerName,
+          bodyText: `${subject}\n${body}`,
+          emailDocId: emailRef.id,
+          accountId,
+        });
+        resolvedCustomerId = match.customerId;
+      } catch (err) {
+        console.error("compose: failed to link customer:", err);
+      }
+    }
+
+    await emailRef.set({
       accountId,
       accountEmail: accountData.email,
       from: to,
-      fromName: "",
+      fromName: customerName,
       subject,
       bodyText: "",
       aiResponse: body,
       status: "sent",
       direction: "outbound",
-      customerId: customerId ?? null,
+      customerId: resolvedCustomerId,
       receivedAt: now,
       scheduledReplyAt: now,
       sentAt: now,

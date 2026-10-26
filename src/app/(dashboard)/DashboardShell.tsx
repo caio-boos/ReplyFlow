@@ -15,6 +15,7 @@ import { ConfirmProvider } from "./ConfirmDialog";
 import { Toaster } from "sonner";
 import AccountsPanel from "./AccountsPanel";
 import IntegrationsSection from "./IntegrationsSection";
+import NotificationsSection from "./NotificationsSection";
 import type { Permission } from "@/lib/auth/permissions";
 
 // ─── Access context ──────────────────────────────────────────────────
@@ -822,6 +823,8 @@ function SettingsPanel({
 
                 {isOwner && (
                   <>
+                <NotificationsSection />
+
                 <IntegrationsSection />
 
                 {/* ── Lojas conectadas ── */}

@@ -349,6 +349,11 @@ export default function NewEmailPage() {
           to: to.trim(),
           subject: subject.trim(),
           body: body.trim(),
+          ...(lookupResult?.order.customer?.name &&
+          lookupResult.order.customer.email?.toLowerCase() ===
+            to.trim().toLowerCase()
+            ? { customerName: lookupResult.order.customer.name }
+            : {}),
           ...(attachments.length > 0 ? { attachments } : {}),
         }),
       });

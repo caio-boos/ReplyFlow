@@ -118,7 +118,8 @@ export async function POST(req: NextRequest) {
     linkedTaskId: optional("linkedTaskId"),
     orderNumber: optional("orderNumber"),
     customerName: optional("customerName"),
-    customerEmail: optional("customerEmail"),
+    // lowercase para casar com o remetente nas notificações de resposta
+    customerEmail: optional("customerEmail")?.toLowerCase() ?? null,
     createdBy: session.actorUid ?? session.uid,
     createdByEmail: session.email ?? null,
     createdAt: FieldValue.serverTimestamp(),
