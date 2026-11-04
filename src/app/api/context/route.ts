@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { getT } from "@/lib/i18n/server";
 
 const DEFAULT_CONTEXT = `# AI SUPPORT FLOW
 
@@ -38,20 +39,22 @@ A assinatura é gerada automaticamente com o nome da loja configurada em cada co
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const t = await getT("settings");
+  const tc = await getT("common");
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const accountId = req.nextUrl.searchParams.get("accountId");
   if (!accountId) {
-    return NextResponse.json({ error: "accountId is required" }, { status: 400 });
+    return NextResponse.json({ error: t("context.errors.accountRequired") }, { status: 400 });
   }
 
   const db = getAdminDb();
   const accountDoc = await db.collection("accounts").doc(accountId).get();
   if (!accountDoc.exists) {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    return NextResponse.json({ error: t("context.errors.accountNotFound") }, { status: 404 });
   }
   if (accountDoc.data()!.userId !== session.uid) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
   }
 
   const systemPrompt = accountDoc.data()?.systemPrompt ?? DEFAULT_CONTEXT;
@@ -60,24 +63,26 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const t = await getT("settings");
+  const tc = await getT("common");
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const { accountId, text } = await req.json();
   if (typeof accountId !== "string" || !accountId.trim()) {
-    return NextResponse.json({ error: "accountId is required" }, { status: 400 });
+    return NextResponse.json({ error: t("context.errors.accountRequired") }, { status: 400 });
   }
   if (typeof text !== "string" || text.trim().length === 0) {
-    return NextResponse.json({ error: "Text is required" }, { status: 400 });
+    return NextResponse.json({ error: t("context.errors.textRequired") }, { status: 400 });
   }
 
   const db = getAdminDb();
   const ref = db.collection("accounts").doc(accountId.trim());
   const doc = await ref.get();
   if (!doc.exists) {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    return NextResponse.json({ error: t("context.errors.accountNotFound") }, { status: 404 });
   }
   if (doc.data()!.userId !== session.uid) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
   }
 
   await ref.update({ systemPrompt: text.trim(), updatedAt: FieldValue.serverTimestamp() });

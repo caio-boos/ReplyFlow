@@ -6,11 +6,13 @@ import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
 import { RemarketingTemplateConfig } from "@/lib/types";
 import { sendEmail } from "@/lib/email/smtp";
 import { decrypt } from "@/lib/crypto/encryption";
+import { getT } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const body = await req.json();
   const { accountId, testEmail, template } = body as {
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   if (!accountId || !testEmail) {
     return NextResponse.json(
-      { error: "accountId and testEmail required" },
+      { error: t("api.testEmailRequired") },
       { status: 400 },
     );
   }
@@ -30,13 +32,13 @@ export async function POST(req: NextRequest) {
   const ownedIds = await getOwnedAccountIds(db, session.uid);
 
   if (!ownedIds.includes(accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
   }
 
   // Buscar configuração da conta
   const accountDoc = await db.collection("accounts").doc(accountId).get();
   if (!accountDoc.exists) {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    return NextResponse.json({ error: t("api.accountNotFound") }, { status: 404 });
   }
 
   const account = accountDoc.data();
@@ -53,9 +55,8 @@ export async function POST(req: NextRequest) {
   ) {
     return NextResponse.json(
       {
-        error: "Credenciais SMTP não configuradas",
-        details:
-          "Configure SMTP Host, Port, Email e Password na página de Contas",
+        error: t("api.smtpMissing"),
+        details: t("api.smtpMissingDetails"),
         missing: {
           smtpHost: !account?.smtpHost,
           smtpPort: !account?.smtpPort,
@@ -117,13 +118,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Email de teste enviado com sucesso!",
+      message: t("api.testSent"),
     });
   } catch (error: any) {
     console.error("Erro ao enviar email de teste:", error);
     return NextResponse.json(
       {
-        error: "Falha ao enviar email de teste",
+        error: t("api.testFailed"),
         details: error.message,
       },
       { status: 500 },

@@ -1,0 +1,77 @@
+import type { Messages } from "../en";
+
+const team: Messages["team"] = {
+  title: "Miembros del equipo",
+  subtitle: "Invita personas, elige sus tiendas y define exactamente a qué puede acceder cada una.",
+  invite: "Invitar miembro",
+  noStores: "Agrega al menos una tienda con SMTP configurado antes de invitar miembros.",
+  empty: {
+    title: "Aún no hay miembros.",
+    hint: "Invita a alguien a colaborar en tus tiendas.",
+  },
+  status: {
+    active: "Activo",
+    pending: "Invitación enviada",
+  },
+  summary: "{count, plural, one {# tienda} other {# tiendas}} · {areas}",
+  noAccess: "sin acceso",
+  actions: {
+    resend: "Reenviar",
+    permissions: "Permisos",
+    remove: "Eliminar",
+  },
+  form: {
+    inviteTitle: "Invitar miembro",
+    editTitle: "Editar permisos",
+    inviteHint: "Enviaremos un correo con un enlace para crear la contraseña.",
+    editHint: "Los cambios se aplican en la próxima solicitud del miembro.",
+    email: "Correo electrónico",
+    emailPlaceholder: "persona@empresa.com",
+    name: "Nombre (opcional)",
+    stores: "Tiendas",
+    storesHint: "El miembro solo ve los datos de las tiendas seleccionadas.",
+    sendInvite: "Enviar invitación",
+  },
+  toasts: {
+    loadError: "No se pudo cargar el equipo.",
+    saveError: "No se pudo guardar.",
+    updated: "Permisos actualizados.",
+    invited: "¡Invitación enviada!",
+    resendError: "No se pudo reenviar la invitación.",
+    resent: "Invitación reenviada.",
+    removeError: "No se pudo eliminar al miembro.",
+    removed: "Miembro eliminado.",
+  },
+  confirmRemove: {
+    title: "Eliminar miembro",
+    description: "{email} perderá el acceso de inmediato. ¿Quieres continuar?",
+    confirm: "Eliminar",
+  },
+  api: {
+    invalidEmail: "Correo electrónico no válido.",
+    selfInvite: "No puedes invitarte a ti mismo.",
+    selectArea: "Selecciona al menos un área de acceso.",
+    selectStore: "Selecciona al menos una tienda.",
+    alreadyMember: "Este correo ya forma parte del equipo.",
+    smtpRequiredInvite: "Configura una cuenta de correo (SMTP) antes de invitar miembros.",
+    smtpRequiredResend: "Configura una cuenta de correo (SMTP) antes de enviar invitaciones.",
+    inviteSendFailed: "No se pudo enviar el correo de invitación. Revisa la configuración SMTP.",
+    emailSendFailed: "No se pudo enviar el correo. Revisa la configuración SMTP.",
+    alreadyAccepted: "Este miembro ya aceptó la invitación.",
+  },
+  email: {
+    subject: "Invitación para unirte a {workspace} en ReplyFlow",
+    textIntro: "Te invitaron a formar parte del equipo de {workspace} en ReplyFlow.",
+    textAreas: "Áreas habilitadas: {areas}",
+    textCta: "Usa el siguiente enlace para crear tu contraseña y activar tu acceso:",
+    textExpiry: "El enlace vence en 7 días.",
+    heading: "Te invitaron al equipo",
+    intro: "Recibiste una invitación para colaborar en <strong>{workspace}</strong> en ReplyFlow. Haz clic en el botón de abajo para crear tu contraseña y activar tu acceso.",
+    areasLabel: "Áreas habilitadas:",
+    button: "Aceptar invitación",
+    copyLink: "O copia y pega este enlace en tu navegador:",
+    expiry: "Esta invitación vence en 7 días. Si no esperabas este correo, puedes ignorarlo.",
+  },
+};
+
+export default team;

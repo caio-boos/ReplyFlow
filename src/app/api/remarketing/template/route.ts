@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { RemarketingTemplateConfig } from "@/lib/types";
+import { getT } from "@/lib/i18n/server";
 
 export const DEFAULT_TEMPLATE: RemarketingTemplateConfig = {
   // Cores
@@ -28,22 +29,23 @@ export const DEFAULT_TEMPLATE: RemarketingTemplateConfig = {
 };
 
 export async function GET(req: NextRequest) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const accountId = searchParams.get("accountId");
 
   if (!accountId) {
-    return NextResponse.json({ error: "accountId required" }, { status: 400 });
+    return NextResponse.json({ error: t("api.accountIdRequired") }, { status: 400 });
   }
 
   const db = getAdminDb();
   const ownedIds = await getOwnedAccountIds(db, session.uid);
 
   if (!ownedIds.includes(accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
   }
 
   const doc = await db.collection("remarketingTemplates").doc(accountId).get();
@@ -58,9 +60,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const body = await req.json();
   const { accountId, template } = body as {
@@ -70,7 +73,7 @@ export async function POST(req: NextRequest) {
 
   if (!accountId || !template) {
     return NextResponse.json(
-      { error: "accountId and template required" },
+      { error: t("api.templateRequired") },
       { status: 400 },
     );
   }
@@ -79,7 +82,7 @@ export async function POST(req: NextRequest) {
   const ownedIds = await getOwnedAccountIds(db, session.uid);
 
   if (!ownedIds.includes(accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
   }
 
   await db

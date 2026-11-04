@@ -1,14 +1,22 @@
+import { VideoError } from "./errors";
+
 const API = "https://api.replicate.com/v1";
 
 const INPAINT_MODEL = process.env.REPLICATE_INPAINT_MODEL || "jd7h/propainter";
 
 const CREDIT_MESSAGE =
-  "O Replicate recusou por falta de crédito. Confirme em replicate.com/account/billing " +
-  "que o crédito está na MESMA conta do token (veja o usuário em Configurações → Integrações). " +
-  "Compras de crédito levam alguns minutos para liberar.";
+  "Replicate declined due to insufficient credit. Check at replicate.com/account/billing " +
+  "that the credit is on the SAME account as the token (see the user under Settings → Integrations). " +
+  "Credit purchases take a few minutes to become available.";
 
 function authHeader(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
+}
+
+function statusError(status: number): VideoError {
+  return new VideoError("replicateStatus", `Replicate responded with status ${status}.`, {
+    status: String(status),
+  });
 }
 
 /** Extrai o campo `detail` do corpo de erro do Replicate. */
@@ -39,8 +47,10 @@ export async function verifyReplicateToken(token: string): Promise<string> {
     headers: authHeader(token),
     cache: "no-store",
   });
-  if (res.status === 401) throw new Error("Token inválido ou expirado.");
-  if (!res.ok) throw new Error(`Replicate respondeu ${res.status}.`);
+  if (res.status === 401) {
+    throw new VideoError("replicateInvalidToken", "Invalid or expired token.");
+  }
+  if (!res.ok) throw statusError(res.status);
 
   const data = await res.json();
   return typeof data?.username === "string" ? data.username : "conta";
@@ -65,9 +75,11 @@ async function getModelInfo(token: string, slug: string): Promise<ModelInfo> {
     cache: "no-store",
   });
   if (res.status === 404) {
-    throw new Error(`Modelo "${slug}" não encontrado no Replicate.`);
+    throw new VideoError("replicateModelNotFound", `Model "${slug}" not found on Replicate.`, {
+      slug,
+    });
   }
-  if (!res.ok) throw new Error(`Replicate respondeu ${res.status}.`);
+  if (!res.ok) throw statusError(res.status);
 
   const version = (await res.json())?.latest_version;
   const properties =
@@ -100,8 +112,11 @@ export async function createPrediction(
 
   const missing = requiredKeys.filter((key) => payload[key] === undefined);
   if (missing.length > 0) {
-    throw new Error(
-      `Modelo "${slug}" não aceita as entradas necessárias: ${missing.join(", ")}.`,
+    const inputs = missing.join(", ");
+    throw new VideoError(
+      "replicateMissingInputs",
+      `Model "${slug}" doesn't accept the required inputs: ${inputs}.`,
+      { slug, inputs },
     );
   }
 
@@ -116,14 +131,19 @@ export async function createPrediction(
     headers: { ...authHeader(token), "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (res.status === 402) throw new Error(CREDIT_MESSAGE);
+  if (res.status === 402) throw new VideoError("replicateNoCredit", CREDIT_MESSAGE);
   if (!res.ok) {
-    throw new Error(`Replicate recusou o job (${res.status}): ${await describeError(res)}`);
+    const detail = await describeError(res);
+    throw new VideoError(
+      "replicateRejected",
+      `Replicate rejected the job (${res.status}): ${detail}`,
+      { status: String(res.status), detail },
+    );
   }
 
   const id = (await res.json())?.id;
   if (typeof id !== "string") {
-    throw new Error("Replicate não retornou o id da predição.");
+    throw new VideoError("replicateNoId", "Replicate didn't return the prediction ID.");
   }
   return id;
 }
@@ -149,7 +169,7 @@ export async function getPrediction(
     headers: authHeader(token),
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`Replicate respondeu ${res.status}.`);
+  if (!res.ok) throw statusError(res.status);
 
   const data = await res.json();
   const raw = data.output;

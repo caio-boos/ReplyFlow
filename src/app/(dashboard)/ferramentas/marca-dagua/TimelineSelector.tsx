@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFormat, useT } from "@/lib/i18n/client";
 
 const THUMB_COUNT = 16;
 const THUMB_WIDTH = 96;
@@ -38,6 +39,8 @@ export default function TimelineSelector({
   onSeek,
   onRangeChange,
 }: Props) {
+  const t = useT("tools");
+  const f = useFormat();
   const [thumbs, setThumbs] = useState<string[]>([]);
   const stripRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<"start" | "end" | "seek" | null>(null);
@@ -133,23 +136,28 @@ export default function TimelineSelector({
   }
 
   const pct = (time: number) => `${duration ? (time / duration) * 100 : 0}%`;
+  const seconds = (value: number) =>
+    f.number(value, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs">
         <span className="text-gray-400">
-          Trecho a corrigir:{" "}
-          <span className="text-gray-200 font-medium">
-            {start.toFixed(1)}s → {end.toFixed(1)}s
-          </span>{" "}
-          <span className="text-gray-600">({(end - start).toFixed(1)}s)</span>
+          {t.rich(
+            "timeline.range",
+            {
+              range: (chunks) => <span className="text-gray-200 font-medium">{chunks}</span>,
+              length: (chunks) => <span className="text-gray-600">{chunks}</span>,
+            },
+            { start: seconds(start), end: seconds(end), length: seconds(end - start) },
+          )}
         </span>
         <button
           onClick={() => onRangeChange({ start: 0, end: duration })}
           disabled={disabled}
           className="text-gray-500 hover:text-gray-300 disabled:opacity-40 cursor-pointer"
         >
-          Vídeo inteiro
+          {t("timeline.wholeVideo")}
         </button>
       </div>
 

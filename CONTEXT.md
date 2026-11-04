@@ -56,6 +56,10 @@ Vercel Cron (every 1 min)
 | `customers` | Deduplicated customer profiles linked to emails |
 | `tasks` | Human-action tasks created by AI when manual review is needed |
 | `config/context` | The editable AI system prompt stored as `systemPrompt` field |
+| `billing/{ownerUid}` (`billing_test` with test keys) | Workspace subscription state mirrored from Stripe (plan, status, dates, card brand/last4 only) |
+| `billing/{ownerUid}/usage/{YYYY-MM}` | Monthly AI reply counter (fair-use display) |
+| `stripeEvents/{eventId}` (`stripeEvents_test`) | Webhook idempotency log (processing/processed/failed) |
+| `billingFeedback` | Cancellation reasons/comments |
 
 ---
 
@@ -146,6 +150,9 @@ All pages are under the `(dashboard)` route group with a shared sidebar layout.
 | `/` | Main email inbox — lists emails grouped by customer, with status badges, real-time countdown to scheduled reply, account/status filters |
 | `/tasks` | Human review tasks grouped by customer, sorted by priority (high/medium/low), with flag badges |
 | `/context` | Editable AI system prompt (stored in Firestore `config/context`) |
+| `/planos` | Plan selection + embedded Stripe Checkout (`/planos/sucesso` confirms) |
+| `/perfil` | Account + "Minha assinatura" (plan, dates, card, usage, change/cancel/reactivate, invoices) |
+| `/perfil/pagamento` | Failed-payment recovery (update card, retry charge) |
 | `/accounts` | Email account management (add/edit/delete accounts, Shopify OAuth) |
 | `/customers` | Customer CRM — list and detail views |
 | `/emails/[id]` | Individual email detail with full thread and AI response preview |
@@ -220,7 +227,43 @@ CRON_SECRET=                 # shared secret between Vercel cron and the app
 # Shopify (optional)
 SHOPIFY_CLIENT_ID=
 SHOPIFY_CLIENT_SECRET=
+
+# Stripe billing — see .env.local.example for details.
+# Billing is OFF (full access, legacy behavior) until both STRIPE_SECRET_KEY and BILLING_LAUNCH_AT are set.
+STRIPE_SECRET_KEY=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PORTAL_CONFIGURATION_ID=  # optional
+STRIPE_LEGACY_COUPON_ID=         # optional
+ADMIN_UIDS=                      # comma-separated Firebase UIDs with permanent unlimited access
+BILLING_LAUNCH_AT=               # ISO date; accounts created before it are "legacy"
+BILLING_LEGACY_ACCESS_DAYS=30
+BILLING_GRACE_DAYS=7
+BILLING_FIRST_CHARGE_GRACE_DAYS=3
 ```
+
+---
+
+## Internationalization (i18n)
+
+- **Languages**: English (default), Portuguese, Spanish, French — `src/lib/i18n/config.ts`.
+- **No URL prefixes**: the locale lives in the `rf_locale` cookie (set by `POST /api/locale`, public). Logged-in choices are also saved in Firestore `userSettings/{uid}.locale` and re-applied at login on other devices.
+- **Dictionaries**: `src/lib/i18n/messages/{en,pt,es,fr}/<namespace>.ts`. `en` is the source; other locales are typed as `Messages["ns"]`, so a missing/extra key fails `tsc`.
+- **Namespaces**: public (`common, landing, auth, billing, permissions`) are sent from the root layout; app namespaces (`shell, team, stores, settings, inbox, workspace, compose, marketing, tools`) only from the dashboard layout.
+- **API**: client `useT(ns)`, `useFormat()`, `useLocale()`; server `getT(ns)`, `getLocale()`, `createT(locale, ns)` (background jobs use the owner's saved locale). Messages support `{var}`, ICU-style `plural`/`select` and `<tag>` markup via `t.rich`.
+- **Not translated by design**: AI prompts, content sent to shoppers (follows the store's `replyLanguage`), stored data values. Stripe Checkout/Portal receive the user's locale; prices stay in USD.
+- Language selector: `src/components/i18n/LanguageSwitcher.tsx` (landing, login, register, plans, Settings → Language, Profile → Account).
+
+## Billing (Stripe)
+
+- **Catalog**: `src/lib/billing/plans.ts` is the single source of truth (Starter/Growth/Scale, USD monthly/yearly, features = permission keys, limits). `pnpm stripe:setup` creates Products/Prices (lookup keys `replyflow_<plan>_<monthly|yearly>`), the Customer Portal config and the webhook endpoint from it.
+- **Billing is per workspace (owner uid)**. Team members inherit the owner's plan; effective member access = member permissions ∩ plan features.
+- **Checkout**: embedded Stripe Checkout (`ui_mode: embedded_page`), cards only, USD only (adaptive pricing off), card required, 30-day trial once per workspace.
+- **Sync**: webhooks (`/api/stripe/webhook`) verify the signature, dedupe by `event.id` in `stripeEvents`, then re-read the customer's current subscription from Stripe (`syncCustomer`) — order-independent and idempotent. Checkout return and in-app actions sync immediately too.
+- **Access** (`src/lib/billing/entitlements.ts`, pure): `full` (trial, active, cancel scheduled, payment within grace, legacy), `readonly` (payment failed after grace, unpaid, canceled, legacy expired — GET only, automation paused, data kept), `blocked` (never subscribed → `/planos`). Enforced in `src/proxy.ts` (pages + APIs), crons (`fetch-emails`, `process-replies`, `abandoned-checkouts`) and creation limits (`/api/accounts`, `/api/team`).
+- **Legacy members**: accounts created before `BILLING_LAUNCH_AT` keep full access until launch + `BILLING_LEGACY_ACCESS_DAYS`; subscribing early sets the trial end to `max(now + 30d, transition end)`. `pnpm billing:migrate` (dry-run; `-- --apply`) pre-creates `billing/{uid}` docs without touching any other data.
+- **Admin accounts**: Firebase UIDs listed in `ADMIN_UIDS` get permanent, unlimited access (all features, no limits, automation on) regardless of Stripe state — checked before any Firestore read. Applies to the whole workspace, including invited members. Changing it requires a redeploy.
+- **Comp accounts**: set `comp: { reason: "..." }` (optionally `until`) on `billing/{uid}` in Firestore for free full access.
 
 ---
 

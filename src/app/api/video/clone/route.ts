@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { getT } from "@/lib/i18n/server";
 import { getReplicateToken } from "@/lib/settings/integrations";
 import {
   buildEditPrompt,
@@ -10,6 +11,7 @@ import {
   VideoEditModel,
 } from "@/lib/video/edit-models";
 import { recordJob, uploadJobAsset, uploadSourceVideo, deleteJobAssets } from "@/lib/video/job-store";
+import { videoErrorMessage } from "@/lib/video/errors";
 import { createPrediction } from "@/lib/video/replicate";
 
 export const maxDuration = 60;
@@ -76,7 +78,11 @@ function buildInput(
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) {
+    const tc = await getT("common");
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
+  }
+  const t = await getT("tools");
 
   const form = await req.formData();
   const video = form.get("video");
@@ -86,24 +92,24 @@ export async function POST(req: NextRequest) {
   const references = form.getAll("references").filter((item): item is File => item instanceof File);
 
   if (!(video instanceof File)) {
-    return NextResponse.json({ error: "Envie o arquivo 'video'." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.missingVideo") }, { status: 400 });
   }
   if (!prompt) {
     return NextResponse.json(
-      { error: "Descreva as mudanças que você quer no vídeo." },
+      { error: t("errors.promptRequired") },
       { status: 400 },
     );
   }
   if (prompt.length > MAX_PROMPT_CHARS) {
     return NextResponse.json(
-      { error: `O prompt precisa ter até ${MAX_PROMPT_CHARS} caracteres.` },
+      { error: t("errors.promptTooLong", { max: MAX_PROMPT_CHARS }) },
       { status: 400 },
     );
   }
 
   const model = findVideoEditModel(modelId);
   if (!model) {
-    return NextResponse.json({ error: "Modelo inválido." }, { status: 400 });
+    return NextResponse.json({ error: t("errors.invalidModel") }, { status: 400 });
   }
   const intensity = (EDIT_INTENSITIES as readonly string[]).includes(rawIntensity)
     ? (rawIntensity as EditIntensity)
@@ -111,7 +117,7 @@ export async function POST(req: NextRequest) {
 
   if (video.size > MAX_VIDEO_BYTES) {
     return NextResponse.json(
-      { error: "Vídeo muito grande após a compressão. Use um trecho mais curto." },
+      { error: t("errors.videoTooLargeCompressed") },
       { status: 413 },
     );
   }
@@ -120,20 +126,23 @@ export async function POST(req: NextRequest) {
       {
         error:
           model.maxReferenceImages === 0
-            ? `${model.label} não aceita imagens de referência.`
-            : `${model.label} aceita no máximo ${model.maxReferenceImages} imagem(ns) de referência.`,
+            ? t("errors.noReferenceImages", { model: model.label })
+            : t("errors.tooManyReferences", {
+                model: model.label,
+                count: model.maxReferenceImages,
+              }),
       },
       { status: 400 },
     );
   }
   if (references.some((image) => image.size > MAX_IMAGE_BYTES)) {
-    return NextResponse.json({ error: "Imagem de referência muito grande." }, { status: 413 });
+    return NextResponse.json({ error: t("errors.referenceTooLarge") }, { status: 413 });
   }
 
   const token = await getReplicateToken(session.uid);
   if (!token) {
     return NextResponse.json(
-      { error: "Configure seu token do Replicate em Configurações → Integrações." },
+      { error: t("errors.tokenMissing") },
       { status: 428 },
     );
   }
@@ -171,7 +180,7 @@ export async function POST(req: NextRequest) {
     console.error("[clone] falha ao criar predição", err);
     await deleteJobAssets(uploaded).catch(() => {});
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Falha ao enviar para o Replicate." },
+      { error: videoErrorMessage(t, err, t("errors.replicateSendFailed")) },
       { status: 502 },
     );
   }

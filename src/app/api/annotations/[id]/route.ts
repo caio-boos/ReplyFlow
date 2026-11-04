@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { FieldValue } from "firebase-admin/firestore";
+import { getT } from "@/lib/i18n/server";
 
 export async function PATCH(
   req: NextRequest,
@@ -10,7 +11,7 @@ export async function PATCH(
 ) {
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: (await getT("common"))("states.unauthorized") }, { status: 401 });
 
   const { id } = await params;
   let body: Record<string, unknown>;
@@ -18,7 +19,7 @@ export async function PATCH(
     body = await req.json();
   } catch {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: (await getT("workspace"))("api.invalidBody") },
       { status: 400 },
     );
   }
@@ -27,11 +28,11 @@ export async function PATCH(
   const ref = db.collection("annotations").doc(id);
   const doc = await ref.get();
   if (!doc.exists)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: (await getT("common"))("states.notFound") }, { status: 404 });
 
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(doc.data()?.accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: (await getT("common"))("states.forbidden") }, { status: 403 });
   }
 
   const update: Record<string, unknown> = {
@@ -53,18 +54,18 @@ export async function DELETE(
 ) {
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: (await getT("common"))("states.unauthorized") }, { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
   const ref = db.collection("annotations").doc(id);
   const doc = await ref.get();
   if (!doc.exists)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: (await getT("common"))("states.notFound") }, { status: 404 });
 
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(doc.data()?.accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: (await getT("common"))("states.forbidden") }, { status: 403 });
   }
 
   await ref.delete();

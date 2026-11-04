@@ -1,5 +1,6 @@
 import { getClient } from "@/lib/ai/openai";
 import type { VideoEditModel } from "./edit-models";
+import { VideoError } from "./errors";
 
 const MAX_OUTPUT_CHARS = 1500;
 
@@ -56,6 +57,6 @@ export async function improveEditPrompt(
   });
 
   const improved = completion.choices[0]?.message?.content?.trim();
-  if (!improved) throw new Error("A IA não retornou um prompt.");
+  if (!improved) throw new VideoError("aiNoPrompt", "The AI didn't return a prompt.");
   return improved.slice(0, MAX_OUTPUT_CHARS);
 }

@@ -1,5 +1,6 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile } from "@ffmpeg/util";
+import { VideoError } from "./errors";
 import type { Rect } from "./mask-rects";
 
 let instance: FFmpeg | null = null;
@@ -65,10 +66,12 @@ async function run({
     }
 
     const code = await ffmpeg.exec(args);
-    if (code !== 0) throw new Error(`ffmpeg terminou com código ${code}.`);
+    if (code !== 0) {
+      throw new VideoError("ffmpegExit", `ffmpeg exited with code ${code}.`, { code: String(code) });
+    }
 
     const data = (await ffmpeg.readFile(output)) as Uint8Array;
-    if (!data.length) throw new Error("O ffmpeg não gerou nenhum vídeo.");
+    if (!data.length) throw new VideoError("ffmpegNoOutput", "ffmpeg didn't produce any video.");
     return new Blob([data as BlobPart], { type: "video/mp4" });
   } finally {
     logSink = null;
@@ -212,10 +215,14 @@ export async function compressForUpload({
       "-movflags", "+faststart",
       output,
     ]);
-    if (code !== 0) throw new Error(`ffmpeg terminou com código ${code}.`);
+    if (code !== 0) {
+      throw new VideoError("ffmpegExit", `ffmpeg exited with code ${code}.`, { code: String(code) });
+    }
 
     const data = (await ffmpeg.readFile(output)) as Uint8Array;
-    if (!data.length) throw new Error("Falha ao preparar o vídeo para envio.");
+    if (!data.length) {
+      throw new VideoError("uploadPrepareFailed", "Couldn't prepare the video for upload.");
+    }
 
     return {
       file: new File([data as BlobPart], "source.mp4", { type: "video/mp4" }),

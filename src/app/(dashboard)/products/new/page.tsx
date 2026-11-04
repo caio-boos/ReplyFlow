@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import { useFormat, useT } from "@/lib/i18n/client";
 
 /* ──────────────────────────────────────────────────────────────
    Types
@@ -30,7 +31,7 @@ interface LogoPosition {
 }
 
 const LOGO_TYPES = [
-  { id: "none", label: "Sem Logo", image: null },
+  { id: "none", label: null, image: null },
   { id: "ralph_lauren", label: "Ralph Lauren", image: "/logotipoproduto/ralph-lauren.png" },
 ] as const;
 
@@ -63,6 +64,10 @@ function SectionCard({ title, children }: { title: string; children: React.React
    Main page
 ────────────────────────────────────────────────────────────── */
 export default function NewProductPage() {
+  const t = useT("marketing");
+  const tc = useT("common");
+  const f = useFormat();
+
   /* ── Form state ───────────────────────────────────────── */
   const [productDescription, setProductDescription] = useState("");
   const [pieces, setPieces] = useState<"1" | "2">("1");
@@ -139,11 +144,11 @@ export default function NewProductPage() {
       selectedTitle,
       descriptionHtml,
       generatedImages: generatedImages.filter((i) => i.url),
-      savedAt: new Date().toLocaleTimeString("pt-BR"),
+      savedAt: new Date().toLocaleTimeString(f.intl),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     setSavedAt(payload.savedAt);
-  }, [productDescription, pieces, gender, colorVariants, logoType, logoPosition, titleOptions, selectedTitle, descriptionHtml, generatedImages]);
+  }, [productDescription, pieces, gender, colorVariants, logoType, logoPosition, titleOptions, selectedTitle, descriptionHtml, generatedImages, f.intl]);
 
   const handleClearSave = () => {
     localStorage.removeItem(STORAGE_KEY);
@@ -240,7 +245,7 @@ export default function NewProductPage() {
         body: JSON.stringify({ productDescription }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao gerar títulos");
+      if (!res.ok) throw new Error(data.error ?? t("products.errors.title"));
       setTitleOptions(data.options ?? []);
       const recommended = data.options?.find((o: TitleOption) => o.recommended);
       if (recommended) setSelectedTitle(recommended.name);
@@ -253,7 +258,7 @@ export default function NewProductPage() {
         }));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido");
+      setError(err instanceof Error ? err.message : t("products.errors.unknown"));
     } finally {
       setLoadingTitle(false);
     }
@@ -272,7 +277,7 @@ export default function NewProductPage() {
         body: JSON.stringify({ productName: selectedTitle, productDescription, pieces }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao gerar descrição");
+      if (!res.ok) throw new Error(data.error ?? t("products.errors.description"));
       setDescriptionHtml(data.html ?? "");
       if (data.costUsd) {
         setSessionCost((prev) => ({
@@ -283,7 +288,7 @@ export default function NewProductPage() {
         }));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido");
+      setError(err instanceof Error ? err.message : t("products.errors.unknown"));
     } finally {
       setLoadingDescription(false);
     }
@@ -309,7 +314,7 @@ export default function NewProductPage() {
         const res = await fetch("/api/products/generate-images", { method: "POST", body: fd });
         const data = await res.json();
 
-        if (!res.ok) throw new Error(data.error ?? "Erro ao gerar imagem");
+        if (!res.ok) throw new Error(data.error ?? t("products.errors.image"));
 
         setSessionCost((prev) => ({
           ...prev,
@@ -323,7 +328,7 @@ export default function NewProductPage() {
           )
         );
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Erro";
+        const msg = err instanceof Error ? err.message : t("products.errors.generic");
         setGeneratedImages((prev) =>
           prev.map((img) =>
             img.color === variant.color ? { ...img, loading: false, error: msg } : img
@@ -354,14 +359,14 @@ export default function NewProductPage() {
         {/* Header */}
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-white">Gerador de Produto</h1>
+            <h1 className="text-xl font-semibold text-white">{t("products.title")}</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Gere título, descrição e imagens para importação manual na Shopify.
+              {t("products.subtitle")}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {savedAt && (
-              <span className="text-xs text-gray-600">Salvo às {savedAt}</span>
+              <span className="text-xs text-gray-600">{t("products.savedAt", { time: savedAt })}</span>
             )}
             <button
               type="button"
@@ -372,14 +377,14 @@ export default function NewProductPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M17 16v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M12 12V3m0 9l-3-3m3 3l3-3" />
               </svg>
-              Salvar
+              {tc("actions.save")}
             </button>
             {savedAt && (
               <button
                 type="button"
                 onClick={handleClearSave}
                 className="px-2 py-2 text-gray-600 hover:text-red-400 rounded-lg text-xs transition-colors"
-                title="Limpar dados salvos"
+                title={t("products.clearSaved")}
               >
                 ✕
               </button>
@@ -392,26 +397,33 @@ export default function NewProductPage() {
           <div className="mb-6 flex flex-wrap items-center gap-4 px-4 py-3 rounded-xl bg-gray-900/70 border border-white/6 text-sm">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-gray-400">Custo desta sessão:</span>
+              <span className="text-gray-400">{t("products.cost.session")}</span>
               <span className="font-semibold text-white">${sessionCost.usd.toFixed(4)}</span>
               <span className="text-gray-600 text-xs">USD</span>
             </div>
             <div className="w-px h-4 bg-white/10 hidden sm:block" />
             <div className="text-gray-500 text-xs">
-              Tokens texto{"\u00a0\u00a0"}
-              <span className="text-gray-300">{sessionCost.textTokensIn.toLocaleString("pt-BR")}</span>
-              <span className="text-gray-600"> entrada</span>
-              {" · "}
-              <span className="text-gray-300">{sessionCost.textTokensOut.toLocaleString("pt-BR")}</span>
-              <span className="text-gray-600"> saída</span>
+              {t.rich(
+                "products.cost.tokens",
+                {
+                  v: (chunks) => <span className="text-gray-300">{chunks}</span>,
+                  m: (chunks) => <span className="text-gray-600">{chunks}</span>,
+                },
+                { input: sessionCost.textTokensIn, output: sessionCost.textTokensOut },
+              )}
             </div>
             {sessionCost.imageCount > 0 && (
               <>
                 <div className="w-px h-4 bg-white/10 hidden sm:block" />
                 <div className="text-xs text-gray-500">
-                  <span className="text-gray-300">{sessionCost.imageCount}</span>
-                  {" imagem"}{sessionCost.imageCount !== 1 ? "ns" : ""}{" gerada"}{sessionCost.imageCount !== 1 ? "s" : ""}
-                  <span className="text-gray-600 ml-1">(estimativa)</span>
+                  {t.rich(
+                    "products.cost.images",
+                    {
+                      v: (chunks) => <span className="text-gray-300">{chunks}</span>,
+                      m: (chunks) => <span className="text-gray-600">{chunks}</span>,
+                    },
+                    { count: sessionCost.imageCount },
+                  )}
                 </div>
               </>
             )}
@@ -431,39 +443,39 @@ export default function NewProductPage() {
           <div className="space-y-5">
 
             {/* 1 ─ Produto */}
-            <SectionCard title="1. Produto">
+            <SectionCard title={t("products.product.section")}>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">
-                  Descreva o produto <span className="text-red-400">*</span>
+                  {t("products.product.describe")} <span className="text-red-400">*</span>
                 </label>
                 <textarea
                   value={productDescription}
                   onChange={(e) => setProductDescription(e.target.value)}
                   rows={4}
-                  placeholder="Ex: a short-sleeve linen shirt with mandarin collar and chest pocket"
+                  placeholder={t("products.product.describePlaceholder")}
                   className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Público-alvo</label>
+                <label className="block text-xs text-gray-500 mb-1.5">{t("products.product.audience")}</label>
                 <div className="flex gap-3">
                   {(["male", "female"] as const).map((v) => (
                     <button key={v} type="button" onClick={() => setGender(v)}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${gender === v ? "bg-indigo-600 border-indigo-500 text-white" : "bg-gray-800/40 border-white/8 text-gray-400 hover:border-white/20 hover:text-gray-200"}`}>
-                      {v === "male" ? "Masculino" : "Feminino"}
+                      {v === "male" ? t("products.product.male") : t("products.product.female")}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Número de peças</label>
+                <label className="block text-xs text-gray-500 mb-1.5">{t("products.product.pieces")}</label>
                 <div className="flex gap-3">
                   {(["1", "2"] as const).map((v) => (
                     <button key={v} type="button" onClick={() => setPieces(v)}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${pieces === v ? "bg-indigo-600 border-indigo-500 text-white" : "bg-gray-800/40 border-white/8 text-gray-400 hover:border-white/20 hover:text-gray-200"}`}>
-                      {v === "1" ? "1 Peça" : "2 Peças (conjunto)"}
+                      {v === "1" ? t("products.product.onePiece") : t("products.product.twoPieces")}
                     </button>
                   ))}
                 </div>
@@ -471,7 +483,7 @@ export default function NewProductPage() {
             </SectionCard>
 
             {/* 2 ─ Variantes de cor */}
-            <SectionCard title="2. Variantes de Cor">
+            <SectionCard title={t("products.colors.section")}>
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <div className="flex-1 flex gap-2">
@@ -479,14 +491,14 @@ export default function NewProductPage() {
                       value={colorInput}
                       onChange={(e) => setColorInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
-                      placeholder="Cor (ex: Black)"
+                      placeholder={t("products.colors.colorPlaceholder")}
                       className="flex-1 min-w-0 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500/60"
                     />
                     <input
                       value={colorNoteInput}
                       onChange={(e) => setColorNoteInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
-                      placeholder="Observação (ex: logo branca)"
+                      placeholder={t("products.colors.notePlaceholder")}
                       className="flex-1 min-w-0 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500/60"
                     />
                   </div>
@@ -495,7 +507,7 @@ export default function NewProductPage() {
                     +
                   </button>
                 </div>
-                <p className="text-xs text-gray-600">A observação será enviada como instrução extra na geração da imagem.</p>
+                <p className="text-xs text-gray-600">{t("products.colors.noteHint")}</p>
               </div>
 
               {colorVariants.length > 0 && (
@@ -506,7 +518,7 @@ export default function NewProductPage() {
                       <input
                         value={v.note}
                         onChange={(e) => updateColorNote(v.color, e.target.value)}
-                        placeholder="observação…"
+                        placeholder={t("products.colors.noteInline")}
                         className="flex-1 bg-transparent text-xs text-gray-400 placeholder-gray-600 focus:outline-none focus:text-gray-200"
                       />
                       <button type="button" onClick={() => removeColor(v.color)}
@@ -520,7 +532,7 @@ export default function NewProductPage() {
             </SectionCard>
 
             {/* 3 ─ Imagens de referência */}
-            <SectionCard title="3. Imagens de Referência">
+            <SectionCard title={t("products.references.section")}>
               <div
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
@@ -531,8 +543,8 @@ export default function NewProductPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                     d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                 </svg>
-                <p className="text-sm text-gray-500">Arraste, clique ou cole (Ctrl+V)</p>
-                <p className="text-xs text-gray-600 mt-1">PNG, JPG, WEBP · Cole da área de transferência</p>
+                <p className="text-sm text-gray-500">{t("products.references.dropzone")}</p>
+                <p className="text-xs text-gray-600 mt-1">{t("products.references.dropzoneHint")}</p>
                 <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                   onChange={(e) => handleFileDrop(e.target.files)} />
               </div>
@@ -554,19 +566,19 @@ export default function NewProductPage() {
             </SectionCard>
 
             {/* 4 ─ Logo */}
-            <SectionCard title="4. Logo">
+            <SectionCard title={t("products.logo.section")}>
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Tipo de logo</label>
+                <label className="block text-xs text-gray-500 mb-1.5">{t("products.logo.type")}</label>
                 <div className="flex gap-2 flex-wrap">
                   {LOGO_TYPES.map((lt) => (
                     <button key={lt.id} type="button" onClick={() => setLogoType(lt.id as LogoTypeId)}
                       className={`flex items-center gap-2 py-2 px-3 rounded-lg text-xs font-medium border transition-all ${logoType === lt.id ? "bg-indigo-600 border-indigo-500 text-white" : "bg-gray-800/40 border-white/8 text-gray-400 hover:border-white/20 hover:text-gray-200"}`}>
                       {lt.image && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={lt.image} alt={lt.label} className="w-6 h-6 object-contain rounded"
+                        <img src={lt.image} alt={lt.label ?? ""} className="w-6 h-6 object-contain rounded"
                           style={{ background: logoType === lt.id ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.08)" }} />
                       )}
-                      {lt.label}
+                      {lt.label ?? t("products.logo.none")}
                     </button>
                   ))}
                 </div>
@@ -576,10 +588,13 @@ export default function NewProductPage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-gray-500">
-                      Clique na imagem para marcar a posição do logo
+                      {t("products.logo.markHint")}
                       {logoPosition && (
                         <span className="ml-2 text-indigo-400">
-                          — marcado ({Math.round(logoPosition.x)}%, {Math.round(logoPosition.y)}%)
+                          {t("products.logo.marked", {
+                            x: Math.round(logoPosition.x),
+                            y: Math.round(logoPosition.y),
+                          })}
                         </span>
                       )}
                     </p>
@@ -589,7 +604,7 @@ export default function NewProductPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                           d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                       </svg>
-                      Tela cheia
+                      {t("products.logo.fullscreen")}
                     </button>
                   </div>
 
@@ -598,7 +613,7 @@ export default function NewProductPage() {
                       {referenceImages.map((_, i) => (
                         <button key={i} type="button" onClick={() => setActiveLogoImageIdx(i)}
                           className={`px-2.5 py-1 rounded text-xs border transition-all ${activeLogoImageIdx === i ? "bg-indigo-600 border-indigo-500 text-white" : "bg-gray-800/40 border-white/8 text-gray-400 hover:text-gray-200"}`}>
-                          Imagem {i + 1}
+                          {t("products.logo.image", { number: i + 1 })}
                         </button>
                       ))}
                     </div>
@@ -614,7 +629,7 @@ export default function NewProductPage() {
               )}
 
               {logoType !== "none" && referenceImages.length === 0 && (
-                <p className="text-xs text-gray-600">Adicione uma imagem de referência para marcar a posição do logo.</p>
+                <p className="text-xs text-gray-600">{t("products.logo.addReference")}</p>
               )}
             </SectionCard>
 
@@ -624,14 +639,14 @@ export default function NewProductPage() {
           <div className="space-y-5">
 
             {/* Title */}
-            <SectionCard title="Título do Produto">
+            <SectionCard title={t("products.titleSection.section")}>
               <div className="flex items-center gap-3">
                 <button type="button" onClick={handleGenerateTitle} disabled={!canGenerateTitle || loadingTitle}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors">
                   {loadingTitle && <Spinner />}
-                  Gerar Título
+                  {t("products.titleSection.generate")}
                 </button>
-                {titleOptions.length > 0 && <span className="text-xs text-gray-600">Selecione uma opção abaixo</span>}
+                {titleOptions.length > 0 && <span className="text-xs text-gray-600">{t("products.titleSection.selectOption")}</span>}
               </div>
 
               {titleOptions.length > 0 && (
@@ -643,7 +658,7 @@ export default function NewProductPage() {
                         <span className="text-sm font-medium">{opt.name}</span>
                         {opt.recommended && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-                            Recomendado
+                            {t("products.titleSection.recommended")}
                           </span>
                         )}
                       </div>
@@ -657,23 +672,25 @@ export default function NewProductPage() {
 
               {selectedTitle && (
                 <div className="px-3 py-2.5 bg-gray-800/60 rounded-lg border border-white/6">
-                  <p className="text-xs text-gray-600 mb-0.5">Selecionado</p>
+                  <p className="text-xs text-gray-600 mb-0.5">{t("products.titleSection.selected")}</p>
                   <p className="text-sm text-indigo-300 font-medium">{selectedTitle}</p>
                 </div>
               )}
             </SectionCard>
 
             {/* Description */}
-            <SectionCard title="Descrição do Produto">
+            <SectionCard title={t("products.descriptionSection.section")}>
               <div className="flex items-center gap-3">
                 <button type="button" onClick={handleGenerateDescription} disabled={!canGenerateDescription || loadingDescription}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors">
                   {loadingDescription && <Spinner />}
-                  Gerar Descrição
+                  {t("products.descriptionSection.generate")}
                 </button>
                 {!canGenerateDescription && (
                   <span className="text-xs text-gray-600">
-                    {!selectedTitle ? "Selecione um título primeiro" : "Preencha a descrição do produto"}
+                    {!selectedTitle
+                      ? t("products.descriptionSection.selectTitleFirst")
+                      : t("products.descriptionSection.fillDescription")}
                   </span>
                 )}
               </div>
@@ -685,7 +702,9 @@ export default function NewProductPage() {
                       {(["preview", "html"] as const).map((tab) => (
                         <button key={tab} type="button" onClick={() => setDescTab(tab)}
                           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${descTab === tab ? "bg-indigo-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
-                          {tab === "preview" ? "Preview" : "HTML"}
+                          {tab === "preview"
+                            ? t("products.descriptionSection.preview")
+                            : t("products.descriptionSection.html")}
                         </button>
                       ))}
                     </div>
@@ -695,7 +714,7 @@ export default function NewProductPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                           d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
-                      Copiar HTML
+                      {t("products.descriptionSection.copyHtml")}
                     </button>
                   </div>
 
@@ -716,21 +735,26 @@ export default function NewProductPage() {
             </SectionCard>
 
             {/* Images */}
-            <SectionCard title="Imagens das Variantes">
+            <SectionCard title={t("products.imagesSection.section")}>
               <div className="flex items-center gap-3 flex-wrap">
                 <button type="button" onClick={handleGenerateImages} disabled={!canGenerateImages || imageGenActive}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors">
                   {imageGenActive && <Spinner />}
-                  {imageGenActive ? "Gerando…" : "Gerar Imagens"}
+                  {imageGenActive ? t("products.imagesSection.generating") : t("products.imagesSection.generate")}
                 </button>
                 {!canGenerateImages && (
                   <span className="text-xs text-gray-600">
-                    {!referenceImages.length ? "Adicione imagens de referência" : "Adicione pelo menos uma cor"}
+                    {!referenceImages.length
+                      ? t("products.imagesSection.addReferences")
+                      : t("products.imagesSection.addColor")}
                   </span>
                 )}
                 {imageGenActive && generatedImages.length > 0 && (
                   <span className="text-xs text-gray-500">
-                    {generatedImages.filter((i) => !i.loading).length} / {generatedImages.length} concluídas
+                    {t("products.imagesSection.progress", {
+                      done: generatedImages.filter((i) => !i.loading).length,
+                      total: generatedImages.length,
+                    })}
                   </span>
                 )}
               </div>
@@ -769,15 +793,15 @@ export default function NewProductPage() {
                             <button type="button"
                               onClick={() => setLightboxImage({ url: img.url, color: img.color, note: img.note })}
                               className="w-7 h-7 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center"
-                              title="Ampliar">
+                              title={t("products.imagesSection.enlarge")}>
                               <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                   d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
                               </svg>
                             </button>
-                            <a href={img.url} download={`${selectedTitle || "produto"}-${img.color}.png`}
+                            <a href={img.url} download={`${selectedTitle || t("products.fileFallback")}-${img.color}.png`}
                               className="w-7 h-7 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center"
-                              title="Download">
+                              title={tc("actions.download")}>
                               <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                   d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -801,13 +825,16 @@ export default function NewProductPage() {
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
             <div>
-              <p className="text-sm font-medium text-white">Marcar posição do logo</p>
-              <p className="text-xs text-gray-500 mt-0.5">Clique na imagem para definir onde o logo deve aparecer</p>
+              <p className="text-sm font-medium text-white">{t("products.logo.modalTitle")}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t("products.logo.modalSubtitle")}</p>
             </div>
             <div className="flex items-center gap-3">
               {logoPosition && (
                 <span className="text-xs text-indigo-400">
-                  Posição: {Math.round(logoPosition.x)}%, {Math.round(logoPosition.y)}%
+                  {t("products.logo.position", {
+                    x: Math.round(logoPosition.x),
+                    y: Math.round(logoPosition.y),
+                  })}
                 </span>
               )}
               {referenceImages.length > 1 && (
@@ -822,7 +849,7 @@ export default function NewProductPage() {
               )}
               <button type="button" onClick={() => setLogoModalOpen(false)}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors">
-                Confirmar
+                {tc("actions.confirm")}
               </button>
             </div>
           </div>
@@ -850,7 +877,7 @@ export default function NewProductPage() {
             </div>
             <a
               href={lightboxImage.url}
-              download={`${selectedTitle || "produto"}-${lightboxImage.color}.png`}
+              download={`${selectedTitle || t("products.fileFallback")}-${lightboxImage.color}.png`}
               onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-white/8 text-gray-300 rounded-lg text-xs font-medium transition-colors"
             >
@@ -858,7 +885,7 @@ export default function NewProductPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
               </svg>
-              Download
+              {tc("actions.download")}
             </a>
             <button type="button" onClick={() => setLightboxImage(null)}
               className="w-8 h-8 bg-gray-800 hover:bg-gray-700 border border-white/8 text-gray-400 hover:text-white rounded-full flex items-center justify-center transition-colors">
@@ -874,7 +901,7 @@ export default function NewProductPage() {
               style={{ maxHeight: "calc(100vh - 80px)", objectFit: "contain" }}
             />
           </div>
-          <p className="absolute bottom-4 text-xs text-gray-600">Clique fora para fechar · ESC</p>
+          <p className="absolute bottom-4 text-xs text-gray-600">{t("products.imagesSection.lightboxHint")}</p>
         </div>
       )}
     </div>
@@ -897,6 +924,7 @@ function LogoMarkerImage({
   maxHeight?: number;
   fullscreen?: boolean;
 }) {
+  const t = useT("marketing");
   return (
     <div
       onClick={onMark}
@@ -906,7 +934,7 @@ function LogoMarkerImage({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
-        alt="logo marker"
+        alt={t("products.logo.markerAlt")}
         className="w-full object-contain pointer-events-none"
         style={fullscreen ? { maxHeight: "calc(100vh - 120px)" } : { maxHeight }}
         draggable={false}

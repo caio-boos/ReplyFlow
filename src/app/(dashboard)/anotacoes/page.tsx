@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useStoreContext } from "../store-context";
 import { useConfirm } from "../ConfirmDialog";
 import AnnotationModal from "./AnnotationModal";
+import { useFormat, useT } from "@/lib/i18n/client";
+import type { Translator } from "@/lib/i18n/translator";
 
 interface Annotation {
   id: string;
@@ -23,17 +25,17 @@ interface Annotation {
 
 type StatusTab = "open" | "done" | "all";
 
-function relativeTime(seconds: number): string {
+function relativeTime(
+  seconds: number,
+  t: Translator<"workspace">,
+  f: ReturnType<typeof useFormat>,
+): string {
   const diff = Math.floor(Date.now() / 1000 - seconds);
-  if (diff < 60) return "agora";
-  if (diff < 3600) return `há ${Math.floor(diff / 60)}min`;
-  if (diff < 86400) return `há ${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `há ${Math.floor(diff / 86400)}d`;
-  return new Date(seconds * 1000).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  });
+  if (diff < 60) return t("relative.now");
+  if (diff < 3600) return t("relative.minutes", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t("relative.hours", { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return t("relative.days", { count: Math.floor(diff / 86400) });
+  return f.date(seconds * 1000, { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
 function Spinner({ className = "w-4 h-4" }: { className?: string }) {
@@ -63,6 +65,9 @@ function Spinner({ className = "w-4 h-4" }: { className?: string }) {
 export default function AnotacoesPage() {
   const { accounts, selectedAccountId } = useStoreContext();
   const openConfirm = useConfirm();
+  const t = useT("workspace");
+  const tc = useT("common");
+  const f = useFormat();
 
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,9 +114,9 @@ export default function AnotacoesPage() {
 
   async function handleDelete(a: Annotation) {
     const confirmed = await openConfirm({
-      title: "Excluir anotação?",
-      description: `A anotação "${a.title}" será excluída permanentemente.`,
-      confirmLabel: "Excluir",
+      title: t("notes.deleteConfirm.title"),
+      description: t("notes.deleteConfirm.description", { title: a.title }),
+      confirmLabel: tc("actions.delete"),
     });
     if (!confirmed) return;
     await fetch(`/api/annotations/${a.id}`, { method: "DELETE" });
@@ -146,9 +151,9 @@ export default function AnotacoesPage() {
             </svg>
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-100">Anotações</h1>
+            <h1 className="text-lg font-semibold text-gray-100">{t("notes.title")}</h1>
             <p className="text-xs text-gray-500">
-              Acompanhe pendências vinculadas a conversas, tarefas e pedidos.
+              {t("notes.subtitle")}
             </p>
           </div>
         </div>
@@ -170,7 +175,7 @@ export default function AnotacoesPage() {
               d="M12 4.5v15m7.5-7.5h-15"
             />
           </svg>
-          Nova anotação
+          {t("notes.new")}
         </button>
       </div>
 
@@ -178,11 +183,11 @@ export default function AnotacoesPage() {
       <div className="inline-flex p-0.5 bg-gray-900/60 border border-white/6 rounded-lg">
         {(
           [
-            ["open", "Abertas"],
-            ["done", "Resolvidas"],
-            ["all", "Todas"],
+            ["open", "notes.tabs.open"],
+            ["done", "notes.tabs.done"],
+            ["all", "notes.tabs.all"],
           ] as const
-        ).map(([value, label]) => (
+        ).map(([value, labelKey]) => (
           <button
             key={value}
             onClick={() => setStatusTab(value)}
@@ -192,7 +197,7 @@ export default function AnotacoesPage() {
                 : "text-gray-500 hover:text-gray-300"
             }`}
           >
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>
@@ -201,14 +206,13 @@ export default function AnotacoesPage() {
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-600">
           <Spinner />
-          Carregando anotações...
+          {t("notes.loading")}
         </div>
       ) : annotations.length === 0 ? (
         <div className="bg-gray-900/60 border border-white/6 rounded-xl py-14 text-center space-y-1.5">
-          <p className="text-sm text-gray-400">Nenhuma anotação encontrada</p>
+          <p className="text-sm text-gray-400">{t("notes.empty.title")}</p>
           <p className="text-xs text-gray-600">
-            Crie anotações aqui, nas conversas ou nas tarefas para acompanhar
-            pendências.
+            {t("notes.empty.hint")}
           </p>
         </div>
       ) : (
@@ -237,10 +241,10 @@ export default function AnotacoesPage() {
                     </div>
                   )}
                   <span className="text-xs font-medium text-gray-300">
-                    {account?.label ?? "Loja removida"}
+                    {account?.label ?? t("notes.storeRemoved")}
                   </span>
                   <span className="text-xs text-gray-600">
-                    {items.length} anotaç{items.length === 1 ? "ão" : "ões"}
+                    {t("notes.count", { count: items.length })}
                   </span>
                 </div>
 
@@ -260,8 +264,8 @@ export default function AnotacoesPage() {
                         disabled={togglingId === a.id}
                         title={
                           a.status === "done"
-                            ? "Reabrir anotação"
-                            : "Marcar como resolvida"
+                            ? t("notes.reopen")
+                            : t("notes.markDone")
                         }
                         className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all duration-200 ${
                           a.status === "done"
@@ -314,7 +318,7 @@ export default function AnotacoesPage() {
                           )}
                           {a.orderNumber && (
                             <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-violet-500/10 text-violet-400 border-violet-500/20">
-                              Pedido {a.orderNumber}
+                              {t("notes.order", { number: a.orderNumber })}
                             </span>
                           )}
                           {a.linkedEmailId && (
@@ -335,7 +339,7 @@ export default function AnotacoesPage() {
                                   d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
                                 />
                               </svg>
-                              Ver conversa
+                              {t("notes.viewConversation")}
                             </Link>
                           )}
                           {a.linkedTaskId && (
@@ -356,20 +360,20 @@ export default function AnotacoesPage() {
                                   d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                                 />
                               </svg>
-                              Ver tarefa
+                              {t("notes.viewTask")}
                             </Link>
                           )}
                           {a.createdAt && (
                             <>
                               <span className="text-gray-800">·</span>
                               <span className="text-xs text-gray-700">
-                                {relativeTime(a.createdAt.seconds)}
+                                {relativeTime(a.createdAt.seconds, t, f)}
                               </span>
                             </>
                           )}
                           {a.createdByEmail && (
                             <span className="text-xs text-gray-700 truncate">
-                              por {a.createdByEmail}
+                              {t("notes.createdBy", { email: a.createdByEmail })}
                             </span>
                           )}
                         </div>
@@ -378,7 +382,7 @@ export default function AnotacoesPage() {
                       {/* Delete */}
                       <button
                         onClick={() => handleDelete(a)}
-                        title="Excluir anotação"
+                        title={t("notes.delete")}
                         className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all shrink-0 mt-0.5"
                       >
                         <svg

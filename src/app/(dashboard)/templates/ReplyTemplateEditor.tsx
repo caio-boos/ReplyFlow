@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { ReplyTemplateConfig } from "@/lib/types";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/client";
 
 function Spinner({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -44,6 +45,8 @@ interface Props {
 }
 
 export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
+  const t = useT("compose");
+  const tc = useT("common");
   const [template, setTemplate] =
     useState<ReplyTemplateConfig>(DEFAULT_TEMPLATE);
   const [loading, setLoading] = useState(true);
@@ -61,13 +64,13 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
       .then((d) => {
         if (d.template) setTemplate(d.template);
       })
-      .catch(() => toast.error("Erro ao carregar template"))
+      .catch(() => toast.error(t("replyEditor.loadFailed")))
       .finally(() => setLoading(false));
-  }, [accountId]);
+  }, [accountId, t]);
 
   const handleSave = async () => {
     if (!accountId || accountId === "all") {
-      toast.error("Selecione uma loja específica");
+      toast.error(t("replyEditor.selectStore"));
       return;
     }
     setSaving(true);
@@ -77,31 +80,31 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accountId, template }),
       });
-      if (res.ok) toast.success("Template salvo com sucesso!");
+      if (res.ok) toast.success(t("replyEditor.saved"));
       else {
         const d = await res.json();
-        toast.error(d.error || "Erro ao salvar");
+        toast.error(d.error || t("library.toasts.saveFailed"));
       }
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setSaving(false);
   };
 
   const handleReset = () => {
-    if (confirm("Deseja restaurar as configurações padrão?")) {
+    if (confirm(t("replyEditor.resetConfirm"))) {
       setTemplate(DEFAULT_TEMPLATE);
-      toast.info("Configurações resetadas. Clique em Salvar para aplicar.");
+      toast.info(t("replyEditor.resetDone"));
     }
   };
 
   const handleTest = async () => {
     if (!testEmail || !testEmail.includes("@")) {
-      toast.error("Digite um email válido");
+      toast.error(t("replyEditor.invalidEmail"));
       return;
     }
     if (!accountId || accountId === "all") {
-      toast.error("Selecione uma loja específica");
+      toast.error(t("replyEditor.selectStore"));
       return;
     }
     setSending(true);
@@ -112,10 +115,10 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
         body: JSON.stringify({ accountId, testEmail, template }),
       });
       const d = await res.json();
-      if (res.ok) toast.success(d.message || "Email de teste enviado!");
-      else toast.error(d.error || "Erro ao enviar teste");
+      if (res.ok) toast.success(d.message || t("library.toasts.testSent"));
+      else toast.error(d.error || t("library.toasts.sendFailed"));
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setSending(false);
   };
@@ -133,10 +136,10 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
       <div className="flex items-center justify-center py-20">
         <div className="text-center space-y-2">
           <p className="text-sm font-medium text-gray-400">
-            Nenhuma loja selecionada
+            {t("library.noStore.title")}
           </p>
           <p className="text-sm text-gray-600">
-            Selecione uma loja específica para gerenciar o template
+            {t("replyEditor.noStoreDescription")}
           </p>
         </div>
       </div>
@@ -186,11 +189,15 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
   );
 
   // Generate preview HTML client-side
-  const sampleText = `Olá! Obrigado por entrar em contato.\n\nRecebemos sua mensagem e estamos analisando sua solicitação. Nossa equipe irá retornar em breve.\n\nAtenciosamente,\nEquipe da Loja`;
+  const sampleText = [
+    t("preview.reply.greeting"),
+    t("preview.reply.body"),
+    `${t("preview.reply.signoff")}\n${t("preview.reply.signature")}`,
+  ].join("\n\n");
 
   const previewHtml = generatePreviewHtml(
     sampleText,
-    "Sua Loja",
+    t("preview.storeName"),
     template,
     logoUrl,
   );
@@ -209,30 +216,30 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
             {saving ? (
               <>
                 <Spinner className="w-4 h-4" />
-                Salvando...
+                {tc("actions.saving")}
               </>
             ) : (
-              "Salvar Template"
+              t("replyEditor.saveTemplate")
             )}
           </button>
           <button
             onClick={handleReset}
             className="w-full px-4 py-2 bg-gray-800/60 hover:bg-white/5 border border-white/6 text-gray-300 text-sm font-medium rounded-lg transition-all"
           >
-            Restaurar Padrão
+            {t("replyEditor.restoreDefault")}
           </button>
         </div>
 
         {/* Test */}
         <div className="bg-gray-900/60 border border-white/6 rounded-xl p-4 space-y-2">
           <label className="block text-xs font-medium text-gray-500 mb-1.5">
-            Enviar email de teste
+            {t("replyEditor.testLabel")}
           </label>
           <input
             type="email"
             value={testEmail}
             onChange={(e) => setTestEmail(e.target.value)}
-            placeholder="seu@email.com"
+            placeholder={t("shared.testEmailPlaceholder")}
             className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           />
           <button
@@ -243,10 +250,10 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
             {sending ? (
               <>
                 <Spinner className="w-4 h-4" />
-                Enviando...
+                {tc("actions.sending")}
               </>
             ) : (
-              "Enviar Teste"
+              t("replyEditor.sendTest")
             )}
           </button>
         </div>
@@ -254,39 +261,41 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
         {/* Colors */}
         <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
           <div className="px-4 py-2.5 border-b border-white/5">
-            <span className="text-xs font-semibold text-gray-500">Cores</span>
+            <span className="text-xs font-semibold text-gray-500">
+              {t("replyEditor.colors")}
+            </span>
           </div>
           <div className="p-4 space-y-3">
             <ColorInput
-              label="Cor Primária"
+              label={t("library.fields.primaryColor")}
               value={template.primaryColor}
               onChange={(v) => setTemplate({ ...template, primaryColor: v })}
-              description="Barra de destaque no topo"
+              description={t("library.fields.primaryColorDesc")}
             />
             <ColorInput
-              label="Fundo"
+              label={t("library.fields.background")}
               value={template.backgroundColor}
               onChange={(v) => setTemplate({ ...template, backgroundColor: v })}
             />
             <ColorInput
-              label="Borda do Card"
+              label={t("library.fields.cardBorder")}
               value={template.borderColor}
               onChange={(v) => setTemplate({ ...template, borderColor: v })}
             />
             <ColorInput
-              label="Texto do Corpo"
+              label={t("library.fields.bodyText")}
               value={template.textColor}
               onChange={(v) => setTemplate({ ...template, textColor: v })}
             />
             <ColorInput
-              label="Rodapé — Fundo"
+              label={t("replyEditor.footerBackground")}
               value={template.footerBackgroundColor}
               onChange={(v) =>
                 setTemplate({ ...template, footerBackgroundColor: v })
               }
             />
             <ColorInput
-              label="Rodapé — Texto"
+              label={t("replyEditor.footerText")}
               value={template.footerTextColor}
               onChange={(v) => setTemplate({ ...template, footerTextColor: v })}
             />
@@ -299,10 +308,10 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-300">
-                  Exibir logo no email
+                  {t("replyEditor.showLogo")}
                 </p>
                 <p className="text-xs text-gray-600 mt-0.5">
-                  Logo cadastrada na conta
+                  {t("library.fields.logoHint")}
                 </p>
               </div>
               <button
@@ -335,10 +344,10 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
           <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-white/5">
               <p className="text-sm font-medium text-gray-300">
-                Preview do Email
+                {t("replyEditor.previewTitle")}
               </p>
               <p className="text-xs text-gray-600 mt-0.5">
-                Visualização em tempo real
+                {t("replyEditor.previewSubtitle")}
               </p>
             </div>
             <div className="p-6 bg-white/5">
@@ -346,7 +355,7 @@ export default function ReplyTemplateEditor({ accountId, logoUrl }: Props) {
                 srcDoc={previewHtml}
                 className="w-full rounded-lg border border-white/6 bg-white"
                 style={{ height: "480px" }}
-                title="Preview do email de resposta"
+                title={t("replyEditor.iframeTitle")}
                 sandbox="allow-same-origin"
               />
             </div>

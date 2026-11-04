@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getClient } from "@/lib/ai/openai";
 import * as cheerio from "cheerio";
+import { getT } from "@/lib/i18n/server";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
@@ -51,9 +52,10 @@ type HtmlNode = {
 };
 
 export async function POST(req: NextRequest) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const body = await req.json();
   const url = body.url?.trim();
@@ -63,15 +65,15 @@ export async function POST(req: NextRequest) {
   const productLink: string = body.productLink?.trim() ?? "";
 
   if (!url)
-    return NextResponse.json({ error: "URL é obrigatória" }, { status: 400 });
+    return NextResponse.json({ error: t("api.urlRequired") }, { status: 400 });
   if (!isSafeUrl(url))
     return NextResponse.json(
-      { error: "URL inválida ou não permitida" },
+      { error: t("api.urlInvalid") },
       { status: 400 },
     );
   if (productLink && !isSafeUrl(productLink))
     return NextResponse.json(
-      { error: "Link do produto inválido" },
+      { error: t("api.productLinkInvalid") },
       { status: 400 },
     );
 
@@ -89,7 +91,9 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json(
       {
-        error: `Não foi possível acessar a URL: ${err instanceof Error ? err.message : "erro"}`,
+        error: t("api.fetchFailed", {
+          reason: err instanceof Error ? err.message : t("api.unknownReason"),
+        }),
       },
       { status: 400 },
     );
@@ -246,7 +250,7 @@ Rules:
       );
     } catch {
       return NextResponse.json(
-        { error: "Resposta inválida da IA" },
+        { error: t("api.aiInvalidResponse") },
         { status: 500 },
       );
     }
@@ -270,7 +274,11 @@ Rules:
     return NextResponse.json({ html: finalHtml });
   } catch (err) {
     return NextResponse.json(
-      { error: `Erro na IA: ${err instanceof Error ? err.message : "erro"}` },
+      {
+        error: t("api.aiError", {
+          reason: err instanceof Error ? err.message : t("api.unknownReason"),
+        }),
+      },
       { status: 500 },
     );
   }

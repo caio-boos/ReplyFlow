@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getT } from "@/lib/i18n/server";
 
 async function vercelFetch(method: string, path: string, body?: object) {
   const token = process.env.VERCEL_TOKEN;
@@ -22,8 +23,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
@@ -31,25 +33,25 @@ export async function POST(
   const snap = await docRef.get();
 
   if (!snap.exists || snap.data()?.userId !== session.uid) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: tc("states.notFound") }, { status: 404 });
   }
 
   const body = await req.json();
   const domain = body.domain?.trim()?.toLowerCase();
 
   if (!domain) {
-    return NextResponse.json({ error: "domain é obrigatório" }, { status: 400 });
+    return NextResponse.json({ error: t("api.domainRequired") }, { status: 400 });
   }
 
   if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(domain)) {
-    return NextResponse.json({ error: "Formato de domínio inválido" }, { status: 400 });
+    return NextResponse.json({ error: t("api.domainInvalid") }, { status: 400 });
   }
 
   const token = process.env.VERCEL_TOKEN;
   const projectId = process.env.VERCEL_PROJECT_ID;
   if (!token || !projectId) {
     return NextResponse.json(
-      { error: "VERCEL_TOKEN e VERCEL_PROJECT_ID não configurados" },
+      { error: t("api.domainNotConfigured") },
       { status: 500 }
     );
   }
@@ -66,7 +68,7 @@ export async function POST(
 
   if (!vercelRes.ok) {
     const err = await vercelRes.json().catch(() => ({}));
-    const msg = (err as { error?: { message?: string } })?.error?.message ?? "Falha ao registrar domínio no Vercel";
+    const msg = (err as { error?: { message?: string } })?.error?.message ?? t("api.domainRegisterFailed");
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
@@ -78,8 +80,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const tc = await getT("common");
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
@@ -87,7 +90,7 @@ export async function DELETE(
   const snap = await docRef.get();
 
   if (!snap.exists || snap.data()?.userId !== session.uid) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: tc("states.notFound") }, { status: 404 });
   }
 
   const customDomain = snap.data()?.customDomain as string | null;

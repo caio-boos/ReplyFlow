@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
 import { getRefundedOrders } from "@/lib/shopify/client";
+import { getT } from "@/lib/i18n/server";
 
 function dateKey(ms: number): string {
   if (!ms || isNaN(ms)) return new Date().toISOString().slice(0, 10);
@@ -37,7 +38,7 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: (await getT("common"))("states.unauthorized") }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const periodParam = searchParams.get("period") ?? "30";

@@ -6,6 +6,10 @@ import { TaskDoc, TaskPriority } from "@/lib/types";
 import { useStoreContext } from "../store-context";
 import { useConfirm } from "../ConfirmDialog";
 import AnnotationModal from "../anotacoes/AnnotationModal";
+import { useFormat, useT } from "@/lib/i18n/client";
+import type { TranslationKey, Translator } from "@/lib/i18n/translator";
+
+type WorkspaceKey = TranslationKey<"workspace">;
 
 interface AccountOption {
   id: string;
@@ -16,20 +20,20 @@ interface AccountOption {
 
 const PRIORITY_CONFIG: Record<
   TaskPriority,
-  { label: string; color: string; bar: string }
+  { labelKey: WorkspaceKey; color: string; bar: string }
 > = {
   high: {
-    label: "Alta",
+    labelKey: "priority.high",
     color: "bg-red-500/10 text-red-400 border-red-500/20",
     bar: "bg-red-500",
   },
   medium: {
-    label: "Média",
+    labelKey: "priority.medium",
     color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
     bar: "bg-yellow-400",
   },
   low: {
-    label: "Baixa",
+    labelKey: "priority.low",
     color: "bg-gray-500/10 text-gray-500 border-gray-600/20",
     bar: "bg-gray-500",
   },
@@ -37,10 +41,10 @@ const PRIORITY_CONFIG: Record<
 
 const FLAG_CONFIG: Record<
   string,
-  { label: string; color: string; icon: React.ReactNode }
+  { labelKey: WorkspaceKey; color: string; icon: React.ReactNode }
 > = {
   chargeback_risk: {
-    label: "Chargeback",
+    labelKey: "flags.chargebackRisk",
     color: "bg-red-500/10 text-red-400 border-red-500/20",
     icon: (
       <svg
@@ -59,7 +63,7 @@ const FLAG_CONFIG: Record<
     ),
   },
   manual_review: {
-    label: "Revisão manual",
+    labelKey: "flags.manualReview",
     color: "bg-violet-500/10 text-violet-400 border-violet-500/20",
     icon: (
       <svg
@@ -84,7 +88,7 @@ const FLAG_CONFIG: Record<
     ),
   },
   refund_pending: {
-    label: "Reembolso",
+    labelKey: "flags.refundPending",
     color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     icon: (
       <svg
@@ -103,7 +107,7 @@ const FLAG_CONFIG: Record<
     ),
   },
   address_problem: {
-    label: "Endereço",
+    labelKey: "flags.addressProblem",
     color: "bg-orange-500/10 text-orange-400 border-orange-500/20",
     icon: (
       <svg
@@ -145,16 +149,17 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
   low: 2,
 };
 
-function relativeTime(seconds: number): string {
+function relativeTime(
+  seconds: number,
+  t: Translator<"workspace">,
+  f: ReturnType<typeof useFormat>,
+): string {
   const diff = Math.floor(Date.now() / 1000 - seconds);
-  if (diff < 60) return "agora";
-  if (diff < 3600) return `há ${Math.floor(diff / 60)}min`;
-  if (diff < 86400) return `há ${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `há ${Math.floor(diff / 86400)}d`;
-  return new Date(seconds * 1000).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-  });
+  if (diff < 60) return t("relative.now");
+  if (diff < 3600) return t("relative.minutes", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t("relative.hours", { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return t("relative.days", { count: Math.floor(diff / 86400) });
+  return f.date(seconds * 1000, { day: "2-digit", month: "2-digit" });
 }
 
 function groupByCustomer(
@@ -214,6 +219,9 @@ function TaskRow({
   isCompleting: boolean;
   isHighlighted?: boolean;
 }) {
+  const t = useT("workspace");
+  const tc = useT("common");
+  const f = useFormat();
   const cfg = PRIORITY_CONFIG[task.priority];
   const activeFlags = task.flags
     ? Object.entries(task.flags).filter(([k, v]) => v && FLAG_CONFIG[k])
@@ -309,7 +317,7 @@ function TaskRow({
             {task.priority === "high" && (
               <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
             )}
-            {cfg.label}
+            {t(cfg.labelKey)}
           </span>
           {activeFlags.map(([k]) => {
             const fc = FLAG_CONFIG[k];
@@ -319,7 +327,7 @@ function TaskRow({
                 className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border ${fc.color}`}
               >
                 {fc.icon}
-                {fc.label}
+                {t(fc.labelKey)}
               </span>
             );
           })}
@@ -347,7 +355,7 @@ function TaskRow({
             <>
               <span className="text-gray-800">·</span>
               <span className="text-xs text-gray-700">
-                {relativeTime(task.createdAt.seconds)}
+                {relativeTime(task.createdAt.seconds, t, f)}
               </span>
             </>
           )}
@@ -373,7 +381,7 @@ function TaskRow({
             <button
               onClick={openNote}
               className="ml-auto shrink-0 text-gray-600 hover:text-gray-300 transition-colors"
-              title="Editar observação"
+              title={t("tasks.row.editComment")}
             >
               <svg
                 className="w-3 h-3"
@@ -399,7 +407,7 @@ function TaskRow({
               ref={textareaRef}
               value={noteValue}
               onChange={(e) => setNoteValue(e.target.value)}
-              placeholder="Adicione uma observação..."
+              placeholder={t("tasks.row.commentPlaceholder")}
               rows={2}
               className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/40 resize-none transition-all"
             />
@@ -430,17 +438,17 @@ function TaskRow({
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                       />
                     </svg>
-                    Salvando...
+                    {tc("actions.saving")}
                   </>
                 ) : (
-                  "Salvar"
+                  tc("actions.save")
                 )}
               </button>
               <button
                 onClick={() => setNoteOpen(false)}
                 className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 bg-gray-800/60 border border-white/6 rounded-md transition-all"
               >
-                Cancelar
+                {tc("actions.cancel")}
               </button>
             </div>
           </div>
@@ -463,7 +471,7 @@ function TaskRow({
                   d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"
                 />
               </svg>
-              Adicionar observação
+              {t("tasks.row.addComment")}
             </button>
           )
         )}
@@ -473,7 +481,7 @@ function TaskRow({
         <button
           onClick={() => setAnnotationOpen(true)}
           className="opacity-0 group-hover:opacity-100 text-gray-700 hover:text-amber-400 transition-all p-1 rounded-md hover:bg-amber-500/10"
-          title="Criar anotação vinculada a esta tarefa"
+          title={t("tasks.row.createNote")}
         >
           <svg
             className="w-3.5 h-3.5"
@@ -492,7 +500,7 @@ function TaskRow({
         <button
           onClick={() => onDelete(task.id)}
           className="opacity-0 group-hover:opacity-100 text-gray-700 hover:text-red-400 transition-all p-1 rounded-md hover:bg-red-500/10"
-          title="Remover tarefa"
+          title={t("tasks.row.remove")}
         >
           <svg
             className="w-3.5 h-3.5"
@@ -515,7 +523,7 @@ function TaskRow({
         onClose={() => setAnnotationOpen(false)}
         accountId={task.accountId}
         defaults={{
-          title: `Acompanhar: ${task.description}`,
+          title: t("tasks.row.noteTitle", { description: task.description }),
           linkedTaskId: task.id,
           linkedEmailId: task.emailId || undefined,
           customerName: task.customerName || undefined,
@@ -532,6 +540,8 @@ export default function TasksPage() {
     loading: storeLoading,
   } = useStoreContext();
   const openConfirm = useConfirm();
+  const t = useT("workspace");
+  const tc = useT("common");
   const [tasks, setTasks] = useState<TaskDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<Set<string>>(new Set());
@@ -621,9 +631,9 @@ export default function TasksPage() {
 
   async function deleteTask(id: string) {
     const ok = await openConfirm({
-      title: "Remover tarefa?",
-      description: "Esta ação não pode ser desfeita.",
-      confirmLabel: "Remover",
+      title: t("tasks.deleteConfirm.title"),
+      description: t("tasks.deleteConfirm.description"),
+      confirmLabel: tc("actions.remove"),
       danger: true,
     });
     if (!ok) return;
@@ -653,7 +663,7 @@ export default function TasksPage() {
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-semibold text-gray-100">Tarefas</h1>
+            <h1 className="text-xl font-semibold text-gray-100">{t("tasks.title")}</h1>
             {openCount > 0 && (
               <span className="inline-flex items-center justify-center text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/20 rounded-full px-2 py-0.5 min-w-5">
                 {openCount}
@@ -661,7 +671,7 @@ export default function TasksPage() {
             )}
           </div>
           <p className="text-gray-500 text-sm mt-0.5">
-            Ações manuais geradas pela IA — agrupadas por cliente
+            {t("tasks.subtitle")}
           </p>
         </div>
         <button
@@ -681,7 +691,7 @@ export default function TasksPage() {
               d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
             />
           </svg>
-          Atualizar
+          {tc("actions.refresh")}
         </button>
       </div>
 
@@ -706,7 +716,7 @@ export default function TasksPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Pendentes</p>
+                <p className="text-xs text-gray-500">{t("tasks.summary.pending")}</p>
                 <p className="text-2xl font-bold text-yellow-400 leading-none">
                   {openCount}
                 </p>
@@ -729,7 +739,7 @@ export default function TasksPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Concluídas</p>
+                <p className="text-xs text-gray-500">{t("tasks.summary.done")}</p>
                 <p className="text-2xl font-bold text-emerald-400 leading-none">
                   {doneCount}
                 </p>
@@ -741,11 +751,11 @@ export default function TasksPage() {
           <div className="flex items-center gap-1 bg-gray-900/60 border border-white/6 rounded-xl p-1 self-start">
             {(
               [
-                { value: "all", label: "Todas" },
-                { value: "pending", label: "Pendentes" },
-                { value: "done", label: "Resolvidas" },
+                { value: "all", labelKey: "tasks.filters.all" },
+                { value: "pending", labelKey: "tasks.filters.pending" },
+                { value: "done", labelKey: "tasks.filters.done" },
               ] as const
-            ).map(({ value, label }) => (
+            ).map(({ value, labelKey }) => (
               <button
                 key={value}
                 onClick={() => setStatusFilter(value)}
@@ -755,7 +765,7 @@ export default function TasksPage() {
                     : "text-gray-500 hover:text-gray-300"
                 }`}
               >
-                {label}
+                {t(labelKey)}
               </button>
             ))}
           </div>
@@ -784,7 +794,7 @@ export default function TasksPage() {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          Carregando...
+          {tc("states.loading")}
         </div>
       ) : filteredGroups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-gray-600 border border-white/6 rounded-2xl bg-gray-900/30">
@@ -803,15 +813,15 @@ export default function TasksPage() {
           </svg>
           <p className="text-sm font-medium text-gray-500">
             {statusFilter === "all"
-              ? "Nenhuma tarefa ainda"
+              ? t("tasks.empty.all")
               : statusFilter === "pending"
-                ? "Nenhuma tarefa pendente"
-                : "Nenhuma tarefa resolvida"}
+                ? t("tasks.empty.pending")
+                : t("tasks.empty.done")}
           </p>
           <p className="text-xs text-gray-600 mt-1 text-center max-w-xs">
             {statusFilter === "all"
-              ? "As tarefas são criadas quando há necessidade de ação manual."
-              : "Tente selecionar outro filtro."}
+              ? t("tasks.empty.allHint")
+              : t("tasks.empty.filterHint")}
           </p>
         </div>
       ) : (
@@ -885,14 +895,12 @@ export default function TasksPage() {
                   <div className="flex items-center gap-2">
                     {group.pending.length > 0 && (
                       <span className="text-xs bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-full px-2 py-0.5">
-                        {group.pending.length} pendente
-                        {group.pending.length !== 1 ? "s" : ""}
+                        {t("tasks.group.pending", { count: group.pending.length })}
                       </span>
                     )}
                     {group.done.length > 0 && (
                       <span className="text-xs bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full px-2 py-0.5">
-                        {group.done.length} concluída
-                        {group.done.length !== 1 ? "s" : ""}
+                        {t("tasks.group.done", { count: group.done.length })}
                       </span>
                     )}
                   </div>
@@ -950,8 +958,7 @@ export default function TasksPage() {
                               d="M19 9l-7 7-7-7"
                             />
                           </svg>
-                          {group.done.length} concluída
-                          {group.done.length !== 1 ? "s" : ""}
+                          {t("tasks.group.done", { count: group.done.length })}
                         </span>
                         <div className="h-px flex-1 bg-white/5" />
                       </button>

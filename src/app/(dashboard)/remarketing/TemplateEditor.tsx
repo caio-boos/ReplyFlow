@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { RemarketingTemplateConfig } from "@/lib/types";
 import { toast } from "sonner";
+import { useFormat, useT } from "@/lib/i18n/client";
 
 function Spinner({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -48,40 +49,57 @@ const DEFAULT_TEMPLATE: RemarketingTemplateConfig = {
   footerTextColor: "#9ca3af",
 };
 
-const COLOR_PRESETS = [
+const COLOR_PRESETS: Array<{
+  id: "modernBlue" | "successGreen" | "premiumPurple" | "energyRed" | "vibrantOrange";
+  primary: string;
+  button: string;
+  accent: string;
+}> = [
   {
-    name: "Azul Moderno",
+    id: "modernBlue",
     primary: "#1d4ed8",
     button: "#1d4ed8",
     accent: "#fbbf24",
   },
   {
-    name: "Verde Sucesso",
+    id: "successGreen",
     primary: "#059669",
     button: "#059669",
     accent: "#fbbf24",
   },
   {
-    name: "Roxo Premium",
+    id: "premiumPurple",
     primary: "#7c3aed",
     button: "#7c3aed",
     accent: "#f59e0b",
   },
   {
-    name: "Vermelho Energia",
+    id: "energyRed",
     primary: "#dc2626",
     button: "#dc2626",
     accent: "#fbbf24",
   },
   {
-    name: "Laranja Vibrante",
+    id: "vibrantOrange",
     primary: "#ea580c",
     button: "#ea580c",
     accent: "#fbbf24",
   },
 ];
 
+const RADIUS_OPTIONS = [
+  { value: "0px", key: "square" },
+  { value: "4px", key: "soft" },
+  { value: "6px", key: "default" },
+  { value: "8px", key: "rounded" },
+  { value: "12px", key: "extraRounded" },
+  { value: "999px", key: "pill" },
+] as const;
+
 export default function TemplateEditor({ accountId }: TemplateEditorProps) {
+  const t = useT("marketing");
+  const tc = useT("common");
+  const f = useFormat();
   const [template, setTemplate] =
     useState<RemarketingTemplateConfig>(DEFAULT_TEMPLATE);
   const [loading, setLoading] = useState(true);
@@ -107,14 +125,15 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
         setLoading(false);
       })
       .catch(() => {
-        toast.error("Erro ao carregar template");
+        toast.error(t("template.toasts.loadError"));
         setLoading(false);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
   const handleSave = async () => {
     if (!accountId || accountId === "all") {
-      toast.error("Selecione uma loja específica");
+      toast.error(t("template.toasts.selectStore"));
       return;
     }
 
@@ -127,32 +146,32 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
       });
 
       if (res.ok) {
-        toast.success("Template salvo com sucesso!");
+        toast.success(t("template.toasts.saved"));
       } else {
         const data = await res.json();
-        toast.error(data.error || "Erro ao salvar");
+        toast.error(data.error || t("template.toasts.saveError"));
       }
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setSaving(false);
   };
 
   const handleReset = () => {
-    if (confirm("Deseja restaurar as cores padrão?")) {
+    if (confirm(t("template.toasts.resetConfirm"))) {
       setTemplate(DEFAULT_TEMPLATE);
-      toast.info("Cores resetadas. Clique em Salvar para aplicar.");
+      toast.info(t("template.toasts.resetDone"));
     }
   };
 
   const handleTestEmail = async () => {
     if (!testEmail || !testEmail.includes("@")) {
-      toast.error("Digite um email válido");
+      toast.error(t("template.toasts.invalidEmail"));
       return;
     }
 
     if (!accountId || accountId === "all") {
-      toast.error("Selecione uma loja específica");
+      toast.error(t("template.toasts.selectStore"));
       return;
     }
 
@@ -166,12 +185,12 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
 
       const data = await res.json();
       if (res.ok) {
-        toast.success(data.message || "Email de teste enviado!");
+        toast.success(data.message || t("template.toasts.testSent"));
       } else {
-        toast.error(data.error || "Erro ao enviar email de teste");
+        toast.error(data.error || t("template.toasts.testError"));
       }
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setSending(false);
   };
@@ -189,15 +208,17 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
       <div className="flex items-center justify-center py-20">
         <div className="text-center space-y-2">
           <p className="text-sm font-medium text-gray-400">
-            Nenhuma loja selecionada
+            {t("template.noStore.title")}
           </p>
           <p className="text-sm text-gray-600">
-            Selecione uma loja específica para gerenciar o template de email
+            {t("template.noStore.description")}
           </p>
         </div>
       </div>
     );
   }
+
+  const samplePrice = f.number(99.9, { style: "currency", currency: "USD" });
 
   const applyPreset = (preset: (typeof COLOR_PRESETS)[0]) => {
     setTemplate({
@@ -207,7 +228,9 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
       accentColor: preset.accent,
       bannerBorderColor: preset.accent,
     });
-    toast.success(`Preset "${preset.name}" aplicado`);
+    toast.success(
+      t("template.toasts.presetApplied", { name: t(`template.presets.${preset.id}`) }),
+    );
   };
 
   const ColorInput = ({ label, value, onChange, description }: any) => (
@@ -271,30 +294,30 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
             {saving ? (
               <>
                 <Spinner className="w-4 h-4" />
-                Salvando...
+                {tc("actions.saving")}
               </>
             ) : (
-              "Salvar Template"
+              t("template.save")
             )}
           </button>
           <button
             onClick={handleReset}
             className="w-full px-4 py-2 bg-gray-800/60 hover:bg-white/5 border border-white/6 text-gray-300 text-sm font-medium rounded-lg transition-all"
           >
-            Restaurar Padrão
+            {t("template.reset")}
           </button>
         </div>
 
         {/* Test Email */}
         <div className="bg-gray-900/60 border border-white/6 rounded-xl p-4 space-y-2">
           <label className="block text-xs font-medium text-gray-500 mb-1.5">
-            Enviar email de teste
+            {t("template.test.label")}
           </label>
           <input
             type="email"
             value={testEmail}
             onChange={(e) => setTestEmail(e.target.value)}
-            placeholder="seu@email.com"
+            placeholder={t("template.test.placeholder")}
             className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           />
           <button
@@ -305,10 +328,10 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
             {sending ? (
               <>
                 <Spinner className="w-4 h-4" />
-                Enviando...
+                {tc("actions.sending")}
               </>
             ) : (
-              "Enviar Teste"
+              t("template.test.send")
             )}
           </button>
         </div>
@@ -325,11 +348,7 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                   : "border-transparent text-gray-500 hover:text-gray-300"
               }`}
             >
-              {s === "preview"
-                ? "Preview"
-                : s === "colors"
-                  ? "Cores"
-                  : "Textos"}
+              {t(`template.tabs.${s}`)}
             </button>
           ))}
         </div>
@@ -341,13 +360,13 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
             <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
               <div className="px-4 py-2.5 border-b border-white/5">
                 <span className="text-xs font-semibold text-gray-500">
-                  Presets
+                  {t("template.sections.presets")}
                 </span>
               </div>
               <div className="p-3 grid grid-cols-2 gap-2">
                 {COLOR_PRESETS.map((preset) => (
                   <button
-                    key={preset.name}
+                    key={preset.id}
                     onClick={() => applyPreset(preset)}
                     className="p-2.5 rounded-lg border border-white/6 hover:border-white/10 hover:bg-white/3 transition-all text-left group"
                   >
@@ -366,7 +385,7 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                       />
                     </div>
                     <p className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
-                      {preset.name}
+                      {t(`template.presets.${preset.id}`)}
                     </p>
                   </button>
                 ))}
@@ -377,27 +396,27 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
             <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
               <div className="px-4 py-2.5 border-b border-white/5">
                 <span className="text-xs font-semibold text-gray-500">
-                  Cores Principais
+                  {t("template.sections.core")}
                 </span>
               </div>
               <div className="p-4 space-y-3">
                 <ColorInput
-                  label="Cor Primária"
+                  label={t("template.colors.primary")}
                   value={template.primaryColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, primaryColor: v })
                   }
-                  description="Barra superior"
+                  description={t("template.colors.primaryHint")}
                 />
                 <ColorInput
-                  label="Cor do Botão"
+                  label={t("template.colors.button")}
                   value={template.buttonColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, buttonColor: v })
                   }
                 />
                 <ColorInput
-                  label="Texto do Botão"
+                  label={t("template.colors.buttonText")}
                   value={template.buttonTextColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, buttonTextColor: v })
@@ -405,7 +424,7 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                 />
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                    Arredondamento do Botão
+                    {t("template.colors.buttonRadius")}
                   </label>
                   <select
                     value={template.buttonBorderRadius}
@@ -417,12 +436,11 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                     }
                     className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                   >
-                    <option value="0px">Reto</option>
-                    <option value="4px">Suave</option>
-                    <option value="6px">Padrão</option>
-                    <option value="8px">Arredondado</option>
-                    <option value="12px">Muito Arredondado</option>
-                    <option value="999px">Pílula</option>
+                    {RADIUS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {t(`template.radius.${o.key}`)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -432,61 +450,61 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
             <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
               <div className="px-4 py-2.5 border-b border-white/5">
                 <span className="text-xs font-semibold text-gray-500">
-                  Cores Avançadas
+                  {t("template.sections.advanced")}
                 </span>
               </div>
               <div className="p-4 space-y-3">
                 <ColorInput
-                  label="Fundo"
+                  label={t("template.colors.background")}
                   value={template.backgroundColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, backgroundColor: v })
                   }
                 />
                 <ColorInput
-                  label="Texto Principal"
+                  label={t("template.colors.text")}
                   value={template.textColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, textColor: v })
                   }
                 />
                 <ColorInput
-                  label="Bordas"
+                  label={t("template.colors.borders")}
                   value={template.borderColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, borderColor: v })
                   }
                 />
                 <ColorInput
-                  label="Banner — Fundo"
+                  label={t("template.colors.bannerBackground")}
                   value={template.bannerBackgroundColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, bannerBackgroundColor: v })
                   }
                 />
                 <ColorInput
-                  label="Banner — Borda"
+                  label={t("template.colors.bannerBorder")}
                   value={template.bannerBorderColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, bannerBorderColor: v })
                   }
                 />
                 <ColorInput
-                  label="Banner — Texto"
+                  label={t("template.colors.bannerText")}
                   value={template.bannerTextColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, bannerTextColor: v })
                   }
                 />
                 <ColorInput
-                  label="Rodapé — Fundo"
+                  label={t("template.colors.footerBackground")}
                   value={template.footerBackgroundColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, footerBackgroundColor: v })
                   }
                 />
                 <ColorInput
-                  label="Rodapé — Texto"
+                  label={t("template.colors.footerText")}
                   value={template.footerTextColor}
                   onChange={(v: string) =>
                     setTemplate({ ...template, footerTextColor: v })
@@ -503,7 +521,7 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
             <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
               <div className="px-4 py-2.5 border-b border-white/5">
                 <span className="text-xs font-semibold text-gray-500">
-                  Personalização de Textos
+                  {t("template.sections.text")}
                 </span>
               </div>
               <div className="p-4 space-y-4">
@@ -522,44 +540,40 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                     />
                   </svg>
                   <p className="text-xs text-indigo-300/80 leading-relaxed">
-                    Use{" "}
-                    <code className="font-mono bg-indigo-500/20 px-1 rounded text-indigo-300">
-                      {"{{name}}"}
-                    </code>
-                    ,{" "}
-                    <code className="font-mono bg-indigo-500/20 px-1 rounded text-indigo-300">
-                      {"{{store}}"}
-                    </code>
-                    ,{" "}
-                    <code className="font-mono bg-indigo-500/20 px-1 rounded text-indigo-300">
-                      {"{{discount}}"}
-                    </code>{" "}
-                    como variáveis dinâmicas.
+                    {t.rich("template.text.variables", {
+                      code: (chunks) => (
+                        <code className="font-mono bg-indigo-500/20 px-1 rounded text-indigo-300">
+                          {"{{"}
+                          {chunks}
+                          {"}}"}
+                        </code>
+                      ),
+                    })}
                   </p>
                 </div>
                 <TextInput
-                  label="Saudação"
+                  label={t("template.text.greeting")}
                   value={template.customGreeting}
                   onChange={(v: string) =>
                     setTemplate({ ...template, customGreeting: v })
                   }
-                  placeholder="Ex: Olá {{name}}, tudo bem?"
+                  placeholder={t("template.text.greetingPlaceholder", { name: "{{name}}" })}
                 />
                 <TextInput
-                  label="Mensagem Principal"
+                  label={t("template.text.body")}
                   value={template.customBody}
                   onChange={(v: string) =>
                     setTemplate({ ...template, customBody: v })
                   }
-                  placeholder="Ex: Vimos que você deixou algo no carrinho da {{store}}..."
+                  placeholder={t("template.text.bodyPlaceholder", { store: "{{store}}" })}
                 />
                 <TextInput
-                  label="Texto do Botão"
+                  label={t("template.text.button")}
                   value={template.customButtonText}
                   onChange={(v: string) =>
                     setTemplate({ ...template, customButtonText: v })
                   }
-                  placeholder="Ex: Aproveitar {{discount}}% de desconto"
+                  placeholder={t("template.text.buttonPlaceholder", { discount: "{{discount}}" })}
                 />
               </div>
             </div>
@@ -573,10 +587,10 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
           <div className="bg-gray-900/60 border border-white/6 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-white/5">
               <p className="text-sm font-medium text-gray-300">
-                Preview do Email
+                {t("template.preview.title")}
               </p>
               <p className="text-xs text-gray-600 mt-0.5">
-                Visualização em tempo real
+                {t("template.preview.subtitle")}
               </p>
             </div>
             <div className="p-6 bg-white/5">
@@ -593,15 +607,20 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                     >
                       {template.customGreeting?.replace(
                         "{{name}}",
-                        "Cliente Teste",
-                      ) || "Olá, Cliente Teste!"}
+                        t("template.preview.sampleCustomer"),
+                      ) ||
+                        t("template.preview.greeting", {
+                          name: t("template.preview.sampleCustomer"),
+                        })}
                     </h2>
                     <p className="text-sm text-gray-600 leading-relaxed">
-                      {template.customBody?.replace("{{store}}", "Sua Loja") ||
-                        "Você deixou alguns itens no seu carrinho. Preparamos uma oferta exclusiva para você finalizar sua compra:"}
+                      {template.customBody?.replace(
+                        "{{store}}",
+                        t("template.preview.sampleStore"),
+                      ) || t("template.preview.body")}
                     </p>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Seu Carrinho
+                      {t("template.preview.yourCart")}
                     </p>
                     <div
                       className="p-4 rounded-lg border"
@@ -614,10 +633,13 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                             className="font-semibold text-sm truncate"
                             style={{ color: template.textColor }}
                           >
-                            Produto Exemplo
+                            {t("template.preview.sampleProduct")}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            Qtd: 1 · R$ 99,90
+                            {t("template.preview.quantity", {
+                              quantity: 1,
+                              price: samplePrice,
+                            })}
                           </p>
                         </div>
                       </div>
@@ -629,13 +651,13 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                           className="text-sm font-semibold"
                           style={{ color: template.textColor }}
                         >
-                          Total
+                          {t("template.preview.total")}
                         </span>
                         <span
                           className="text-sm font-bold"
                           style={{ color: template.textColor }}
                         >
-                          R$ 99,90
+                          {samplePrice}
                         </span>
                       </div>
                     </div>
@@ -648,11 +670,14 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                       }}
                     >
                       <p className="text-sm font-semibold">
-                        <strong>10% de desconto</strong> aplicado
-                        automaticamente
+                        {t.rich(
+                          "template.preview.banner",
+                          { b: (chunks) => <strong>{chunks}</strong> },
+                          { percent: 10 },
+                        )}
                       </p>
                       <p className="text-xs mt-1 opacity-80">
-                        Oferta válida por 48 horas
+                        {t("template.preview.validity")}
                       </p>
                     </div>
                     <button
@@ -666,7 +691,7 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                       {template.customButtonText?.replace(
                         "{{discount}}",
                         "10",
-                      ) || "Finalizar compra com 10% de desconto →"}
+                      ) || t("template.preview.button", { percent: 10 })}
                     </button>
                   </div>
                   <div
@@ -678,7 +703,9 @@ export default function TemplateEditor({ accountId }: TemplateEditorProps) {
                     }}
                   >
                     <p className="text-xs leading-relaxed">
-                      Dúvidas? Responda este e-mail que te ajudamos. — Sua Loja
+                      {t("template.preview.footer", {
+                        store: t("template.preview.sampleStore"),
+                      })}
                     </p>
                   </div>
                 </div>

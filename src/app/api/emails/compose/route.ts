@@ -6,11 +6,17 @@ import { sendEmail } from "@/lib/email/smtp";
 import { renderEmailHtml } from "@/lib/email/html-template";
 import { matchOrCreateCustomer } from "@/lib/customer/identifier";
 import { FieldValue } from "firebase-admin/firestore";
+import { getT } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
+  const t = await getT("compose");
+  const tc = await getT("common");
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   let accountId: string,
     to: string,
@@ -49,14 +55,14 @@ export async function POST(req: NextRequest) {
     }
   } catch {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: t("api.invalidBody") },
       { status: 400 },
     );
   }
 
   if (!accountId || !to || !subject || !body) {
     return NextResponse.json(
-      { error: "Campos obrigatórios: accountId, to, subject, body" },
+      { error: t("api.missingFields") },
       { status: 400 },
     );
   }
@@ -64,7 +70,7 @@ export async function POST(req: NextRequest) {
   // Basic email format validation
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
     return NextResponse.json(
-      { error: "Endereço de e-mail do destinatário inválido" },
+      { error: t("api.invalidRecipient") },
       { status: 400 },
     );
   }
@@ -73,7 +79,7 @@ export async function POST(req: NextRequest) {
   const accountDoc = await db.collection("accounts").doc(accountId).get();
   if (!accountDoc.exists)
     return NextResponse.json(
-      { error: "Conta não encontrada" },
+      { error: t("api.accountNotFound") },
       { status: 404 },
     );
 

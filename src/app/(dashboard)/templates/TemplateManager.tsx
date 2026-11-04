@@ -8,6 +8,8 @@ import {
   ReplyTemplateConfig,
   RemarketingTemplateConfig,
 } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/types";
 
 /* ─── Defaults ─────────────────────────────────────────────────────────────── */
 
@@ -37,33 +39,38 @@ const REMARKETING_DEFAULT: RemarketingTemplateConfig = {
   footerTextColor: "#9ca3af",
 };
 
-const REMARKETING_PRESETS = [
+const REMARKETING_PRESETS: {
+  id: keyof Messages["compose"]["library"]["presets"];
+  primary: string;
+  button: string;
+  accent: string;
+}[] = [
   {
-    name: "Azul Moderno",
+    id: "modernBlue",
     primary: "#1d4ed8",
     button: "#1d4ed8",
     accent: "#fbbf24",
   },
   {
-    name: "Verde Sucesso",
+    id: "successGreen",
     primary: "#059669",
     button: "#059669",
     accent: "#fbbf24",
   },
   {
-    name: "Roxo Premium",
+    id: "premiumPurple",
     primary: "#7c3aed",
     button: "#7c3aed",
     accent: "#f59e0b",
   },
   {
-    name: "Vermelho Energia",
+    id: "energyRed",
     primary: "#dc2626",
     button: "#dc2626",
     accent: "#fbbf24",
   },
   {
-    name: "Laranja Vibrante",
+    id: "vibrantOrange",
     primary: "#ea580c",
     button: "#ea580c",
     accent: "#fbbf24",
@@ -262,13 +269,16 @@ function esc(s: string) {
     .replace(/"/g, "&quot;");
 }
 
+type PreviewText = Messages["compose"]["preview"];
+
 function generateReplyPreview(
   config: ReplyTemplateConfig,
+  text: PreviewText,
   logoUrl?: string | null,
 ): string {
-  const body = `<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:${esc(config.textColor)}">Olá! Obrigado por entrar em contato conosco.</p>
-<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:${esc(config.textColor)}">Recebemos sua mensagem e estamos analisando sua solicitação. Nossa equipe irá retornar em breve com mais informações.</p>
-<p style="margin:0;font-size:14px;line-height:1.7;color:${esc(config.textColor)}">Atenciosamente,<br/>Equipe Sua Loja</p>`;
+  const body = `<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:${esc(config.textColor)}">${esc(text.reply.greeting)}</p>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:${esc(config.textColor)}">${esc(text.reply.body)}</p>
+<p style="margin:0;font-size:14px;line-height:1.7;color:${esc(config.textColor)}">${esc(text.reply.signoff)}<br/>${esc(text.reply.signature)}</p>`;
   const logo =
     config.showLogo && logoUrl
       ? `<tr><td style="padding:20px 40px 0 40px"><img src="${esc(logoUrl)}" alt="Logo" style="max-height:36px;object-fit:contain;display:block"/></td></tr>`
@@ -282,12 +292,16 @@ function generateReplyPreview(
 ${logo}
 <tr><td style="padding:28px 40px 16px 40px">${body}</td></tr>
 <tr><td style="padding:12px 40px 16px 40px;border-top:1px solid ${esc(config.borderColor)};background:${esc(config.footerBackgroundColor)}">
-<p style="margin:0;font-size:12px;color:${esc(config.footerTextColor)}">Sua Loja</p>
+<p style="margin:0;font-size:12px;color:${esc(config.footerTextColor)}">${esc(text.storeName)}</p>
 </td></tr>
 </table></td></tr></table></body></html>`;
 }
 
-function generateRemarketingPreview(config: RemarketingTemplateConfig): string {
+function generateRemarketingPreview(
+  config: RemarketingTemplateConfig,
+  text: PreviewText,
+): string {
+  const rm = text.remarketing;
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:${esc(config.backgroundColor)}">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:${esc(config.backgroundColor)};padding:20px 12px">
@@ -295,27 +309,27 @@ function generateRemarketingPreview(config: RemarketingTemplateConfig): string {
 <table width="500" cellpadding="0" cellspacing="0" style="max-width:500px;width:100%;background:#fff;border-radius:6px;border:1px solid ${esc(config.borderColor)};overflow:hidden">
 <tr><td style="height:4px;background:${esc(config.primaryColor)};font-size:0">&nbsp;</td></tr>
 <tr><td style="padding:28px 40px 20px 40px">
-  <p style="margin:0 0 12px;font-size:20px;font-weight:700;color:${esc(config.textColor)}">Olá, Cliente Teste!</p>
-  <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#6b7280">Você deixou alguns itens no carrinho. Preparamos uma oferta exclusiva:</p>
+  <p style="margin:0 0 12px;font-size:20px;font-weight:700;color:${esc(config.textColor)}">${esc(rm.greeting)}</p>
+  <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#6b7280">${esc(rm.intro)}</p>
   <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${esc(config.borderColor)};border-radius:8px;margin-bottom:16px">
   <tr><td style="padding:12px 14px"><table cellpadding="0" cellspacing="0" width="100%"><tr>
     <td width="48" style="padding-right:12px"><div style="width:48px;height:48px;background:#f3f4f6;border-radius:6px"></div></td>
-    <td><p style="margin:0 0 4px;font-size:13px;font-weight:600;color:${esc(config.textColor)}">Produto Exemplo</p><p style="margin:0;font-size:12px;color:#9ca3af">Qtd: 1 · R$ 99,90</p></td>
+    <td><p style="margin:0 0 4px;font-size:13px;font-weight:600;color:${esc(config.textColor)}">${esc(rm.product)}</p><p style="margin:0;font-size:12px;color:#9ca3af">${esc(rm.quantity)}</p></td>
   </tr></table></td></tr>
   <tr><td style="padding:10px 14px;border-top:1px solid ${esc(config.borderColor)}"><table width="100%" cellpadding="0" cellspacing="0"><tr>
-    <td style="font-size:13px;font-weight:600;color:${esc(config.textColor)}">Total</td>
-    <td style="font-size:13px;font-weight:700;color:${esc(config.textColor)};text-align:right">R$ 99,90</td>
+    <td style="font-size:13px;font-weight:600;color:${esc(config.textColor)}">${esc(rm.total)}</td>
+    <td style="font-size:13px;font-weight:700;color:${esc(config.textColor)};text-align:right">${esc(rm.price)}</td>
   </tr></table></td></tr></table>
   <div style="padding:14px;border:1px solid ${esc(config.bannerBorderColor)};background:${esc(config.bannerBackgroundColor)};border-radius:8px;text-align:center;margin-bottom:16px">
-    <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${esc(config.bannerTextColor)}">10% de desconto aplicado automaticamente</p>
-    <p style="margin:0;font-size:12px;color:${esc(config.bannerTextColor)};opacity:0.8">Oferta válida por 48 horas</p>
+    <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${esc(config.bannerTextColor)}">${esc(rm.discount)}</p>
+    <p style="margin:0;font-size:12px;color:${esc(config.bannerTextColor)};opacity:0.8">${esc(rm.validity)}</p>
   </div>
   <div style="background:${esc(config.buttonColor)};border-radius:${esc(config.buttonBorderRadius)};text-align:center;padding:14px">
-    <span style="font-size:14px;font-weight:600;color:${esc(config.buttonTextColor)}">Finalizar compra com 10% de desconto →</span>
+    <span style="font-size:14px;font-weight:600;color:${esc(config.buttonTextColor)}">${esc(rm.cta)}</span>
   </div>
 </td></tr>
 <tr><td style="padding:12px 40px 16px;border-top:1px solid ${esc(config.borderColor)};background:${esc(config.footerBackgroundColor)}">
-  <p style="margin:0;font-size:12px;color:${esc(config.footerTextColor)}">Dúvidas? Responda este e-mail. — Sua Loja</p>
+  <p style="margin:0;font-size:12px;color:${esc(config.footerTextColor)}">${esc(rm.footer)}</p>
 </td></tr>
 </table></td></tr></table></body></html>`;
 }
@@ -341,6 +355,8 @@ function TemplateCard({
   activating: boolean;
   deleting: boolean;
 }) {
+  const t = useT("compose");
+  const tc = useT("common");
   return (
     <div
       className={`bg-gray-900/60 border rounded-xl overflow-hidden transition-all ${
@@ -364,7 +380,7 @@ function TemplateCard({
           </p>
           {item.isActive && (
             <span className="shrink-0 text-xs px-1.5 py-0.5 bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 rounded font-medium">
-              Ativo
+              {t("library.card.active")}
             </span>
           )}
         </div>
@@ -377,7 +393,7 @@ function TemplateCard({
                 : "bg-gray-800/60 hover:bg-white/5 border-white/6 text-gray-400 hover:text-gray-300"
             }`}
           >
-            {isEditing ? "Editando" : "Editar"}
+            {isEditing ? t("library.card.editing") : tc("actions.edit")}
           </button>
           {!item.isActive && (
             <button
@@ -385,7 +401,11 @@ function TemplateCard({
               disabled={activating}
               className="flex-1 px-2 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg transition-all flex items-center justify-center gap-1"
             >
-              {activating ? <Spinner className="w-3 h-3" /> : "Usar este"}
+              {activating ? (
+                <Spinner className="w-3 h-3" />
+              ) : (
+                t("library.card.use")
+              )}
             </button>
           )}
           {!item.isActive && (
@@ -437,6 +457,8 @@ interface Props {
 }
 
 export default function TemplateManager({ type, accountId, logoUrl }: Props) {
+  const t = useT("compose");
+  const tc = useT("common");
   const [templates, setTemplates] = useState<TemplateLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
@@ -463,10 +485,10 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
       const data = await res.json();
       setTemplates(data.templates ?? []);
     } catch {
-      toast.error("Erro ao carregar templates");
+      toast.error(t("library.toasts.loadFailed"));
     }
     setLoading(false);
-  }, [accountId, type]);
+  }, [accountId, type, t]);
 
   useEffect(() => {
     load();
@@ -476,7 +498,7 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
     setEditConfig(
       type === "reply" ? { ...REPLY_DEFAULT } : { ...REMARKETING_DEFAULT },
     );
-    setEditName("Novo Template");
+    setEditName(t("library.defaultName"));
     setEditingId("new");
   };
 
@@ -494,7 +516,7 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
 
   const handleSave = async () => {
     if (!editName.trim()) {
-      toast.error("Dê um nome ao template");
+      toast.error(t("library.toasts.nameRequired"));
       return;
     }
     setSaving(true);
@@ -512,9 +534,9 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
         });
         if (!res.ok) {
           const d = await res.json();
-          toast.error(d.error || "Erro ao criar");
+          toast.error(d.error || t("library.toasts.createFailed"));
         } else {
-          toast.success("Template criado!");
+          toast.success(t("library.toasts.created"));
           closeEdit();
           await load();
         }
@@ -526,21 +548,21 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
         });
         if (!res.ok) {
           const d = await res.json();
-          toast.error(d.error || "Erro ao salvar");
+          toast.error(d.error || t("library.toasts.saveFailed"));
         } else {
-          toast.success("Template salvo!");
+          toast.success(t("library.toasts.saved"));
           setTemplates((prev) =>
-            prev.map((t) =>
-              t.id === editingId
-                ? { ...t, name: editName.trim(), config: editConfig }
-                : t,
+            prev.map((tpl) =>
+              tpl.id === editingId
+                ? { ...tpl, name: editName.trim(), config: editConfig }
+                : tpl,
             ),
           );
           closeEdit();
         }
       }
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setSaving(false);
   };
@@ -552,43 +574,43 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
         method: "POST",
       });
       if (res.ok) {
-        toast.success("Template ativado!");
+        toast.success(t("library.toasts.activated"));
         setTemplates((prev) =>
-          prev.map((t) => ({ ...t, isActive: t.id === id })),
+          prev.map((tpl) => ({ ...tpl, isActive: tpl.id === id })),
         );
       } else {
         const d = await res.json();
-        toast.error(d.error || "Erro ao ativar");
+        toast.error(d.error || t("library.toasts.activateFailed"));
       }
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setActivatingId(null);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Excluir este template?")) return;
+    if (!confirm(t("library.toasts.confirmDelete"))) return;
     setDeletingId(id);
     try {
       const res = await fetch(`/api/template-library/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        toast.success("Excluído!");
-        setTemplates((prev) => prev.filter((t) => t.id !== id));
+        toast.success(t("library.toasts.deleted"));
+        setTemplates((prev) => prev.filter((tpl) => tpl.id !== id));
       } else {
         const d = await res.json();
-        toast.error(d.error || "Erro ao excluir");
+        toast.error(d.error || t("library.toasts.deleteFailed"));
       }
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setDeletingId(null);
   };
 
   const handleTest = async () => {
     if (!testEmail || !testEmail.includes("@")) {
-      toast.error("Email inválido");
+      toast.error(t("library.toasts.invalidEmail"));
       return;
     }
     setSending(true);
@@ -603,18 +625,49 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
         body: JSON.stringify({ accountId, testEmail, template: editConfig }),
       });
       const d = await res.json();
-      if (res.ok) toast.success(d.message || "Email de teste enviado!");
-      else toast.error(d.error || "Erro ao enviar");
+      if (res.ok) toast.success(d.message || t("library.toasts.testSent"));
+      else toast.error(d.error || t("library.toasts.sendFailed"));
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setSending(false);
   };
 
+  const previewText: PreviewText = {
+    storeName: t("preview.storeName"),
+    reply: {
+      greeting: t("preview.reply.greeting"),
+      body: t("preview.reply.body"),
+      signoff: t("preview.reply.signoff"),
+      signature: t("preview.reply.signature"),
+    },
+    remarketing: {
+      greeting: t("preview.remarketing.greeting"),
+      intro: t("preview.remarketing.intro"),
+      product: t("preview.remarketing.product"),
+      price: t("preview.remarketing.price"),
+      quantity: t("preview.remarketing.quantity", {
+        price: t("preview.remarketing.price"),
+      }),
+      total: t("preview.remarketing.total"),
+      discount: t("preview.remarketing.discount"),
+      validity: t("preview.remarketing.validity"),
+      cta: t("preview.remarketing.cta"),
+      footer: t("preview.remarketing.footer"),
+    },
+  };
+
   const previewHtml =
     type === "reply"
-      ? generateReplyPreview(editConfig as ReplyTemplateConfig, logoUrl)
-      : generateRemarketingPreview(editConfig as RemarketingTemplateConfig);
+      ? generateReplyPreview(
+          editConfig as ReplyTemplateConfig,
+          previewText,
+          logoUrl,
+        )
+      : generateRemarketingPreview(
+          editConfig as RemarketingTemplateConfig,
+          previewText,
+        );
 
   const rc = editConfig as ReplyTemplateConfig;
   const mc = editConfig as RemarketingTemplateConfig;
@@ -624,10 +677,10 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
       <div className="flex items-center justify-center py-20 text-center">
         <div className="space-y-1">
           <p className="text-sm font-medium text-gray-400">
-            Nenhuma loja selecionada
+            {t("library.noStore.title")}
           </p>
           <p className="text-sm text-gray-600">
-            Selecione uma loja para gerenciar os templates
+            {t("library.noStore.description")}
           </p>
         </div>
       </div>
@@ -646,9 +699,7 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
       {/* Top bar */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">
-          {templates.length > 0
-            ? `${templates.length} template${templates.length > 1 ? "s" : ""}`
-            : "Nenhum template criado ainda"}
+          {t("library.count", { count: templates.length })}
         </p>
         <button
           onClick={openNew}
@@ -667,7 +718,7 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
               d="M12 4v16m8-8H4"
             />
           </svg>
-          Novo Template
+          {t("library.newTemplate")}
         </button>
       </div>
 
@@ -691,10 +742,10 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
           </div>
           <div>
             <p className="text-sm font-medium text-gray-300">
-              Crie seu primeiro template
+              {t("library.empty.title")}
             </p>
             <p className="text-xs text-gray-600 mt-1">
-              Personalize as cores e identidade dos emails enviados pelo sistema
+              {t("library.empty.description")}
             </p>
           </div>
           <button
@@ -714,7 +765,7 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                 d="M12 4v16m8-8H4"
               />
             </svg>
-            Criar Template
+            {t("library.empty.cta")}
           </button>
         </div>
       ) : (
@@ -747,10 +798,12 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 className="bg-transparent text-sm font-semibold text-gray-100 focus:outline-none border-b border-transparent focus:border-indigo-500/60 pb-0.5 transition-colors w-56 truncate"
-                placeholder="Nome do template"
+                placeholder={t("library.editor.namePlaceholder")}
               />
               <span className="text-xs text-gray-600 shrink-0">
-                {editingId === "new" ? "— novo" : "— editando"}
+                {editingId === "new"
+                  ? t("library.editor.newSuffix")
+                  : t("library.editor.editingSuffix")}
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -773,7 +826,7 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                   type="email"
                   value={testEmail}
                   onChange={(e) => setTestEmail(e.target.value)}
-                  placeholder="Testar com email..."
+                  placeholder={t("library.editor.testPlaceholder")}
                   className="bg-transparent text-xs text-gray-300 placeholder-gray-600 focus:outline-none w-40"
                 />
                 <button
@@ -781,14 +834,18 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                   disabled={sending}
                   className="px-2 py-0.5 text-xs font-medium bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 rounded transition-all flex items-center gap-1"
                 >
-                  {sending ? <Spinner className="w-3 h-3" /> : "Enviar"}
+                  {sending ? (
+                    <Spinner className="w-3 h-3" />
+                  ) : (
+                    tc("actions.send")
+                  )}
                 </button>
               </div>
               <button
                 onClick={closeEdit}
                 className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors"
               >
-                Cancelar
+                {tc("actions.cancel")}
               </button>
               <button
                 onClick={handleSave}
@@ -798,10 +855,10 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                 {saving ? (
                   <>
                     <Spinner className="w-3 h-3" />
-                    Salvando...
+                    {tc("actions.saving")}
                   </>
                 ) : (
-                  "Salvar"
+                  tc("actions.save")
                 )}
               </button>
             </div>
@@ -819,32 +876,32 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                 {type === "reply" && (
                   <>
                     <div className="space-y-3">
-                      <SectionLabel>Identidade</SectionLabel>
+                      <SectionLabel>{t("library.sections.identity")}</SectionLabel>
                       <ColorInput
-                        label="Cor Primária"
+                        label={t("library.fields.primaryColor")}
                         value={rc.primaryColor}
                         onChange={(v) =>
                           setEditConfig({ ...rc, primaryColor: v })
                         }
-                        description="Barra de destaque no topo"
+                        description={t("library.fields.primaryColorDesc")}
                       />
                       <ColorInput
-                        label="Texto do Corpo"
+                        label={t("library.fields.bodyText")}
                         value={rc.textColor}
                         onChange={(v) => setEditConfig({ ...rc, textColor: v })}
                       />
                     </div>
                     <div className="space-y-3 pt-2 border-t border-white/5">
-                      <SectionLabel>Fundo</SectionLabel>
+                      <SectionLabel>{t("library.sections.background")}</SectionLabel>
                       <ColorInput
-                        label="Fundo Externo"
+                        label={t("library.fields.outerBackground")}
                         value={rc.backgroundColor}
                         onChange={(v) =>
                           setEditConfig({ ...rc, backgroundColor: v })
                         }
                       />
                       <ColorInput
-                        label="Borda do Card"
+                        label={t("library.fields.cardBorder")}
                         value={rc.borderColor}
                         onChange={(v) =>
                           setEditConfig({ ...rc, borderColor: v })
@@ -852,16 +909,16 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                       />
                     </div>
                     <div className="space-y-3 pt-2 border-t border-white/5">
-                      <SectionLabel>Rodapé</SectionLabel>
+                      <SectionLabel>{t("library.sections.footer")}</SectionLabel>
                       <ColorInput
-                        label="Fundo"
+                        label={t("library.fields.background")}
                         value={rc.footerBackgroundColor}
                         onChange={(v) =>
                           setEditConfig({ ...rc, footerBackgroundColor: v })
                         }
                       />
                       <ColorInput
-                        label="Texto"
+                        label={t("library.fields.text")}
                         value={rc.footerTextColor}
                         onChange={(v) =>
                           setEditConfig({ ...rc, footerTextColor: v })
@@ -873,10 +930,10 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-xs font-medium text-gray-400">
-                              Exibir logo da loja
+                              {t("library.fields.showStoreLogo")}
                             </p>
                             <p className="text-xs text-gray-600 mt-0.5">
-                              Logo cadastrada na conta
+                              {t("library.fields.logoHint")}
                             </p>
                           </div>
                           <button
@@ -900,11 +957,11 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                   <>
                     {/* Presets */}
                     <div className="space-y-2">
-                      <SectionLabel>Presets Rápidos</SectionLabel>
+                      <SectionLabel>{t("library.sections.presets")}</SectionLabel>
                       <div className="grid grid-cols-2 gap-1.5">
                         {REMARKETING_PRESETS.map((p) => (
                           <button
-                            key={p.name}
+                            key={p.id}
                             onClick={() =>
                               setEditConfig({
                                 ...mc,
@@ -926,23 +983,23 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                               ))}
                             </div>
                             <p className="text-xs text-gray-500 truncate">
-                              {p.name}
+                              {t(`library.presets.${p.id}`)}
                             </p>
                           </button>
                         ))}
                       </div>
                     </div>
                     <div className="space-y-3 pt-2 border-t border-white/5">
-                      <SectionLabel>Botão CTA</SectionLabel>
+                      <SectionLabel>{t("library.sections.cta")}</SectionLabel>
                       <ColorInput
-                        label="Fundo"
+                        label={t("library.fields.background")}
                         value={mc.buttonColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, buttonColor: v })
                         }
                       />
                       <ColorInput
-                        label="Texto"
+                        label={t("library.fields.text")}
                         value={mc.buttonTextColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, buttonTextColor: v })
@@ -950,7 +1007,7 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                       />
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                          Arredondamento
+                          {t("library.fields.rounding")}
                         </label>
                         <select
                           value={mc.buttonBorderRadius}
@@ -962,33 +1019,35 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                           }
                           className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                         >
-                          <option value="0px">Reto</option>
-                          <option value="4px">Suave</option>
-                          <option value="6px">Padrão</option>
-                          <option value="8px">Arredondado</option>
-                          <option value="12px">Muito Arredondado</option>
-                          <option value="999px">Pílula</option>
+                          <option value="0px">{t("library.radius.square")}</option>
+                          <option value="4px">{t("library.radius.subtle")}</option>
+                          <option value="6px">{t("library.radius.default")}</option>
+                          <option value="8px">{t("library.radius.rounded")}</option>
+                          <option value="12px">
+                            {t("library.radius.extraRounded")}
+                          </option>
+                          <option value="999px">{t("library.radius.pill")}</option>
                         </select>
                       </div>
                     </div>
                     <div className="space-y-3 pt-2 border-t border-white/5">
-                      <SectionLabel>Banner de Desconto</SectionLabel>
+                      <SectionLabel>{t("library.sections.banner")}</SectionLabel>
                       <ColorInput
-                        label="Fundo"
+                        label={t("library.fields.background")}
                         value={mc.bannerBackgroundColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, bannerBackgroundColor: v })
                         }
                       />
                       <ColorInput
-                        label="Borda"
+                        label={t("library.fields.border")}
                         value={mc.bannerBorderColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, bannerBorderColor: v })
                         }
                       />
                       <ColorInput
-                        label="Texto"
+                        label={t("library.fields.text")}
                         value={mc.bannerTextColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, bannerTextColor: v })
@@ -996,29 +1055,29 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                       />
                     </div>
                     <div className="space-y-3 pt-2 border-t border-white/5">
-                      <SectionLabel>Estrutura</SectionLabel>
+                      <SectionLabel>{t("library.sections.structure")}</SectionLabel>
                       <ColorInput
-                        label="Cor Primária"
+                        label={t("library.fields.primaryColor")}
                         value={mc.primaryColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, primaryColor: v })
                         }
-                        description="Barra superior"
+                        description={t("library.fields.topBar")}
                       />
                       <ColorInput
-                        label="Fundo Externo"
+                        label={t("library.fields.outerBackground")}
                         value={mc.backgroundColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, backgroundColor: v })
                         }
                       />
                       <ColorInput
-                        label="Texto Principal"
+                        label={t("library.fields.mainText")}
                         value={mc.textColor}
                         onChange={(v) => setEditConfig({ ...mc, textColor: v })}
                       />
                       <ColorInput
-                        label="Bordas"
+                        label={t("library.fields.borders")}
                         value={mc.borderColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, borderColor: v })
@@ -1026,16 +1085,16 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                       />
                     </div>
                     <div className="space-y-3 pt-2 border-t border-white/5">
-                      <SectionLabel>Rodapé</SectionLabel>
+                      <SectionLabel>{t("library.sections.footer")}</SectionLabel>
                       <ColorInput
-                        label="Fundo"
+                        label={t("library.fields.background")}
                         value={mc.footerBackgroundColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, footerBackgroundColor: v })
                         }
                       />
                       <ColorInput
-                        label="Texto"
+                        label={t("library.fields.text")}
                         value={mc.footerTextColor}
                         onChange={(v) =>
                           setEditConfig({ ...mc, footerTextColor: v })
@@ -1050,13 +1109,13 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
             {/* Preview */}
             <div className="lg:col-span-3 p-5 bg-gray-950/30">
               <p className="text-xs font-medium text-gray-600 mb-3">
-                Preview em tempo real
+                {t("library.editor.previewTitle")}
               </p>
               <iframe
                 srcDoc={previewHtml}
                 className="w-full rounded-xl border border-white/6 bg-white"
                 style={{ height: "500px" }}
-                title="Preview do template"
+                title={t("library.editor.iframeTitle")}
                 sandbox="allow-same-origin"
               />
             </div>

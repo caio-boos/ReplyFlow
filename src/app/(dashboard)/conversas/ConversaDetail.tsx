@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { stripQuotedText } from "@/lib/email/quoted-text";
 import AnnotationModal from "../anotacoes/AnnotationModal";
+import { useT, useFormat } from "@/lib/i18n/client";
 
 interface FirestoreTimestamp {
   seconds?: number;
@@ -15,10 +16,13 @@ function tsToMs(ts: FirestoreTimestamp | null | undefined): number {
   return (ts.seconds ?? ts._seconds ?? 0) * 1000;
 }
 
-function formatDateTime(ts: FirestoreTimestamp | null | undefined) {
+function formatDateTime(
+  ts: FirestoreTimestamp | null | undefined,
+  f: ReturnType<typeof useFormat>,
+) {
   const ms = tsToMs(ts);
   if (!ms) return "—";
-  return new Date(ms).toLocaleString("pt-BR", {
+  return f.date(ms, {
     day: "2-digit",
     month: "2-digit",
     year: "2-digit",
@@ -69,38 +73,33 @@ interface TaskItem {
 
 const STATUS_CFG: Record<
   string,
-  { label: string; bg: string; text: string; border: string; dot: string }
+  { bg: string; text: string; border: string; dot: string }
 > = {
   pending: {
-    label: "Pendente",
     bg: "bg-amber-500/10",
     text: "text-amber-400",
     border: "border-amber-500/20",
     dot: "bg-amber-400 animate-pulse",
   },
   processing: {
-    label: "Processando",
     bg: "bg-sky-500/10",
     text: "text-sky-400",
     border: "border-sky-500/20",
     dot: "bg-sky-400 animate-pulse",
   },
   sent: {
-    label: "Enviado",
     bg: "bg-emerald-500/10",
     text: "text-emerald-400",
     border: "border-emerald-500/20",
     dot: "bg-emerald-400",
   },
   failed: {
-    label: "Falhou",
     bg: "bg-red-500/10",
     text: "text-red-400",
     border: "border-red-500/20",
     dot: "bg-red-400",
   },
   cancelled: {
-    label: "Cancelado",
     bg: "bg-gray-500/10",
     text: "text-gray-500",
     border: "border-gray-500/20",
@@ -148,6 +147,7 @@ function ImageCarousel({
 }: {
   attachments: Array<{ filename: string; contentType: string; url: string }>;
 }) {
+  const tc = useT("common");
   const [current, setCurrent] = useState(0);
   const [lightbox, setLightbox] = useState(false);
 
@@ -188,7 +188,7 @@ function ImageCarousel({
             <button
               onClick={prev}
               className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-              aria-label="Anterior"
+              aria-label={tc("actions.previous")}
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -207,7 +207,7 @@ function ImageCarousel({
             <button
               onClick={next}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-              aria-label="Próxima"
+              aria-label={tc("actions.next")}
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -254,7 +254,7 @@ function ImageCarousel({
           <button
             className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             onClick={() => setLightbox(false)}
-            aria-label="Fechar"
+            aria-label={tc("actions.close")}
           >
             <svg
               className="w-5 h-5"
@@ -285,7 +285,7 @@ function ImageCarousel({
                   prev();
                 }}
                 className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                aria-label="Anterior"
+                aria-label={tc("actions.previous")}
               >
                 <svg
                   className="w-5 h-5"
@@ -307,7 +307,7 @@ function ImageCarousel({
                   next();
                 }}
                 className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                aria-label="Próxima"
+                aria-label={tc("actions.next")}
               >
                 <svg
                   className="w-5 h-5"
@@ -339,6 +339,11 @@ interface Props {
 }
 
 export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }: Props) {
+  const t = useT("inbox");
+  const tc = useT("common");
+  const f = useFormat();
+  const statusLabel = (status: string) =>
+    t.dynamic(`status.${status}`, undefined, status);
   const [email, setEmail] = useState<EmailDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEmail[] | null>(null);
@@ -451,8 +456,8 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
     if (!emailId) return;
     const confirmed = window.confirm(
       resend
-        ? "Reenviar este e-mail? O cliente receberá a resposta novamente."
-        : "Enviar este e-mail agora?",
+        ? t("detail.confirmResend")
+        : t("detail.confirmSend"),
     );
     if (!confirmed) return;
     setSending(true);
@@ -464,11 +469,11 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
         body: JSON.stringify({ resend }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
+      if (!res.ok) throw new Error(data.error ?? t("errors.sendFailed"));
       await reloadEmail(emailId);
       onRefresh();
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Erro ao enviar");
+      setSendError(err instanceof Error ? err.message : t("errors.sendFailed"));
     } finally {
       setSending(false);
     }
@@ -496,12 +501,12 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
         method: "POST",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao gerar resumo");
+      if (!res.ok) throw new Error(data.error ?? t("errors.summaryFailed"));
       setSummary(data.summary);
       setShowSummary(true);
     } catch (err) {
       setSummaryError(
-        err instanceof Error ? err.message : "Erro ao gerar resumo",
+        err instanceof Error ? err.message : t("errors.summaryFailed"),
       );
     } finally {
       setSummaryLoading(false);
@@ -519,11 +524,11 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
         body: JSON.stringify({ draft }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao aperfeiçoar");
+      if (!res.ok) throw new Error(data.error ?? t("errors.enhanceFailed"));
       setDraft(data.enhanced);
     } catch (err) {
       setManualError(
-        err instanceof Error ? err.message : "Erro ao aperfeiçoar",
+        err instanceof Error ? err.message : t("errors.enhanceFailed"),
       );
     } finally {
       setEnhancing(false);
@@ -540,7 +545,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
       (file) =>
         new Promise<ManualAttachment | string>((resolve) => {
           if (file.size > MAX_FILE_BYTES) {
-            resolve(`"${file.name}" excede 15 MB.`);
+            resolve(t("errors.fileTooLarge", { name: file.name }));
             return;
           }
           const r = new FileReader();
@@ -564,7 +569,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
       setAttachments((prev) => {
         const next = [...prev, ...valid];
         if (totalBytes(next) > MAX_TOTAL_BYTES) {
-          setAttachmentError("Total dos anexos ultrapassa 20 MB.");
+          setAttachmentError(t("errors.attachmentsTooLarge"));
           return prev;
         }
         if (errors.length) setAttachmentError(errors.join(" "));
@@ -601,7 +606,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
   async function handleMarkSpam() {
     if (!emailId || marking) return;
     const confirmed = window.confirm(
-      "Marcar como spam? O cliente será bloqueado e todos os e-mails pendentes dele serão cancelados.",
+      t("detail.confirmSpam"),
     );
     if (!confirmed) return;
     setMarking(true);
@@ -617,7 +622,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
 
   async function handleManualSend() {
     if (!draft.trim() || !emailId) return;
-    const confirmed = window.confirm("Enviar esta resposta?");
+    const confirmed = window.confirm(t("detail.confirmManualSend"));
     if (!confirmed) return;
     setManualSending(true);
     setManualError(null);
@@ -632,7 +637,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
+      if (!res.ok) throw new Error(data.error ?? t("errors.sendFailed"));
       setManualSuccess(true);
       setDraft("");
       setAttachments([]);
@@ -640,7 +645,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
       await reloadEmail(emailId);
       onRefresh();
     } catch (err) {
-      setManualError(err instanceof Error ? err.message : "Erro ao enviar");
+      setManualError(err instanceof Error ? err.message : t("errors.sendFailed"));
     } finally {
       setManualSending(false);
     }
@@ -667,10 +672,10 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
         </div>
         <div>
           <p className="text-sm font-medium text-gray-400">
-            Selecione uma conversa
+            {t("detail.selectTitle")}
           </p>
           <p className="text-xs text-gray-600 mt-0.5">
-            Clique em um contato à esquerda para ver as mensagens
+            {t("detail.selectHint")}
           </p>
         </div>
       </div>
@@ -682,7 +687,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-600 text-sm">
         <Spinner />
-        Carregando...
+        {tc("states.loading")}
       </div>
     );
   }
@@ -690,7 +695,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
   if (!email) {
     return (
       <div className="flex items-center justify-center h-full text-red-400 text-sm">
-        E-mail não encontrado
+        {t("errors.emailNotFound")}
       </div>
     );
   }
@@ -713,7 +718,11 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
         <button
           onClick={onBack}
           className={`${backLabel ? "flex w-auto px-2" : "flex md:hidden w-7"} h-7 items-center justify-center gap-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/8 transition-all shrink-0`}
-          aria-label={backLabel ? `Voltar para ${backLabel}` : "Voltar"}
+          aria-label={
+            backLabel
+              ? t("nav.backTo", { label: backLabel })
+              : tc("actions.back")
+          }
         >
           <svg
             className="w-4 h-4"
@@ -745,7 +754,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
               className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md border ${sc.bg} ${sc.text} ${sc.border}`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-              {sc.label}
+              {statusLabel(email.status)}
             </span>
             {email.chargebackRisk && (
               <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20">
@@ -760,7 +769,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                     clipRule="evenodd"
                   />
                 </svg>
-                Chargeback
+                {t("detail.chargeback")}
               </span>
             )}
           </div>
@@ -772,7 +781,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
               href={`/customers/${email.customerId}`}
               className="inline-flex items-center gap-1 text-[11px] text-indigo-400/70 hover:text-indigo-300 transition-colors mt-0.5"
             >
-              Ver perfil do cliente
+              {t("detail.viewCustomerProfile")}
               <svg
                 className="w-2.5 h-2.5"
                 fill="none"
@@ -816,7 +825,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                     />
                   </svg>
                 )}
-                {sending ? "Enviando..." : "Enviar"}
+                {sending ? tc("actions.sending") : tc("actions.send")}
               </button>
               <button
                 onClick={handleCancel}
@@ -840,7 +849,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                     />
                   </svg>
                 )}
-                {cancelling ? "..." : "Cancelar"}
+                {cancelling ? "..." : tc("actions.cancel")}
               </button>
             </>
           )}
@@ -867,7 +876,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                   />
                 </svg>
               )}
-              {sending ? "..." : "Reenviar"}
+              {sending ? "..." : t("detail.resend")}
             </button>
           )}
 
@@ -875,7 +884,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
           <button
             onClick={handleSummarize}
             disabled={summaryLoading}
-            title="Resumir a conversa com IA (em português)"
+            title={t("detail.summarizeTitle")}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-50 border border-amber-500/20 rounded-lg text-xs font-medium text-amber-300 transition-all"
           >
             {summaryLoading ? (
@@ -887,12 +896,12 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
             )}
             <span className="hidden sm:inline">
               {summaryLoading
-                ? "Resumindo..."
+                ? t("detail.summarizing")
                 : summary
                   ? showSummary
-                    ? "Ocultar"
-                    : "Mostrar"
-                  : "Resumir"}
+                    ? t("detail.hide")
+                    : t("detail.show")
+                  : t("detail.summarize")}
             </span>
           </button>
 
@@ -900,7 +909,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
           <Link
             href={`/emails/${emailId}`}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-200 hover:bg-white/8 border border-white/6 transition-all"
-            title="Abrir página completa"
+            title={t("detail.openFullPage")}
           >
             <svg
               className="w-3 h-3"
@@ -915,13 +924,13 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                 d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
               />
             </svg>
-            <span className="hidden sm:inline">Expandir</span>
+            <span className="hidden sm:inline">{t("detail.expand")}</span>
           </Link>
 
           {/* Create annotation */}
           <button
             onClick={() => setAnnotationOpen(true)}
-            title="Criar anotação vinculada a esta conversa"
+            title={t("detail.createNoteTitle")}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-amber-400/90 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all"
           >
             <svg
@@ -937,7 +946,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                 d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
               />
             </svg>
-            <span className="hidden sm:inline">Criar anotação</span>
+            <span className="hidden sm:inline">{t("detail.createNote")}</span>
           </button>
 
           {email && (
@@ -946,7 +955,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
               onClose={() => setAnnotationOpen(false)}
               accountId={email.accountId}
               defaults={{
-                title: `Acompanhar: ${email.subject}`,
+                title: t("detail.noteDefaultTitle", { subject: email.subject }),
                 linkedEmailId: email.id,
                 customerName: email.fromName || undefined,
                 customerEmail: email.from || undefined,
@@ -961,8 +970,8 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
               disabled={togglingCustomerPause}
               title={
                 customerPaused
-                  ? "Retomar respostas automáticas para este cliente"
-                  : "Pausar respostas automáticas para este cliente"
+                  ? t("detail.resumeCustomer")
+                  : t("detail.pauseCustomer")
               }
               className={`w-7 h-7 flex items-center justify-center rounded-lg border transition-all disabled:opacity-40 ${
                 customerPaused
@@ -1008,7 +1017,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
           <button
             onClick={handleMarkSpam}
             disabled={marking || email?.status === "cancelled"}
-            title="Marcar como spam e bloquear cliente"
+            title={t("detail.markSpam")}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 border border-white/6 hover:border-red-500/20 transition-all"
           >
             {marking ? (
@@ -1076,14 +1085,14 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
         <div className="shrink-0 max-h-64 overflow-y-auto border-b border-amber-500/10 bg-amber-500/3 px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider">
-              Resumo do cliente
+              {t("detail.customerSummary")}
             </h3>
             <button
               onClick={handleSummarize}
               disabled={summaryLoading}
               className="text-[10px] text-gray-600 hover:text-amber-400 disabled:opacity-40 transition-colors"
             >
-              Ocultar
+              {t("detail.hide")}
             </button>
           </div>
           <div className="space-y-3">
@@ -1137,7 +1146,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
           sortedHistory?.map((item) => {
             const isCurrent = item.id === emailId;
             const sc2 = STATUS_CFG[item.status] ?? STATUS_CFG.cancelled;
-            const date = formatDateTime(item.receivedAt);
+            const date = formatDateTime(item.receivedAt, f);
             const displayName = item.fromName || item.from || "?";
             const initial = displayName.charAt(0).toUpperCase();
             const text = item.bodyText ? extractNewText(item.bodyText) : null;
@@ -1152,14 +1161,14 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                   </span>
                   {isCurrent && (
                     <span className="text-[10px] text-indigo-400 font-medium">
-                      atual
+                      {t("detail.current")}
                     </span>
                   )}
                   {!isCurrent && (
                     <Link
                       href={`/emails/${item.id}`}
                       className="text-[10px] text-gray-600 hover:text-indigo-400 transition-colors"
-                      title="Ver e-mail completo"
+                      title={t("detail.viewFullEmail")}
                     >
                       <svg
                         className="w-3 h-3"
@@ -1221,13 +1230,13 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                           <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                         </svg>
                         <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">
-                          IA
+                          {t("detail.ai")}
                         </span>
                         <span
                           className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${sc2.bg} ${sc2.text} ${sc2.border}`}
                         >
                           <span className={`w-1 h-1 rounded-full ${sc2.dot}`} />
-                          {sc2.label}
+                          {statusLabel(item.status)}
                         </span>
                       </div>
                       <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
@@ -1253,7 +1262,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                     <div className="flex items-start justify-end gap-2.5">
                       <div className="px-3.5 py-2.5 rounded-2xl rounded-tr-sm bg-amber-500/5 border border-amber-500/15">
                         <p className="text-xs text-amber-400/70 italic">
-                          Resposta automática agendada...
+                          {t("detail.autoReplyScheduled")}
                         </p>
                       </div>
                       <div className="w-7 h-7 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
@@ -1278,23 +1287,19 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                 {tasks
                   .filter((t) => t.emailId === item.id)
                   .map((task) => {
-                    const priorityCfg = {
-                      high: {
-                        label: "Alta",
-                        cls: "bg-red-500/10 text-red-400 border-red-500/20",
-                      },
-                      medium: {
-                        label: "Média",
-                        cls: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-                      },
-                      low: {
-                        label: "Baixa",
-                        cls: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-                      },
-                    }[task.priority] ?? {
-                      label: task.priority,
-                      cls: "bg-gray-500/10 text-gray-400 border-gray-500/20",
-                    };
+                    const priorityCls =
+                      {
+                        high: "bg-red-500/10 text-red-400 border-red-500/20",
+                        medium:
+                          "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                        low: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+                      }[task.priority] ??
+                      "bg-gray-500/10 text-gray-400 border-gray-500/20";
+                    const priorityLabel = t.dynamic(
+                      `priority.${task.priority}`,
+                      undefined,
+                      task.priority,
+                    );
                     return (
                       <div key={task.id} className="flex justify-center">
                         <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-violet-500/8 border border-violet-500/20 max-w-[88%]">
@@ -1314,12 +1319,12 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap mb-1">
                               <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider">
-                                Tarefa criada pela IA
+                                {t("detail.taskByAi")}
                               </span>
                               <span
-                                className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityCfg.cls}`}
+                                className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityCls}`}
                               >
-                                {priorityCfg.label}
+                                {priorityLabel}
                               </span>
                               {task.completed && (
                                 <span className="text-[10px] text-emerald-400 flex items-center gap-0.5">
@@ -1334,7 +1339,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                                       clipRule="evenodd"
                                     />
                                   </svg>
-                                  Concluída
+                                  {t("detail.completed")}
                                 </span>
                               )}
                             </div>
@@ -1373,7 +1378,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                 d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
               />
             </svg>
-            Responder manualmente...
+            {t("detail.replyManually")}
           </button>
         ) : (
           <div className="rounded-xl border border-white/10 bg-gray-900/80 overflow-hidden focus-within:border-indigo-500/40 transition-colors">
@@ -1381,7 +1386,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onPaste={handlePaste}
-              placeholder="Escreva sua resposta..."
+              placeholder={t("detail.replyPlaceholder")}
               rows={4}
               autoFocus
               className="w-full bg-transparent px-4 py-3 text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none resize-none"
@@ -1442,7 +1447,9 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                   <p className="text-xs text-red-400">{manualError}</p>
                 )}
                 {manualSuccess && (
-                  <p className="text-xs text-emerald-400">Resposta enviada!</p>
+                  <p className="text-xs text-emerald-400">
+                    {t("detail.replySent")}
+                  </p>
                 )}
               </div>
             )}
@@ -1459,7 +1466,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  title="Anexar imagem"
+                  title={t("detail.attachImage")}
                   className="p-1.5 rounded-lg text-gray-600 hover:text-gray-300 hover:bg-white/8 transition-all"
                 >
                   <svg
@@ -1492,7 +1499,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                       <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                     </svg>
                   )}
-                  {enhancing ? "..." : "Aperfeiçoar"}
+                  {enhancing ? "..." : t("detail.enhance")}
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -1505,7 +1512,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                     setManualSuccess(false);
                   }}
                   className="p-1.5 rounded-lg text-gray-600 hover:text-gray-400 hover:bg-white/8 transition-all"
-                  title="Fechar"
+                  title={tc("actions.close")}
                 >
                   <svg
                     className="w-3.5 h-3.5"
@@ -1543,7 +1550,7 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                       />
                     </svg>
                   )}
-                  {manualSending ? "Enviando..." : "Enviar"}
+                  {manualSending ? tc("actions.sending") : tc("actions.send")}
                 </button>
               </div>
             </div>

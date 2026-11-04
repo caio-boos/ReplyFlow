@@ -6,15 +6,19 @@ import {
   type ShopifyOrderDetails,
 } from "@/lib/shopify/client";
 import { loadShopifyAccount, describeShopifyError } from "@/lib/shopify/account";
+import { getLocale, getT } from "@/lib/i18n/server";
 
 /**
  * Looks up a Shopify order by order number ("#1234") or customer email.
  * Used by the email composer templates to pre-fill customer data.
  */
 export async function GET(req: NextRequest) {
+  const locale = await getLocale();
+  const tc = await getT("common");
+  const t = await getT("stores");
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const accountId = (searchParams.get("accountId") ?? "").trim();
@@ -22,12 +26,12 @@ export async function GET(req: NextRequest) {
 
   if (!accountId || !query) {
     return NextResponse.json(
-      { error: "accountId e query são obrigatórios" },
+      { error: t("api.queryRequired") },
       { status: 400 },
     );
   }
 
-  const result = await loadShopifyAccount(accountId, session.uid);
+  const result = await loadShopifyAccount(accountId, session.uid, locale);
   if (!result.ok)
     return NextResponse.json({ error: result.error }, { status: result.status });
 
@@ -50,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     if (!order) {
       return NextResponse.json(
-        { error: "Pedido não encontrado na Shopify para essa busca." },
+        { error: t("api.orderNotFound") },
         { status: 404 },
       );
     }
@@ -61,7 +65,7 @@ export async function GET(req: NextRequest) {
       trackingUrlTemplate: (result.account.trackingUrlTemplate as string | null) ?? null,
     });
   } catch (err) {
-    const described = describeShopifyError(err);
+    const described = describeShopifyError(err, locale);
     if (described)
       return NextResponse.json(
         { error: described.error },

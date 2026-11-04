@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import OpenAI, { toFile } from "openai";
 import path from "path";
 import fs from "fs/promises";
+import { getT } from "@/lib/i18n/server";
 
 let _client: OpenAI | null = null;
 function getClient() {
@@ -29,9 +30,10 @@ function positionToDescription(x: number, y: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const formData = await req.formData();
 
@@ -44,12 +46,12 @@ export async function POST(req: NextRequest) {
 
   if (!imageFile) {
     return NextResponse.json(
-      { error: "No reference image provided" },
+      { error: t("api.imageRequired") },
       { status: 400 },
     );
   }
   if (!color) {
-    return NextResponse.json({ error: "No color specified" }, { status: 400 });
+    return NextResponse.json({ error: t("api.colorRequired") }, { status: 400 });
   }
 
   const logoPositionObj = logoPositionRaw
@@ -129,7 +131,7 @@ ${logoRule}
   } catch (err) {
     console.error(`generate-images error for color "${color}":`, err);
     const message =
-      err instanceof Error ? err.message : "Failed to generate image";
+      err instanceof Error ? err.message : t("api.imageFailed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

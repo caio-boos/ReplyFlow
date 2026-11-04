@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { getT } from "@/lib/i18n/server";
 import { getReplicateToken } from "@/lib/settings/integrations";
 import { getJob, releaseJobAssets } from "@/lib/video/job-store";
+import { videoErrorMessage } from "@/lib/video/errors";
 import { getPrediction } from "@/lib/video/replicate";
 
 export async function GET(
@@ -9,17 +11,21 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) {
+    const tc = await getT("common");
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
+  }
+  const t = await getT("tools");
 
   const { id } = await params;
   const job = await getJob("clone", id);
   if (!job || job.userId !== session.uid) {
-    return NextResponse.json({ error: "Job não encontrado." }, { status: 404 });
+    return NextResponse.json({ error: t("errors.jobNotFound") }, { status: 404 });
   }
 
   const token = await getReplicateToken(session.uid);
   if (!token) {
-    return NextResponse.json({ error: "Token do Replicate não configurado." }, { status: 428 });
+    return NextResponse.json({ error: t("errors.tokenNotConfigured") }, { status: 428 });
   }
 
   try {
@@ -37,7 +43,7 @@ export async function GET(
   } catch (err) {
     console.error("[clone] falha ao consultar predição", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Falha ao consultar o job." },
+      { error: videoErrorMessage(t, err, t("errors.jobStatusFailed")) },
       { status: 502 },
     );
   }

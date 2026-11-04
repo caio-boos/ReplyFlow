@@ -7,6 +7,7 @@ import { renderEmailHtml } from "@/lib/email/html-template";
 import { applyTokens } from "@/lib/shopify/audience";
 import { FieldValue } from "firebase-admin/firestore";
 import type { ReplyTemplateConfig } from "@/lib/types";
+import { getT } from "@/lib/i18n/server";
 
 export const maxDuration = 60;
 
@@ -27,8 +28,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
+  const t = await getT("compose");
+  const tc = await getT("common");
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const { id } = await params;
   const db = getAdminDb();
@@ -70,11 +76,17 @@ export async function POST(
   } catch (err) {
     const code = err instanceof Error ? err.message : "";
     if (code === "NOT_FOUND")
-      return NextResponse.json({ error: "Campanha não encontrada" }, { status: 404 });
+      return NextResponse.json(
+        { error: t("api.campaignNotFound") },
+        { status: 404 },
+      );
     if (code === "FORBIDDEN")
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
     if (code === "CANCELLED")
-      return NextResponse.json({ error: "Campanha cancelada" }, { status: 409 });
+      return NextResponse.json(
+        { error: t("api.campaignCancelled") },
+        { status: 409 },
+      );
     throw err;
   }
 
@@ -100,7 +112,10 @@ export async function POST(
     .doc(campaign.accountId as string)
     .get();
   if (!accountDoc.exists)
-    return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
+    return NextResponse.json(
+      { error: t("api.accountNotFound") },
+      { status: 404 },
+    );
 
   const account = accountDoc.data()!;
   const password = decrypt(account.encryptedPassword);

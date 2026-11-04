@@ -1,3 +1,5 @@
+import { VideoError } from "./errors";
+
 /**
  * Converte a máscara pintada em PNG preto e branco (branco = área a remover),
  * formato esperado pelo ProPainter. A dilatação é feita desenhando a máscara
@@ -9,7 +11,7 @@ export function maskToPngBlob(
 ): Promise<Blob> {
   const { width, height } = source;
   const ctx = source.getContext("2d");
-  if (!ctx) throw new Error("Canvas indisponível.");
+  if (!ctx) throw new VideoError("canvasUnavailable", "Canvas unavailable.");
 
   const painted = ctx.getImageData(0, 0, width, height);
   const binary = new ImageData(width, height);
@@ -23,7 +25,9 @@ export function maskToPngBlob(
     binary.data[i + 2] = value;
     binary.data[i + 3] = 255;
   }
-  if (!hasMask) throw new Error("Pinte sobre a marca d'água antes de processar.");
+  if (!hasMask) {
+    throw new VideoError("maskEmpty", "Paint over the watermark before processing.");
+  }
 
   const stamp = document.createElement("canvas");
   stamp.width = width;
@@ -53,7 +57,7 @@ export function maskToPngBlob(
 
   return new Promise((resolve, reject) => {
     out.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error("Falha ao gerar a máscara."))),
+      (blob) => (blob ? resolve(blob) : reject(new VideoError("maskFailed", "Couldn't generate the mask."))),
       "image/png",
     );
   });

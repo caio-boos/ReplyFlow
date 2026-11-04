@@ -17,17 +17,27 @@ import AccountsPanel from "./AccountsPanel";
 import IntegrationsSection from "./IntegrationsSection";
 import NotificationsSection from "./NotificationsSection";
 import type { Permission } from "@/lib/auth/permissions";
+import BillingBanner from "@/components/billing/BillingBanner";
+import { minimumPlanFor } from "@/lib/billing/plans";
+import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
+import { useT } from "@/lib/i18n/client";
+import type { TranslationKey } from "@/lib/i18n/translator";
+
+type ShellKey = TranslationKey<"shell">;
 
 // ─── Access context ──────────────────────────────────────────────────
 
 interface AccessValue {
   isOwner: boolean;
   permissions: Permission[];
+  /** Recursos liberados pelo plano do workspace (resolvidos no servidor). */
+  planFeatures: Permission[];
 }
 
 const AccessContext = createContext<AccessValue>({
   isOwner: true,
   permissions: [],
+  planFeatures: [],
 });
 
 function useAccess() {
@@ -37,20 +47,20 @@ function useAccess() {
 // ─── Navigation structure ────────────────────────────────────────────────────
 
 const NAV_SECTIONS: {
-  label: string | null;
+  labelKey: ShellKey | null;
   items: {
     href: string;
-    label: string;
+    labelKey: ShellKey;
     perm: Permission | "owner";
     icon: React.ReactNode;
   }[];
 }[] = [
   {
-    label: null,
+    labelKey: null,
     items: [
       {
         href: "/dashboard",
-        label: "Dashboard",
+        labelKey: "nav.items.dashboard",
         perm: "dashboard",
         icon: (
           <svg
@@ -70,7 +80,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/conversas",
-        label: "Conversas",
+        labelKey: "nav.items.conversations",
         perm: "conversas",
         icon: (
           <svg
@@ -90,7 +100,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/tasks",
-        label: "Tarefas",
+        labelKey: "nav.items.tasks",
         perm: "tasks",
         icon: (
           <svg
@@ -110,7 +120,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/anotacoes",
-        label: "Anotações",
+        labelKey: "nav.items.notes",
         perm: "annotations",
         icon: (
           <svg
@@ -130,7 +140,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/customers",
-        label: "Clientes",
+        labelKey: "nav.items.customers",
         perm: "customers",
         icon: (
           <svg
@@ -150,7 +160,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/remarketing",
-        label: "Remarketing",
+        labelKey: "nav.items.remarketing",
         perm: "remarketing",
         icon: (
           <svg
@@ -168,34 +178,14 @@ const NAV_SECTIONS: {
           </svg>
         ),
       },
-      {
-        href: "/stats",
-        label: "Relatórios",
-        perm: "stats",
-        icon: (
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.75}
-              d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
-            />
-          </svg>
-        ),
-      },
     ],
   },
   {
-    label: "Ferramentas",
+    labelKey: "nav.sections.tools",
     items: [
       {
         href: "/templates",
-        label: "Templates",
+        labelKey: "nav.items.templates",
         perm: "templates",
         icon: (
           <svg
@@ -215,7 +205,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/advertorials",
-        label: "Advertoriais",
+        labelKey: "nav.items.advertorials",
         perm: "advertorials",
         icon: (
           <svg
@@ -235,7 +225,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/emails/new",
-        label: "Compor E-mail",
+        labelKey: "nav.items.composeEmail",
         perm: "emails",
         icon: (
           <svg
@@ -255,7 +245,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/ferramentas/marca-dagua",
-        label: "Remover Marca d'Água",
+        labelKey: "nav.items.watermark",
         perm: "watermark",
         icon: (
           <svg
@@ -275,7 +265,7 @@ const NAV_SECTIONS: {
       },
       {
         href: "/ferramentas/clonar-video",
-        label: "Clonar Vídeo com IA",
+        labelKey: "nav.items.videoClone",
         perm: "video_clone",
         icon: (
           <svg
@@ -296,11 +286,11 @@ const NAV_SECTIONS: {
     ],
   },
   {
-    label: "Equipe",
+    labelKey: "nav.sections.team",
     items: [
       {
         href: "/membros",
-        label: "Membros",
+        labelKey: "nav.items.members",
         perm: "owner",
         icon: (
           <svg
@@ -386,6 +376,7 @@ function StoreSelector() {
     selectedAccount,
     loading,
   } = useStoreContext();
+  const t = useT("shell");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -404,13 +395,13 @@ function StoreSelector() {
     );
   }
 
-  const displayName = selectedAccount?.label ?? "Todas as lojas";
+  const displayName = selectedAccount?.label ?? t("stores.all");
   const selectedShopId = shopifyStoreId(selectedAccount);
   const displaySub = selectedAccount
     ? selectedShopId
       ? `${selectedShopId} · ${selectedAccount.email}`
       : selectedAccount.email
-    : `${accounts.length} loja${accounts.length !== 1 ? "s" : ""}`;
+    : t("stores.count", { count: accounts.length });
 
   return (
     <div ref={ref} className="mx-3 mb-2 relative">
@@ -473,10 +464,10 @@ function StoreSelector() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-200 leading-tight">
-                Todas as lojas
+                {t("stores.all")}
               </p>
               <p className="text-xs text-gray-500 leading-tight">
-                {accounts.length} loja{accounts.length !== 1 ? "s" : ""}
+                {t("stores.count", { count: accounts.length })}
               </p>
             </div>
             {selectedAccountId === "all" && (
@@ -563,6 +554,8 @@ function SettingsPanel({
 }) {
   const { accounts } = useStoreContext();
   const { isOwner, permissions } = useAccess();
+  const t = useT("settings");
+  const tc = useT("common");
   const [panelView, setPanelView] = useState<"settings" | "accounts">(
     "settings",
   );
@@ -648,7 +641,7 @@ function SettingsPanel({
                   />
                 </svg>
                 <span className="font-semibold text-white">
-                  Contas de E-mail
+                  {t("panel.emailAccounts")}
                 </span>
               </button>
             ) : (
@@ -676,10 +669,10 @@ function SettingsPanel({
                 </div>
                 <div>
                   <h1 className="text-sm font-semibold text-white">
-                    Configurações
+                    {t("panel.title")}
                   </h1>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Gerencie sua conta e preferências
+                    {t("panel.subtitle")}
                   </p>
                 </div>
               </>
@@ -688,7 +681,7 @@ function SettingsPanel({
           <button
             onClick={onClose}
             className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
-            aria-label="Fechar configurações"
+            aria-label={t("panel.close")}
           >
             <svg
               className="w-4 h-4"
@@ -721,10 +714,10 @@ function SettingsPanel({
                 <section>
                   <div className="mb-4">
                     <h2 className="text-sm font-semibold text-white">
-                      Aparência
+                      {t("appearance.title")}
                     </h2>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Escolha o tema da interface
+                      {t("appearance.description")}
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -751,10 +744,10 @@ function SettingsPanel({
                         <p
                           className={`text-sm font-medium leading-tight ${theme === "dark" ? "text-white" : "text-gray-400"}`}
                         >
-                          Modo escuro
+                          {t("appearance.dark.title")}
                         </p>
                         <p className="text-xs text-gray-600 mt-0.5">
-                          Interface com fundo escuro
+                          {t("appearance.dark.description")}
                         </p>
                       </div>
                       {theme === "dark" && (
@@ -796,10 +789,10 @@ function SettingsPanel({
                         <p
                           className={`text-sm font-medium leading-tight ${theme === "light" ? "text-white" : "text-gray-400"}`}
                         >
-                          Modo claro
+                          {t("appearance.light.title")}
                         </p>
                         <p className="text-xs text-gray-600 mt-0.5">
-                          Interface com fundo claro
+                          {t("appearance.light.description")}
                         </p>
                       </div>
                       {theme === "light" && (
@@ -821,6 +814,19 @@ function SettingsPanel({
                   </div>
                 </section>
 
+                {/* ── Idioma ── */}
+                <section>
+                  <div className="mb-4">
+                    <h2 className="text-sm font-semibold text-white">
+                      {tc("language.label")}
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {tc("language.description")}
+                    </p>
+                  </div>
+                  <LanguageSwitcher variant="dashboard" showLabel align="left" />
+                </section>
+
                 {isOwner && (
                   <>
                 <NotificationsSection />
@@ -832,10 +838,10 @@ function SettingsPanel({
                   <div className="flex items-center justify-between mb-5">
                     <div>
                       <h2 className="text-sm font-semibold text-white">
-                        Lojas conectadas
+                        {t("stores.title")}
                       </h2>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        Gerencie suas integrações com a Shopify
+                        {t("stores.description")}
                       </p>
                     </div>
                     <button
@@ -855,7 +861,7 @@ function SettingsPanel({
                           d="M12 4v16m8-8H4"
                         />
                       </svg>
-                      Nova conta
+                      {t("stores.newAccount")}
                     </button>
                   </div>
 
@@ -874,17 +880,16 @@ function SettingsPanel({
                           />
                         </div>
                         <p className="text-sm font-medium text-gray-400 mb-1">
-                          Nenhuma loja conectada
+                          {t("stores.emptyTitle")}
                         </p>
                         <p className="text-xs text-gray-600 mb-5">
-                          Conecte sua loja Shopify para começar a usar o
-                          ReplyFlow
+                          {t("stores.emptyDescription")}
                         </p>
                         <button
                           onClick={() => openAccounts("add")}
                           className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#96BF48] hover:bg-[#85aa3d] text-white text-sm font-semibold rounded-xl transition-colors"
                         >
-                          Conectar loja Shopify
+                          {t("stores.connectShopify")}
                           <svg
                             className="w-4 h-4"
                             fill="none"
@@ -935,7 +940,7 @@ function SettingsPanel({
                               onClick={() => openAccounts("list", account.id)}
                               className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all shrink-0"
                             >
-                              Gerenciar
+                              {tc("actions.manage")}
                             </button>
                           </div>
                         ))}
@@ -956,10 +961,10 @@ function SettingsPanel({
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
-                              Conectar nova loja
+                              {t("stores.connectNew")}
                             </p>
                             <p className="text-xs text-gray-600">
-                              Adicione mais uma loja Shopify ao ReplyFlow
+                              {t("stores.connectNewDescription")}
                             </p>
                           </div>
                           <svg
@@ -985,11 +990,10 @@ function SettingsPanel({
                 <section>
                   <div className="mb-5">
                     <h2 className="text-sm font-semibold text-white">
-                      Contexto de IA
+                      {t("aiContext.title")}
                     </h2>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Configure o tom de voz e o comportamento das respostas
-                      automáticas
+                      {t("aiContext.description")}
                     </p>
                   </div>
                   <Link
@@ -1014,10 +1018,10 @@ function SettingsPanel({
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-white">
-                        Prompt e tom de voz
+                        {t("aiContext.linkTitle")}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        Personalize como a IA responde seus clientes
+                        {t("aiContext.linkDescription")}
                       </p>
                     </div>
                     <svg
@@ -1044,10 +1048,10 @@ function SettingsPanel({
                 <section>
                   <div className="mb-5">
                     <h2 className="text-sm font-semibold text-white">
-                      Recuperação de carrinho
+                      {t("cartRecovery.title")}
                     </h2>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Campanhas automáticas para carrinhos abandonados
+                      {t("cartRecovery.description")}
                     </p>
                   </div>
                   <Link
@@ -1072,11 +1076,10 @@ function SettingsPanel({
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-white">
-                        Campanhas de remarketing
+                        {t("cartRecovery.linkTitle")}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        Acompanhe e configure a recuperação de carrinhos
-                        abandonados
+                        {t("cartRecovery.linkDescription")}
                       </p>
                     </div>
                     <svg
@@ -1108,7 +1111,9 @@ function SettingsPanel({
 function SidebarLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isOwner, permissions } = useAccess();
+  const { isOwner, permissions, planFeatures } = useAccess();
+  const t = useT("shell");
+  const tc = useT("common");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -1116,7 +1121,11 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
   const visibleSections = NAV_SECTIONS.map((section) => ({
     ...section,
     items: section.items.filter((item) =>
-      isOwner ? true : item.perm !== "owner" && permissions.includes(item.perm),
+      isOwner
+        ? true
+        : item.perm !== "owner" &&
+          permissions.includes(item.perm) &&
+          planFeatures.includes(item.perm),
     ),
   })).filter((section) => section.items.length > 0);
 
@@ -1162,7 +1171,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
         />
         <button
           onClick={() => setMobileOpen(true)}
-          aria-label="Abrir menu"
+          aria-label={t("mobile.openMenu")}
           className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/8 transition-all"
         >
           <svg
@@ -1213,7 +1222,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
             />
             <button
               onClick={() => setMobileOpen(false)}
-              aria-label="Fechar menu"
+              aria-label={t("mobile.closeMenu")}
               className="md:hidden w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/8 transition-all"
             >
               <svg
@@ -1242,9 +1251,9 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 px-3 pb-3 overflow-y-auto space-y-4 min-h-0">
             {visibleSections.map((section, si) => (
               <div key={si}>
-                {section.label && (
+                {section.labelKey && (
                   <p className="px-3 mb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">
-                    {section.label}
+                    {t(section.labelKey)}
                   </p>
                 )}
                 <div className="space-y-0.5">
@@ -1252,6 +1261,32 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
                     const active =
                       pathname === item.href ||
                       (item.href !== "/" && pathname.startsWith(item.href));
+                    const lockedPerm =
+                      item.perm !== "owner" && !planFeatures.includes(item.perm)
+                        ? item.perm
+                        : null;
+                    if (lockedPerm) {
+                      const required = minimumPlanFor(lockedPerm);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={`/planos?upgrade=${lockedPerm}`}
+                          prefetch={false}
+                          title={
+                            required
+                              ? t("nav.locked.title", { plan: required.name })
+                              : t("nav.locked.titleFallback")
+                          }
+                          className="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-all duration-150"
+                        >
+                          <span className="text-gray-700">{item.icon}</span>
+                          <span className="flex-1 truncate">{t(item.labelKey)}</span>
+                          <span className="shrink-0 rounded-md border border-indigo-500/25 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-300">
+                            {required?.name ?? t("nav.locked.badgeFallback")}
+                          </span>
+                        </Link>
+                      );
+                    }
                     return (
                       <Link
                         key={item.href}
@@ -1268,7 +1303,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
                         >
                           {item.icon}
                         </span>
-                        {item.label}
+                        {t(item.labelKey)}
                       </Link>
                     );
                   })}
@@ -1279,6 +1314,36 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
 
           {/* Bottom actions */}
           <div className="p-3 border-t border-white/6 space-y-0.5">
+            <Link
+              href="/perfil"
+              prefetch={false}
+              className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+                pathname.startsWith("/perfil")
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                  : "text-gray-500 hover:text-gray-200 hover:bg-white/5"
+              }`}
+            >
+              <span
+                className={
+                  pathname.startsWith("/perfil") ? "text-white" : "text-gray-600"
+                }
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.75}
+                    d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+              </span>
+              {t("nav.profile")}
+            </Link>
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
@@ -1309,7 +1374,7 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
                   />
                 </svg>
               </span>
-              Configurações
+              {t("nav.settings")}
             </button>
             <button
               type="button"
@@ -1331,13 +1396,14 @@ function SidebarLayout({ children }: { children: React.ReactNode }) {
                   />
                 </svg>
               </span>
-              Sair
+              {tc("actions.logout")}
             </button>
           </div>
         </aside>
 
         {/* Main content */}
         <main className="flex-1 h-full overflow-y-auto bg-gray-950 pt-14 md:pt-0">
+          <BillingBanner />
           {children}
         </main>
       </div>
@@ -1359,13 +1425,15 @@ export default function DashboardShell({
   children,
   isOwner,
   permissions,
+  planFeatures,
 }: {
   children: React.ReactNode;
   isOwner: boolean;
   permissions: Permission[];
+  planFeatures: Permission[];
 }) {
   return (
-    <AccessContext.Provider value={{ isOwner, permissions }}>
+    <AccessContext.Provider value={{ isOwner, permissions, planFeatures }}>
       <StoreProvider>
         <ConfirmProvider>
           <SidebarLayout>{children}</SidebarLayout>

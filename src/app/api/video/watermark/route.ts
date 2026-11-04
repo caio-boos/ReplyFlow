@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { getT } from "@/lib/i18n/server";
 import { getReplicateToken } from "@/lib/settings/integrations";
 import { recordJob, uploadSourceVideo } from "@/lib/video/job-store";
+import { videoErrorMessage } from "@/lib/video/errors";
 import { createInpaintPrediction } from "@/lib/video/replicate";
 
 export const maxDuration = 60;
@@ -13,7 +15,11 @@ const MAX_MASK_BYTES = 700 * 1024;
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) {
+    const tc = await getT("common");
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
+  }
+  const t = await getT("tools");
 
   const form = await req.formData();
   const video = form.get("video");
@@ -23,24 +29,24 @@ export async function POST(req: NextRequest) {
 
   if (!(video instanceof File) || !(mask instanceof File)) {
     return NextResponse.json(
-      { error: "Envie os arquivos 'video' e 'mask'." },
+      { error: t("errors.missingVideoAndMask") },
       { status: 400 },
     );
   }
   if (video.size > MAX_VIDEO_BYTES) {
     return NextResponse.json(
-      { error: "Vídeo muito grande após a compressão. Use um clipe mais curto." },
+      { error: t("errors.videoTooLargeCompressed") },
       { status: 413 },
     );
   }
   if (mask.size > MAX_MASK_BYTES) {
-    return NextResponse.json({ error: "Máscara muito grande." }, { status: 413 });
+    return NextResponse.json({ error: t("errors.maskTooLarge") }, { status: 413 });
   }
 
   const token = await getReplicateToken(session.uid);
   if (!token) {
     return NextResponse.json(
-      { error: "Configure seu token do Replicate em Configurações → Integrações." },
+      { error: t("errors.tokenMissing") },
       { status: 428 },
     );
   }
@@ -70,7 +76,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[watermark] falha ao criar predição", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Falha ao enviar para o Replicate." },
+      { error: videoErrorMessage(t, err, t("errors.replicateSendFailed")) },
       { status: 502 },
     );
   }

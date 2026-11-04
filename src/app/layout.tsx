@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import { LOCALE_META } from "@/lib/i18n/config";
+import { I18nProvider } from "@/lib/i18n/client";
+import { getLocale, getMessages, getT } from "@/lib/i18n/server";
+import { PUBLIC_NAMESPACES } from "@/lib/i18n/types";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: "ReplyFlow",
-  description: "AI-powered email auto-reply for e-commerce",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT("landing");
+  return {
+    title: t("meta.title"),
+    description: t("meta.description"),
+  };
+}
 
 /**
  * O Google Tradutor do navegador move os nós de texto do DOM (envolve tudo em
@@ -36,13 +43,18 @@ const GOOGLE_TRANSLATE_DOM_PATCH = `
 })();
 `;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang="pt-BR" className={`${geist.variable} h-full antialiased`}>
+    <html lang={LOCALE_META[locale].intl} className={`${geist.variable} h-full antialiased`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: GOOGLE_TRANSLATE_DOM_PATCH }} />
       </head>
-      <body className="min-h-full bg-gray-950 text-gray-100 flex flex-col">{children}</body>
+      <body className="min-h-full bg-gray-950 text-gray-100 flex flex-col">
+        <I18nProvider locale={locale} messages={getMessages(locale, PUBLIC_NAMESPACES)}>
+          {children}
+        </I18nProvider>
+      </body>
     </html>
   );
 }

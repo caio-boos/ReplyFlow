@@ -9,6 +9,9 @@ import { sendEmail } from "@/lib/email/smtp";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type { EmailAttachment } from "@/lib/types";
 import { randomUUID } from "crypto";
+import { entitlementMemo } from "@/lib/billing/store";
+import { createT } from "@/lib/i18n/server";
+import { getUserLocale } from "@/lib/i18n/preferences";
 
 const REPLY_DELAY_MINUTES = 10;
 const SHOPIFY_RELAY_DOMAINS = ["shopify.com", "myshopify.com"];
@@ -235,7 +238,10 @@ async function maybeNotifyReply(params: {
     if (!notificationEmail) return;
 
     const senderNorm = fromEmail.toLowerCase().trim();
-    let reason: string | null = null;
+    let reason:
+      | { kind: "note"; title: string }
+      | { kind: "reply"; subject: string }
+      | null = null;
 
     // 1. Sender has an open annotation in this store
     const annotationSnap = await db
@@ -246,7 +252,7 @@ async function maybeNotifyReply(params: {
       .limit(1)
       .get();
     if (!annotationSnap.empty) {
-      reason = `Anotação aberta: "${annotationSnap.docs[0].data().title}"`;
+      reason = { kind: "note", title: annotationSnap.docs[0].data().title };
     }
 
     // 2. Message is a direct reply to an email sent via "Compor E-mail"
@@ -260,13 +266,20 @@ async function maybeNotifyReply(params: {
           .limit(1)
           .get();
         if (!sentSnap.empty && sentSnap.docs[0].data().direction === "outbound") {
-          reason = `Resposta ao e-mail "${sentSnap.docs[0].data().subject}"`;
+          reason = { kind: "reply", subject: sentSnap.docs[0].data().subject };
           break;
         }
       }
     }
 
     if (!reason) return;
+
+    const ownerUid = accountData.userId as string;
+    const t = createT((await getUserLocale(ownerUid)) ?? "en", "workspace");
+    const reasonText =
+      reason.kind === "note"
+        ? t("replyNotification.reasonNote", { title: reason.title })
+        : t("replyNotification.reasonReply", { subject: reason.subject });
 
     const storeLabel =
       (accountData.label as string) || (accountData.email as string);
@@ -282,18 +295,22 @@ async function maybeNotifyReply(params: {
       },
       {
         to: notificationEmail,
-        subject: `📬 [${storeLabel}] ${fromName || fromEmail} respondeu: ${subject}`,
-        text: `Um cliente que você está acompanhando respondeu.
+        subject: t("replyNotification.subject", {
+          store: storeLabel,
+          sender: fromName || fromEmail,
+          subject,
+        }),
+        text: `${t("replyNotification.intro")}
 
-Loja: ${storeLabel}
-Cliente: ${fromName ? `${fromName} <${fromEmail}>` : fromEmail}
-Assunto: ${subject}
-Motivo do acompanhamento: ${reason}
+${t("replyNotification.store", { store: storeLabel })}
+${t("replyNotification.customer", { customer: fromName ? `${fromName} <${fromEmail}>` : fromEmail })}
+${t("replyNotification.subjectLine", { subject })}
+${t("replyNotification.reason", { reason: reasonText })}
 
-Mensagem:
+${t("replyNotification.message")}
 ${preview}${bodyText.trim().length > 500 ? "\n[...]" : ""}
 
-Abrir a conversa:
+${t("replyNotification.openConversation")}
 ${conversationUrl}
 
 — ReplyFlow`,
@@ -334,9 +351,16 @@ export async function POST(req: NextRequest) {
   let totalFetched = 0;
   let totalSaved = 0;
 
+  const entitlementFor = entitlementMemo();
+
   // Process accounts sequentially to avoid concurrent Firestore write conflicts
   for (const accountDoc of accountsSnap.docs) {
     const data = accountDoc.data();
+
+    // Assinatura inativa: não coleta agora; os e-mails continuam na caixa e
+    // serão coletados quando a assinatura for regularizada.
+    const entitlement = await entitlementFor(data.userId as string | undefined);
+    if (entitlement && !entitlement.automation) continue;
 
     let password: string;
     try {

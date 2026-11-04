@@ -9,6 +9,9 @@ import {
   sendEmailVerification,
 } from "firebase/auth";
 import { getClientAuth } from "@/lib/firebase/client";
+import { TRIAL_DAYS } from "@/lib/billing/plans";
+import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
+import { useT } from "@/lib/i18n/client";
 
 // ─── Variants ─────────────────────────────────────────────────────────────────
 
@@ -39,8 +42,8 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: "Gateway protection",
-    desc: "Keeps your chargeback rate below 1% — the limit that triggers Shopify Payments, Stripe, and PayPal suspensions.",
+    titleKey: "register.panel.features.gateway.title",
+    descKey: "register.panel.features.gateway.description",
   },
   {
     color: "text-sky-400",
@@ -61,8 +64,8 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: "Replies in under 90 seconds",
-    desc: "Every refund request, delivery complaint, and dispute threat answered automatically before it escalates.",
+    titleKey: "register.panel.features.speed.title",
+    descKey: "register.panel.features.speed.description",
   },
   {
     color: "text-amber-400",
@@ -83,12 +86,13 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: "Abandoned cart recovery",
-    desc: "Personalized follow-ups on abandoned checkouts. Not a blast — a real message referencing their actual cart.",
+    titleKey: "register.panel.features.carts.title",
+    descKey: "register.panel.features.carts.description",
   },
-];
+] as const;
 
 function MarketingPanel() {
+  const t = useT("auth");
   return (
     <motion.div
       initial="hidden"
@@ -117,7 +121,7 @@ function MarketingPanel() {
           <motion.div variants={fadeUp} transition={{ duration: 0.45 }}>
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/8 px-3 py-1 text-[11px] font-medium text-emerald-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              14-day free trial · No credit card
+              {t("register.panel.badge", { days: TRIAL_DAYS })}
             </span>
           </motion.div>
 
@@ -126,9 +130,9 @@ function MarketingPanel() {
             transition={{ duration: 0.5 }}
             className="text-[2rem] font-black leading-[1.1] tracking-tight text-white"
           >
-            Stop chargebacks.
+            {t("register.panel.titleLine1")}
             <br />
-            <span className="text-emerald-400">Start today.</span>
+            <span className="text-emerald-400">{t("register.panel.titleLine2")}</span>
           </motion.h2>
 
           <motion.p
@@ -136,8 +140,7 @@ function MarketingPanel() {
             transition={{ duration: 0.45 }}
             className="max-w-xs text-sm leading-relaxed text-zinc-400"
           >
-            Connect your inbox in minutes. ReplyFlow starts protecting your
-            gateway immediately — and recovering carts on the side.
+            {t("register.panel.body")}
           </motion.p>
         </div>
 
@@ -159,10 +162,10 @@ function MarketingPanel() {
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-zinc-200">
-                  {f.title}
+                  {t(f.titleKey)}
                 </p>
                 <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
-                  {f.desc}
+                  {t(f.descKey)}
                 </p>
               </div>
             </div>
@@ -186,10 +189,11 @@ function MarketingPanel() {
             ))}
           </div>
           <p className="text-[12px] text-zinc-500">
-            Joined by stores that{" "}
-            <span className="text-zinc-300">
-              can&apos;t afford gateway suspensions
-            </span>
+            {t.rich("register.panel.socialProof", {
+              highlight: (chunks) => (
+                <span className="text-zinc-300">{chunks}</span>
+              ),
+            })}
           </p>
         </motion.div>
       </div>
@@ -200,7 +204,7 @@ function MarketingPanel() {
         transition={{ duration: 0.4 }}
         className="text-[11px] text-zinc-700"
       >
-        © {new Date().getFullYear()} ReplyFlow. All rights reserved.
+        {t("shared.rights", { year: String(new Date().getFullYear()) })}
       </motion.p>
     </motion.div>
   );
@@ -252,6 +256,7 @@ function EyeIcon({ open }: { open: boolean }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RegisterPage() {
+  const t = useT("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -264,11 +269,11 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     if (password.length < 8) {
-      setError("A senha deve ter no mínimo 8 caracteres.");
+      setError(t("register.errors.passwordTooShort"));
       return;
     }
     if (password !== confirm) {
-      setError("As senhas não conferem.");
+      setError(t("register.errors.passwordMismatch"));
       return;
     }
     setLoading(true);
@@ -284,13 +289,13 @@ export default function RegisterPage() {
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
       if (code === "auth/email-already-in-use") {
-        setError("Este e-mail já está cadastrado.");
+        setError(t("register.errors.emailInUse"));
       } else if (code === "auth/invalid-email") {
-        setError("E-mail inválido.");
+        setError(t("register.errors.invalidEmail"));
       } else if (code === "auth/weak-password") {
-        setError("Senha muito fraca. Use ao menos 8 caracteres.");
+        setError(t("register.errors.weakPassword"));
       } else {
-        setError("Erro ao criar conta. Tente novamente.");
+        setError(t("register.errors.generic"));
       }
     }
     setLoading(false);
@@ -320,6 +325,10 @@ export default function RegisterPage() {
       {/* ── Right: Form ── */}
       <div className="relative flex w-full flex-col items-center justify-center px-6 py-12 lg:w-1/2">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_70%_-10%,rgba(16,185,129,0.05),transparent)]" />
+
+        <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+          <LanguageSwitcher variant="public" />
+        </div>
 
         {/* Mobile logo */}
         <motion.div
@@ -371,29 +380,35 @@ export default function RegisterPage() {
               </div>
               <div className="space-y-1.5">
                 <h2 className="text-lg font-black tracking-tight text-white">
-                  Verifique seu e-mail
+                  {t("register.success.title")}
                 </h2>
                 <p className="text-sm leading-relaxed text-zinc-400">
-                  Enviamos um link para{" "}
-                  <span className="text-zinc-200">{email}</span>. Clique nele
-                  para ativar sua conta.
+                  {t.rich(
+                    "register.success.body",
+                    {
+                      email: (chunks) => (
+                        <span className="text-zinc-200">{chunks}</span>
+                      ),
+                    },
+                    { email, days: TRIAL_DAYS },
+                  )}
                 </p>
               </div>
               <Link
                 href="/login"
                 className="mt-1 w-full rounded-xl bg-emerald-500 py-2.5 text-center text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-px hover:bg-emerald-400"
               >
-                Ir para o login
+                {t("register.success.goToLogin")}
               </Link>
             </motion.div>
           ) : (
             <>
               <div className="mb-7">
                 <h1 className="text-xl font-black tracking-tight text-white">
-                  Criar conta
+                  {t("register.title")}
                 </h1>
                 <p className="mt-1 text-sm text-zinc-500">
-                  14 dias grátis · Sem cartão de crédito
+                  {t("register.subtitle", { days: TRIAL_DAYS })}
                 </p>
               </div>
 
@@ -437,7 +452,7 @@ export default function RegisterPage() {
                   className="space-y-1.5"
                 >
                   <label className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-                    E-mail
+                    {t("shared.emailLabel")}
                   </label>
                   <input
                     type="email"
@@ -446,7 +461,7 @@ export default function RegisterPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full rounded-xl border border-white/8 bg-white/4 px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition-all focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
-                    placeholder="admin@minhaloja.com"
+                    placeholder={t("shared.emailPlaceholder")}
                   />
                 </motion.div>
 
@@ -456,7 +471,7 @@ export default function RegisterPage() {
                   className="space-y-1.5"
                 >
                   <label className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-                    Senha
+                    {t("shared.passwordLabel")}
                   </label>
                   <div className="relative">
                     <input
@@ -466,7 +481,7 @@ export default function RegisterPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full rounded-xl border border-white/8 bg-white/4 px-3.5 py-2.5 pr-10 text-sm text-zinc-100 placeholder-zinc-600 transition-all focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
-                      placeholder="Mínimo 8 caracteres"
+                      placeholder={t("register.passwordPlaceholder")}
                     />
                     <button
                       type="button"
@@ -474,7 +489,9 @@ export default function RegisterPage() {
                       className="absolute inset-y-0 right-3 flex items-center text-zinc-600 transition-colors hover:text-zinc-400"
                       tabIndex={-1}
                       aria-label={
-                        showPassword ? "Ocultar senha" : "Mostrar senha"
+                        showPassword
+                          ? t("shared.hidePassword")
+                          : t("shared.showPassword")
                       }
                     >
                       <EyeIcon open={showPassword} />
@@ -488,7 +505,7 @@ export default function RegisterPage() {
                   className="space-y-1.5"
                 >
                   <label className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-                    Confirmar senha
+                    {t("shared.confirmPasswordLabel")}
                   </label>
                   <input
                     type={showPassword ? "text" : "password"}
@@ -497,7 +514,7 @@ export default function RegisterPage() {
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     className="w-full rounded-xl border border-white/8 bg-white/4 px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition-all focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
-                    placeholder="Repita a senha"
+                    placeholder={t("register.confirmPlaceholder")}
                   />
                 </motion.div>
 
@@ -532,22 +549,22 @@ export default function RegisterPage() {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                           />
                         </svg>
-                        Criando conta...
+                        {t("register.submitting")}
                       </span>
                     ) : (
-                      "Criar conta grátis"
+                      t("register.submit")
                     )}
                   </button>
                 </motion.div>
               </motion.form>
 
               <p className="mt-6 text-center text-xs text-zinc-600">
-                Já tem conta?{" "}
+                {t("register.hasAccount")}{" "}
                 <Link
                   href="/login"
                   className="text-zinc-400 transition-colors hover:text-white"
                 >
-                  Entrar
+                  {t("register.login")}
                 </Link>
               </p>
             </>

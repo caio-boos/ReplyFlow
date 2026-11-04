@@ -8,19 +8,21 @@ export interface AudienceInput {
   onlySubscribed: boolean;
 }
 
+/** Codes map to `compose.api.audience.*` translation keys. */
+export type AudienceError = "invalidProduct" | "invalidPeriod" | "invalidRange";
+
 /** Validates the product + date-range selection shared by preview and campaign creation. */
 export function parseAudienceInput(
   body: Record<string, unknown>,
-): AudienceInput | { error: string } {
+): AudienceInput | { error: AudienceError } {
   const productId = Number(body.productId);
-  if (!Number.isFinite(productId) || productId <= 0)
-    return { error: "Selecione um produto válido" };
+  if (!Number.isFinite(productId) || productId <= 0) return { error: "invalidProduct" };
 
   const from = new Date(String(body.from ?? ""));
   const to = new Date(String(body.to ?? ""));
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()))
-    return { error: "Informe um período de compra válido" };
-  if (from > to) return { error: "A data inicial não pode ser maior que a final" };
+    return { error: "invalidPeriod" };
+  if (from > to) return { error: "invalidRange" };
 
   return { productId, from, to, onlySubscribed: body.onlySubscribed === true };
 }

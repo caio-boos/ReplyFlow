@@ -10,6 +10,10 @@ import {
   AnimatePresence,
 } from "motion/react";
 import { useRef, useState, useEffect } from "react";
+import { PLAN_LIST, TRIAL_DAYS, type PlanId } from "@/lib/billing/plans";
+import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
+import { useT } from "@/lib/i18n/client";
+import type { TranslationKey } from "@/lib/i18n/translator";
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -49,6 +53,8 @@ function useCountUp(target: number, duration = 1.8, start = false) {
 // ─── Sections ─────────────────────────────────────────────────────────────────
 
 function Navbar() {
+  const t = useT("landing");
+  const tc = useT("common");
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -85,9 +91,9 @@ function Navbar() {
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-8">
           {[
-            { href: "#features", label: "Features" },
-            { href: "#how-it-works", label: "How it works" },
-            { href: "#pricing", label: "Pricing" },
+            { href: "#features", label: t("nav.features") },
+            { href: "#how-it-works", label: t("nav.howItWorks") },
+            { href: "#pricing", label: t("nav.pricing") },
           ].map((item) => (
             <a
               key={item.href}
@@ -101,17 +107,18 @@ function Navbar() {
 
         {/* CTA */}
         <div className="hidden md:flex items-center gap-3">
+          <LanguageSwitcher variant="public" />
           <Link
             href="/login"
             className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-1.5"
           >
-            Log in
+            {t("nav.login")}
           </Link>
           <Link
             href="/register"
             className="text-sm font-medium bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-1.5 rounded-lg transition-colors shadow-lg shadow-emerald-500/20"
           >
-            Get started free
+            {t("nav.getStarted")}
           </Link>
         </div>
 
@@ -119,7 +126,7 @@ function Navbar() {
         <button
           className="md:hidden text-zinc-400 hover:text-white"
           onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
+          aria-label={t("nav.toggleMenu")}
         >
           <svg
             className="w-5 h-5"
@@ -165,22 +172,26 @@ function Navbar() {
                   className="text-sm text-zinc-400 hover:text-white transition-colors capitalize"
                 >
                   {href === "#features"
-                    ? "Features"
+                    ? t("nav.features")
                     : href === "#how-it-works"
-                      ? "How it works"
-                      : "Pricing"}
+                      ? t("nav.howItWorks")
+                      : t("nav.pricing")}
                 </a>
               ))}
               <hr className="border-white/8" />
               <Link href="/login" className="text-sm text-zinc-400">
-                Log in
+                {t("nav.login")}
               </Link>
               <Link
                 href="/register"
                 className="text-sm font-medium bg-emerald-500 text-white px-4 py-2 rounded-lg text-center"
               >
-                Get started free
+                {t("nav.getStarted")}
               </Link>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-zinc-500">{tc("language.label")}</span>
+                <LanguageSwitcher variant="public" direction="up" />
+              </div>
             </div>
           </motion.div>
         )}
@@ -190,6 +201,7 @@ function Navbar() {
 }
 
 function Hero() {
+  const t = useT("landing");
   const { scrollY } = useScroll();
   const y = useTransform(scrollY, [0, 400], [0, 60]);
   const opacity = useTransform(scrollY, [0, 300], [1, 0]);
@@ -224,7 +236,7 @@ function Hero() {
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/8 text-emerald-400 text-xs font-medium tracking-wide mb-8"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Stops chargebacks. Recovers carts. Replies in 90s.
+          {t("hero.badge")}
         </motion.div>
 
         {/* Headline */}
@@ -235,9 +247,9 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight text-white leading-[1.05] mb-6"
         >
-          One complaint ignored.
+          {t("hero.titleLine1")}
           <br />
-          <span className="text-emerald-400">One gateway suspended.</span>
+          <span className="text-emerald-400">{t("hero.titleLine2")}</span>
         </motion.h1>
 
         {/* Subheading */}
@@ -248,11 +260,7 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.32 }}
           className="text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed"
         >
-          Shopify Payments cuts you off at 1% chargeback rate. Stripe does too.
-          PayPal too. ReplyFlow replies to every refund request, delivery
-          complaint, and dispute threat in under 90 seconds. Before it becomes a
-          filed chargeback. It also recovers abandoned carts so you stop leaving
-          money on the table.
+          {t("hero.subtitle")}
         </motion.p>
 
         {/* CTAs */}
@@ -267,7 +275,7 @@ function Hero() {
             href="/register"
             className="group flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5"
           >
-            Protect my account
+            {t("hero.ctaPrimary")}
             <svg
               className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
               fill="none"
@@ -299,7 +307,7 @@ function Hero() {
                 d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z"
               />
             </svg>
-            See how it works
+            {t("hero.ctaSecondary")}
           </a>
         </motion.div>
 
@@ -321,9 +329,7 @@ function Hero() {
               </div>
             ))}
           </div>
-          <span>
-            Used by stores that can&apos;t afford to lose their payment gateway
-          </span>
+          <span>{t("hero.socialProof")}</span>
         </motion.div>
       </motion.div>
 
@@ -344,6 +350,7 @@ function Hero() {
 }
 
 function EmailFlowVisual() {
+  const t = useT("landing");
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -354,26 +361,26 @@ function EmailFlowVisual() {
   const emails = [
     {
       from: "jessica@gmail.com",
-      subject: "Where is my order?",
-      time: "2m ago",
+      subject: t("flow.emails.whereIsOrder"),
+      time: t("flow.minutesAgo", { count: 2 }),
       highlight: step === 0,
     },
     {
       from: "marcos.silva@hotmail.com",
-      subject: "Product arrived damaged",
-      time: "8m ago",
+      subject: t("flow.emails.damaged"),
+      time: t("flow.minutesAgo", { count: 8 }),
       highlight: step === 1,
     },
     {
       from: "contact@shopify.com",
-      subject: "New order #4821",
-      time: "14m ago",
+      subject: t("flow.emails.newOrder"),
+      time: t("flow.minutesAgo", { count: 14 }),
       highlight: false,
     },
     {
       from: "anna.k@icloud.com",
-      subject: "I want a refund",
-      time: "22m ago",
+      subject: t("flow.emails.refund"),
+      time: t("flow.minutesAgo", { count: 22 }),
       highlight: step === 2,
     },
   ];
@@ -387,7 +394,7 @@ function EmailFlowVisual() {
           <div className="w-2 h-2 rounded-full bg-amber-500/70" />
           <div className="w-2 h-2 rounded-full bg-emerald-500/70" />
           <span className="ml-2 text-xs text-zinc-500 font-medium">
-            Inbox · support@store.com
+            {t("flow.inbox")}
           </span>
         </div>
         <div className="divide-y divide-white/4">
@@ -457,25 +464,26 @@ function EmailFlowVisual() {
         <div className="flex items-center gap-2 px-4 py-3 border-b border-white/6">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-xs text-zinc-500 font-medium">
-            Auto-reply sent · &lt;90s
+            {t("flow.replySent", { time: "<90s" })}
           </span>
         </div>
         <div className="px-4 py-3 space-y-2">
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Hi Jessica, thank you for reaching out. I&apos;ve checked your order
-            #4729 and it&apos;s currently in transit with tracking number
-            <span className="text-zinc-300 font-mono"> BR4829201</span>...
+            {t.rich("flow.reply.greeting", {
+              code: (chunks) => (
+                <span className="text-zinc-300 font-mono">{chunks}</span>
+              ),
+            })}
           </p>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Your package is expected to arrive by{" "}
-            <span className="text-zinc-300">Wednesday, Aug 7</span>. If you
-            don&apos;t receive it by then, we&apos;ll send a replacement right
-            away.
+            {t.rich("flow.reply.eta", {
+              date: (chunks) => <span className="text-zinc-300">{chunks}</span>,
+            })}
           </p>
           <p className="text-xs text-zinc-500 pt-1 italic">
-            Best regards,
+            {t("flow.reply.signoff")}
             <br />
-            The Store Team
+            {t("flow.reply.team")}
           </p>
         </div>
         <div className="px-4 pb-3">
@@ -493,7 +501,7 @@ function EmailFlowVisual() {
                 d="M5 13l4 4L19 7"
               />
             </svg>
-            Chargeback risk addressed · Task created
+            {t("flow.outcome")}
           </div>
         </div>
       </div>
@@ -502,6 +510,7 @@ function EmailFlowVisual() {
 }
 
 function Stats() {
+  const t = useT("landing");
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-100px" });
 
@@ -509,26 +518,25 @@ function Stats() {
     {
       value: 87,
       suffix: "%",
-      label: "of chargebacks stopped before they're filed with the bank",
+      label: t("stats.chargebacks"),
       color: "text-amber-400",
     },
     {
       value: 94,
       suffix: "%",
-      label: "of support emails handled with zero human input",
+      label: t("stats.automated"),
       color: "text-emerald-400",
     },
     {
       value: 90,
       suffix: "s",
-      label: "average time from incoming complaint to reply sent",
+      label: t("stats.replyTime"),
       color: "text-sky-400",
     },
     {
       value: 3,
       suffix: "x",
-      label:
-        "average ROI for stores using chargeback prevention plus cart recovery",
+      label: t("stats.roi"),
       color: "text-rose-400",
     },
   ];
@@ -581,6 +589,7 @@ function StatCard({
 }
 
 function Features() {
+  const t = useT("landing");
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
 
@@ -601,9 +610,8 @@ function Features() {
           />
         </svg>
       ),
-      title: "AI replies that sound like you wrote them",
-      description:
-        "GPT-4o reads every previous message and order detail before writing a reply. Customers won't know it's automated. You'd be surprised how often they say thanks.",
+      title: t("features.items.aiReplies.title"),
+      description: t("features.items.aiReplies.description"),
       accent: "emerald",
     },
     {
@@ -622,9 +630,8 @@ function Features() {
           />
         </svg>
       ),
-      title: "Payment gateway protection",
-      description:
-        "Shopify Payments, Stripe, and PayPal all pull the plug above 1% chargeback rate. The AI de-escalates every threat before it becomes a filed dispute. Your rate stays clean.",
+      title: t("features.items.gateway.title"),
+      description: t("features.items.gateway.description"),
       accent: "amber",
     },
     {
@@ -643,9 +650,8 @@ function Features() {
           />
         </svg>
       ),
-      title: "Native Shopify integration",
-      description:
-        "One-click OAuth pulls live order data, tracking numbers, and product details into every reply. No copy-pasting. No tab-switching.",
+      title: t("features.items.shopify.title"),
+      description: t("features.items.shopify.description"),
       accent: "sky",
     },
     {
@@ -670,9 +676,8 @@ function Features() {
           />
         </svg>
       ),
-      title: "Smart escalation",
-      description:
-        "When a case needs a human, it creates a task automatically. Accepted refunds, legal threats, address changes. You only see what actually needs you.",
+      title: t("features.items.escalation.title"),
+      description: t("features.items.escalation.description"),
       accent: "rose",
     },
     {
@@ -691,9 +696,8 @@ function Features() {
           />
         </svg>
       ),
-      title: "Works with any email provider",
-      description:
-        "Standard IMAP/SMTP. Gmail, Outlook, Zoho, Hostinger, Titan. If your store already uses it, ReplyFlow can monitor it.",
+      title: t("features.items.anyProvider.title"),
+      description: t("features.items.anyProvider.description"),
       accent: "violet",
     },
     {
@@ -712,9 +716,8 @@ function Features() {
           />
         </svg>
       ),
-      title: "Abandoned cart recovery",
-      description:
-        "Abandoned checkout? ReplyFlow follows up with a personalized email referencing the customer's actual cart. Not a generic blast. A real message.",
+      title: t("features.items.cartRecovery.title"),
+      description: t("features.items.cartRecovery.description"),
       accent: "teal",
     },
   ];
@@ -771,13 +774,13 @@ function Features() {
               variants={fadeUp}
               className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-3"
             >
-              Features
+              {t("features.eyebrow")}
             </motion.p>
             <motion.h2
               variants={fadeUp}
               className="text-4xl font-black text-white tracking-tight leading-tight"
             >
-              Stops chargebacks. Recovers carts. Keeps your gateway alive.
+              {t("features.title")}
             </motion.h2>
           </div>
 
@@ -817,31 +820,28 @@ function Features() {
 }
 
 function HowItWorks() {
+  const t = useT("landing");
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
 
   const steps = [
     {
       number: "01",
-      title: "Connect your inbox and Shopify",
-      description:
-        "Add your IMAP/SMTP credentials and link Shopify in one click. No code, no webhooks, no waiting for approval.",
-      detail: "Gmail, Outlook, Zoho, Hostinger, Titan. Any IMAP provider.",
+      title: t("howItWorks.steps.connect.title"),
+      description: t("howItWorks.steps.connect.description"),
+      detail: t("howItWorks.steps.connect.detail"),
     },
     {
       number: "02",
-      title: "AI intercepts complaints before they escalate",
-      description:
-        "Every refund threat, delivery complaint, and angry email gets a contextual reply in under 90 seconds. Before the customer opens a dispute with their bank.",
-      detail:
-        "Inbox checked every 2 minutes. Replies go out from your own address.",
+      title: t("howItWorks.steps.intercept.title"),
+      description: t("howItWorks.steps.intercept.description"),
+      detail: t("howItWorks.steps.intercept.detail"),
     },
     {
       number: "03",
-      title: "Abandoned carts come back",
-      description:
-        "ReplyFlow also follows up on abandoned checkouts with a personalized message referencing the customer's actual cart. Not a blast. A real email.",
-      detail: "Tasks created only when a case actually needs a human.",
+      title: t("howItWorks.steps.carts.title"),
+      description: t("howItWorks.steps.carts.description"),
+      detail: t("howItWorks.steps.carts.detail"),
     },
   ];
 
@@ -860,13 +860,13 @@ function HowItWorks() {
               variants={fadeUp}
               className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-3"
             >
-              How it works
+              {t("howItWorks.eyebrow")}
             </motion.p>
             <motion.h2
               variants={fadeUp}
               className="text-4xl font-black text-white tracking-tight leading-tight"
             >
-              Set up in 10 minutes. Protecting your account today.
+              {t("howItWorks.title")}
             </motion.h2>
           </div>
 
@@ -910,29 +910,27 @@ function HowItWorks() {
 }
 
 function Testimonials() {
+  const t = useT("landing");
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
   const testimonials = [
     {
-      quote:
-        "My Shopify Payments got suspended once. Two years ago. I switched to ReplyFlow, dropped from 2.3% to 0.4% chargeback rate in six weeks. Haven't had a gateway issue since.",
+      quote: t("testimonials.items.mateus.quote"),
       author: "Mateus R.",
-      role: "Dropshipping store owner, 800+ orders/month",
+      role: t("testimonials.items.mateus.role"),
       initials: "MR",
     },
     {
-      quote:
-        "The cart recovery alone pays for the plan. $4,200 in recovered orders in the first 30 days. I almost turned that feature off by accident.",
+      quote: t("testimonials.items.larissa.quote"),
       author: "Larissa F.",
-      role: "E-commerce manager, Fashion brand",
+      role: t("testimonials.items.larissa.role"),
       initials: "LF",
     },
     {
-      quote:
-        "Took 10 minutes to connect. It already knew the order number, delivery status, and customer history. The replies sound exactly like me. Customers never suspect a thing.",
+      quote: t("testimonials.items.david.quote"),
       author: "David K.",
-      role: "Founder, Electronics store",
+      role: t("testimonials.items.david.role"),
       initials: "DK",
     },
   ];
@@ -950,18 +948,18 @@ function Testimonials() {
               variants={fadeUp}
               className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-3"
             >
-              What our customers say
+              {t("testimonials.eyebrow")}
             </motion.p>
             <motion.h2
               variants={fadeUp}
               className="text-4xl font-black text-white tracking-tight"
             >
-              Gateway saved. Revenue recovered.
+              {t("testimonials.title")}
             </motion.h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
-            {testimonials.map((t, i) => (
+            {testimonials.map((item, i) => (
               <motion.div
                 key={i}
                 variants={fadeUp}
@@ -984,18 +982,18 @@ function Testimonials() {
                 </div>
 
                 <blockquote className="text-sm text-zinc-400 leading-relaxed flex-1">
-                  &ldquo;{t.quote}&rdquo;
+                  &ldquo;{item.quote}&rdquo;
                 </blockquote>
 
                 <div className="flex items-center gap-3 pt-1 border-t border-white/6">
                   <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-xs font-bold text-zinc-400">
-                    {t.initials}
+                    {item.initials}
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-zinc-300">
-                      {t.author}
+                      {item.author}
                     </p>
-                    <p className="text-[11px] text-zinc-600">{t.role}</p>
+                    <p className="text-[11px] text-zinc-600">{item.role}</p>
                   </div>
                 </div>
               </motion.div>
@@ -1007,57 +1005,55 @@ function Testimonials() {
   );
 }
 
+type LandingKey = TranslationKey<"landing">;
+
+const PLAN_DESCRIPTION: Record<PlanId, LandingKey> = {
+  starter: "pricing.plans.starter.description",
+  growth: "pricing.plans.growth.description",
+  scale: "pricing.plans.scale.description",
+};
+
+const PLAN_EXTRA_FEATURES: Record<PlanId, LandingKey[]> = {
+  starter: [
+    "pricing.features.shopify",
+    "pricing.features.taskQueue",
+    "pricing.features.emailSupport",
+  ],
+  growth: [
+    "pricing.features.cartRecovery",
+    "pricing.features.analytics",
+    "pricing.features.advertorials",
+    "pricing.features.prioritySupport",
+  ],
+  scale: [
+    "pricing.features.everythingInGrowth",
+    "pricing.features.videoTools",
+    "pricing.features.unlimitedMembers",
+    "pricing.features.onboarding",
+  ],
+};
+
 function Pricing() {
+  const t = useT("landing");
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
-  const plans = [
-    {
-      name: "Starter",
-      price: 49,
-      description:
-        "For stores that need to stop chargebacks without hiring support.",
-      features: [
-        "1 email account",
-        "Up to 500 emails/mo",
-        "Shopify integration",
-        "Basic task queue",
-        "Email support",
-      ],
-      cta: "Get started",
-      highlight: false,
-    },
-    {
-      name: "Growth",
-      price: 129,
-      description: "For growing brands getting hit with high support volume.",
-      features: [
-        "3 email accounts",
-        "Up to 3,000 emails/mo",
-        "Shopify integration",
-        "Full task queue + priority flags",
-        "Custom AI prompt",
-        "Priority support",
-      ],
-      cta: "Get started",
-      highlight: true,
-    },
-    {
-      name: "Scale",
-      price: 299,
-      description: "For multi-store operators who can't afford any downtime.",
-      features: [
-        "Unlimited accounts",
-        "Unlimited emails",
-        "Multi-store Shopify",
-        "Cart recovery",
-        "Advanced analytics",
-        "Dedicated onboarding",
-      ],
-      cta: "Talk to us",
-      highlight: false,
-    },
-  ];
+  const plans = PLAN_LIST.map((plan) => ({
+    name: plan.name,
+    price: plan.monthly / 100,
+    yearlyPerMonth: Math.round(plan.yearly / 12 / 100),
+    savePercent: Math.round((1 - plan.yearly / (plan.monthly * 12)) * 100),
+    description: t(PLAN_DESCRIPTION[plan.id]),
+    features: [
+      plan.limits.stores === null
+        ? t("pricing.features.unlimitedStores")
+        : t("pricing.features.stores", { count: plan.limits.stores }),
+      t("pricing.features.aiReplies", { count: plan.limits.aiReplies }),
+      ...PLAN_EXTRA_FEATURES[plan.id].map((key) => t(key)),
+    ],
+    cta: t("pricing.cta", { days: TRIAL_DAYS }),
+    highlight: !!plan.recommended,
+  }));
 
   return (
     <section id="pricing" className="py-28 bg-zinc-950 relative" ref={ref}>
@@ -1074,16 +1070,16 @@ function Pricing() {
               variants={fadeUp}
               className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-3"
             >
-              Pricing
+              {t("pricing.eyebrow")}
             </motion.p>
             <motion.h2
               variants={fadeUp}
               className="text-4xl font-black text-white tracking-tight"
             >
-              Flat pricing. No surprises.
+              {t("pricing.title")}
             </motion.h2>
             <motion.p variants={fadeUp} className="text-zinc-500 mt-3 text-sm">
-              14-day free trial on all plans. No credit card required.
+              {t("pricing.subtitle", { days: TRIAL_DAYS })}
             </motion.p>
           </div>
 
@@ -1101,7 +1097,7 @@ function Pricing() {
               >
                 {plan.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
-                    Most popular
+                    {t("pricing.mostPopular")}
                   </div>
                 )}
 
@@ -1115,8 +1111,14 @@ function Pricing() {
                     <span className="text-3xl font-black text-white">
                       ${plan.price}
                     </span>
-                    <span className="text-zinc-500 text-sm">/month</span>
+                    <span className="text-zinc-500 text-sm">{t("pricing.perMonth")}</span>
                   </div>
+                  <p className="text-[11px] text-emerald-400/80 mb-1.5">
+                    {t("pricing.yearly", {
+                      price: `$${plan.yearlyPerMonth}`,
+                      percent: plan.savePercent,
+                    })}
+                  </p>
                   <p className="text-xs text-zinc-500">{plan.description}</p>
                 </div>
 
@@ -1164,6 +1166,7 @@ function Pricing() {
 }
 
 function CTA() {
+  const t = useT("landing");
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
@@ -1180,26 +1183,23 @@ function CTA() {
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/8 text-emerald-400 text-xs font-medium mb-8"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            14-day free trial. No credit card.
+            {t("cta.badge", { days: TRIAL_DAYS })}
           </motion.div>
 
           <motion.h2
             variants={fadeUp}
             className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-tight mb-5"
           >
-            Your gateway can&apos;t
+            {t("cta.titleLine1")}
             <br />
-            <span className="text-emerald-400">run on luck.</span>
+            <span className="text-emerald-400">{t("cta.titleLine2")}</span>
           </motion.h2>
 
           <motion.p
             variants={fadeUp}
             className="text-zinc-400 mb-10 max-w-lg mx-auto leading-relaxed"
           >
-            Every unanswered complaint is a potential chargeback. Every
-            chargeback above 1% risks your Shopify Payments, Stripe, or PayPal
-            account. ReplyFlow handles it automatically and recovers abandoned
-            carts along the way.
+            {t("cta.body")}
           </motion.p>
 
           <motion.div
@@ -1210,7 +1210,7 @@ function CTA() {
               href="/register"
               className="group flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-7 py-3.5 rounded-xl transition-all shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5 text-sm"
             >
-              Protect my account
+              {t("cta.primary")}
               <svg
                 className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
                 fill="none"
@@ -1229,7 +1229,7 @@ function CTA() {
               href="/login"
               className="text-sm text-zinc-400 hover:text-white transition-colors px-4 py-3.5"
             >
-              Already have an account →
+              {t("cta.login")}
             </Link>
           </motion.div>
         </motion.div>
@@ -1239,6 +1239,7 @@ function CTA() {
 }
 
 function Footer() {
+  const t = useT("landing");
   return (
     <footer className="bg-zinc-950 border-t border-white/6 py-12">
       <div className="max-w-6xl mx-auto px-6">
@@ -1255,10 +1256,10 @@ function Footer() {
 
           <nav className="flex flex-wrap gap-6">
             {[
-              { href: "#features", label: "Features" },
-              { href: "#how-it-works", label: "How it works" },
-              { href: "#pricing", label: "Pricing" },
-              { href: "/login", label: "Log in" },
+              { href: "#features", label: t("nav.features") },
+              { href: "#how-it-works", label: t("nav.howItWorks") },
+              { href: "#pricing", label: t("nav.pricing") },
+              { href: "/login", label: t("nav.login") },
             ].map((item) => (
               <a
                 key={item.href}
@@ -1270,9 +1271,12 @@ function Footer() {
             ))}
           </nav>
 
-          <p className="text-xs text-zinc-600">
-            © {new Date().getFullYear()} ReplyFlow. All rights reserved.
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-zinc-600">
+              {t("footer.rights", { year: String(new Date().getFullYear()) })}
+            </p>
+            <LanguageSwitcher variant="public" direction="up" />
+          </div>
         </div>
       </div>
     </footer>

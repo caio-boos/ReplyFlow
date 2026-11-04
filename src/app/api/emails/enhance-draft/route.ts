@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { computeCostUsd } from "@/lib/ai/openai";
 import OpenAI from "openai";
+import { getT } from "@/lib/i18n/server";
 
 let _client: OpenAI | null = null;
 function getClient() {
@@ -12,8 +13,13 @@ function getClient() {
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
+  const t = await getT("compose");
+  const tc = await getT("common");
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   let draft: string,
     subject: string | undefined,
@@ -28,13 +34,13 @@ export async function POST(req: NextRequest) {
         : undefined;
   } catch {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: t("api.invalidBody") },
       { status: 400 },
     );
   }
 
   if (!draft || typeof draft !== "string" || !draft.trim()) {
-    return NextResponse.json({ error: "Missing draft" }, { status: 400 });
+    return NextResponse.json({ error: t("api.missingDraft") }, { status: 400 });
   }
 
   const db = getAdminDb();

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useStoreContext } from "../store-context";
+import { useFormat, useT } from "@/lib/i18n/client";
 
 interface StatsPeriod {
   chargebacksAvoided: number;
@@ -28,14 +29,18 @@ interface StatsData {
   perAccount: AccountStat[];
 }
 
-function formatCurrency(value: number) {
+function formatCurrency(value: number, f: ReturnType<typeof useFormat>) {
   if (value === 0) return "—";
-  return new Intl.NumberFormat("en-US", {
+  return f.number(value, {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
-  }).format(value);
+  });
 }
+
+const hl = (chunks: React.ReactNode) => (
+  <span className="text-gray-400">{chunks}</span>
+);
 
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse bg-white/5 rounded-lg ${className}`} />;
@@ -110,6 +115,7 @@ function HeroCard({
   refunds: number;
   loading: boolean;
 }) {
+  const t = useT("workspace");
   return (
     <div className="relative overflow-hidden bg-linear-to-br from-indigo-500/10 via-gray-900/80 to-amber-500/10 border border-indigo-500/20 rounded-2xl p-4 sm:p-6">
       <div className="absolute -top-12 -right-12 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -117,10 +123,10 @@ function HeroCard({
       <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6">
         <div className="flex-1">
           <p className="text-xs font-medium text-red-400 uppercase tracking-wider mb-1">
-            Ameaças diretas bloqueadas
+            {t("stats.hero.threatsTitle")}
           </p>
           <p className="text-xs text-gray-600 mb-3">
-            Cliente ameaçou abrir disputa/chargeback
+            {t("stats.hero.threatsSub")}
           </p>
           {loading ? (
             <Skeleton className="h-16 w-32" />
@@ -133,10 +139,10 @@ function HeroCard({
         <div className="hidden sm:block w-px h-24 bg-white/10 shrink-0" />
         <div className="flex-1">
           <p className="text-xs font-medium text-amber-400 uppercase tracking-wider mb-1">
-            Conflitos resolvidos proativamente
+            {t("stats.hero.conflictsTitle")}
           </p>
           <p className="text-xs text-gray-600 mb-3">
-            Cliente aceitou reembolso parcial sem acionar o banco
+            {t("stats.hero.conflictsSub")}
           </p>
           {loading ? (
             <Skeleton className="h-16 w-32" />
@@ -160,6 +166,8 @@ function AccountsTable({
   period: "month" | "allTime";
   loading: boolean;
 }) {
+  const t = useT("workspace");
+  const f = useFormat();
   const shopifyAccounts = accounts.filter((a) => a.shopifyConnected);
   const noShopifyAccounts = accounts.filter((a) => !a.shopifyConnected);
 
@@ -182,12 +190,12 @@ function AccountsTable({
   if (accounts.length === 0) return null;
 
   const cols = [
-    { label: "Conta", wide: true },
-    { label: "E-mails enviados" },
-    { label: "Chargebacks bloqueados" },
-    { label: "Reembolsos resolvidos" },
-    { label: "Custo IA (est.)" },
-    { label: "Valor em risco (Shopify)" },
+    { label: t("stats.table.account"), wide: true },
+    { label: t("stats.table.emailsSent") },
+    { label: t("stats.table.chargebacks") },
+    { label: t("stats.table.refunds") },
+    { label: t("stats.table.aiCost") },
+    { label: t("stats.table.valueAtRisk") },
   ];
 
   function Row({ acc }: { acc: AccountStat }) {
@@ -239,16 +247,18 @@ function AccountsTable({
               <span
                 className={`text-sm font-semibold ${s.valueAtRisk > 0 ? "text-emerald-300" : "text-gray-600"}`}
               >
-                {formatCurrency(s.valueAtRisk)}
+                {formatCurrency(s.valueAtRisk, f)}
               </span>
               {s.valueAtRisk > 0 && (
                 <p className="text-xs text-gray-600">
-                  {s.ordersWithValue} pedido{s.ordersWithValue !== 1 ? "s" : ""}
+                  {t("stats.table.orders", { count: s.ordersWithValue })}
                 </p>
               )}
             </div>
           ) : (
-            <span className="text-xs text-gray-700">Sem Shopify</span>
+            <span className="text-xs text-gray-700">
+              {t("stats.table.noShopify")}
+            </span>
           )}
         </td>
       </tr>
@@ -272,7 +282,7 @@ function AccountsTable({
           />
         </svg>
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          Por conta
+          {t("stats.table.title")}
         </h2>
       </div>
       <div className="overflow-x-auto">
@@ -303,11 +313,11 @@ function AccountsTable({
       {shopifyAccounts.length > 0 && (
         <div className="px-5 py-3 border-t border-white/5 bg-emerald-500/3">
           <p className="text-xs text-gray-600">
-            <span className="text-emerald-400/80">Valor em risco</span> — soma
-            dos pedidos Shopify vinculados a disputas e reembolsos aceitos.
-            Representa a exposição financeira máxima que o ReplyFlow ajudou a
-            gerenciar negociando reembolsos parciais. Disponível apenas para
-            contas com integração Shopify ativa.
+            {t.rich("stats.table.footnote", {
+              hl: (chunks) => (
+                <span className="text-emerald-400/80">{chunks}</span>
+              ),
+            })}
           </p>
         </div>
       )}
@@ -320,6 +330,8 @@ export default function StatsPage() {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<"month" | "allTime">("month");
+  const t = useT("workspace");
+  const f = useFormat();
 
   useEffect(() => {
     fetch("/api/stats")
@@ -361,11 +373,11 @@ export default function StatsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-100">Relatórios</h1>
+          <h1 className="text-xl font-semibold text-gray-100">{t("stats.title")}</h1>
           <p className="text-gray-500 text-sm mt-0.5">
             {selectedAccountId === "all"
-              ? "Impacto do ReplyFlow em todas as contas"
-              : `Impacto do ReplyFlow — ${selectedAccount?.label ?? ""}`}
+              ? t("stats.subtitleAll")
+              : t("stats.subtitleOne", { store: selectedAccount?.label ?? "" })}
           </p>
         </div>
         <div className="flex items-center gap-1 bg-gray-900/60 border border-white/6 rounded-xl p-1 self-start">
@@ -377,7 +389,7 @@ export default function StatsPage() {
                 : "text-gray-500 hover:text-gray-200"
             }`}
           >
-            Últimos 30 dias
+            {t("stats.periods.month")}
           </button>
           <button
             onClick={() => setPeriod("allTime")}
@@ -387,7 +399,7 @@ export default function StatsPage() {
                 : "text-gray-500 hover:text-gray-200"
             }`}
           >
-            Todo o período
+            {t("stats.periods.allTime")}
           </button>
         </div>
       </div>
@@ -417,7 +429,7 @@ export default function StatsPage() {
               />
             </svg>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Exposição financeira gerenciada
+              {t("stats.exposure.title")}
             </span>
             <span className="text-xs px-1.5 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
               Shopify
@@ -432,29 +444,23 @@ export default function StatsPage() {
             <div className="flex flex-col sm:flex-row gap-6">
               <div>
                 <p className="text-xs text-gray-600 mb-1">
-                  Valor total em risco (pedidos vinculados)
+                  {t("stats.exposure.totalLabel")}
                 </p>
                 <p className="text-4xl font-black text-emerald-300 leading-none">
-                  {formatCurrency(stats?.valueAtRisk ?? 0)}
+                  {formatCurrency(stats?.valueAtRisk ?? 0, f)}
                 </p>
                 {(stats?.ordersWithValue ?? 0) > 0 && (
                   <p className="text-xs text-gray-600 mt-1">
-                    {stats!.ordersWithValue} pedido
-                    {stats!.ordersWithValue !== 1 ? "s" : ""} com valor
-                    registrado
+                    {t("stats.exposure.orders", {
+                      count: stats!.ordersWithValue,
+                    })}
                   </p>
                 )}
               </div>
               <div className="hidden sm:block w-px bg-white/8 shrink-0" />
               <div className="max-w-xs">
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  Soma dos valores dos pedidos Shopify associados a chargebacks
-                  bloqueados e reembolsos aceitos. Este é o valor{" "}
-                  <span className="text-gray-400">
-                    máximo que poderia ter sido perdido
-                  </span>{" "}
-                  se todos os casos tivessem virado estorno. Com reembolsos
-                  parciais negociados, a perda real foi menor.
+                  {t.rich("stats.exposure.explanation", { hl })}
                 </p>
               </div>
             </div>
@@ -465,9 +471,9 @@ export default function StatsPage() {
       {/* Secondary stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard
-          label="E-mails processados"
-          value={stats?.emailsProcessed?.toLocaleString("pt-BR") ?? "0"}
-          sub="Respostas enviadas automaticamente"
+          label={t("stats.cards.processedLabel")}
+          value={f.number(stats?.emailsProcessed ?? 0)}
+          sub={t("stats.cards.processedSub")}
           accent="violet"
           loading={loading}
           icon={
@@ -488,9 +494,9 @@ export default function StatsPage() {
         />
         {period === "month" && (
           <StatCard
-            label="Taxa de resposta automática"
+            label={t("stats.cards.autoRateLabel")}
             value={`${data?.month.autoReplyRate ?? 0}%`}
-            sub="E-mails respondidos sem intervenção humana"
+            sub={t("stats.cards.autoRateSub")}
             accent="emerald"
             loading={loading}
             icon={
@@ -512,9 +518,9 @@ export default function StatsPage() {
         )}
         {period === "allTime" && (
           <StatCard
-            label="Pedidos com valor registrado"
-            value={(stats?.ordersWithValue ?? 0).toLocaleString("pt-BR")}
-            sub="Pedidos Shopify vinculados a casos de risco"
+            label={t("stats.cards.ordersLabel")}
+            value={f.number(stats?.ordersWithValue ?? 0)}
+            sub={t("stats.cards.ordersSub")}
             accent="amber"
             loading={loading}
             icon={
@@ -546,28 +552,11 @@ export default function StatsPage() {
       {/* Explanation */}
       <div className="bg-gray-900/40 border border-white/5 rounded-xl p-4 text-xs text-gray-600 space-y-1.5">
         <p className="font-medium text-gray-500">
-          Como calculamos esses números
+          {t("stats.explain.title")}
         </p>
-        <p>
-          <span className="text-gray-400">Ameaças diretas bloqueadas</span> —
-          e-mails onde o cliente ameaçou explicitamente abrir chargeback,
-          disputa no PayPal ou contestação no cartão, e a IA respondeu com uma
-          solução preventiva.
-        </p>
-        <p>
-          <span className="text-gray-400">
-            Conflitos resolvidos proativamente
-          </span>{" "}
-          — e-mails onde o cliente aceitou uma oferta de reembolso parcial feita
-          pela IA, resolvendo o conflito sem precisar acionar o banco.
-        </p>
-        <p>
-          <span className="text-gray-400">Valor em risco</span> — soma dos
-          valores dos pedidos Shopify associados. Disponível apenas para contas
-          com integração Shopify ativa. Representa a exposição máxima gerenciada
-          — na prática, reembolsos parciais negociados resultam em perda menor
-          que o valor total.
-        </p>
+        <p>{t.rich("stats.explain.threats", { hl })}</p>
+        <p>{t.rich("stats.explain.conflicts", { hl })}</p>
+        <p>{t.rich("stats.explain.valueAtRisk", { hl })}</p>
       </div>
     </div>
   );

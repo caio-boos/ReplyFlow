@@ -2,29 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, MEMBERSHIPS_COLLECTION, MEMBER_INDEX_COLLECTION } from "@/lib/auth/session";
 import { sanitizePermissions } from "@/lib/auth/permissions";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getT } from "@/lib/i18n/server";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const tc = await getT("common");
+  const t = await getT("team");
   const ctx = await getAuthContext();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ctx) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
   if (!ctx.isOwner)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
 
   const { id } = await params;
   const db = getAdminDb();
   const ref = db.collection(MEMBERSHIPS_COLLECTION).doc(id);
   const snap = await ref.get();
   if (!snap.exists || snap.data()?.ownerId !== ctx.uid) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: tc("states.notFound") }, { status: 404 });
   }
 
   const body = await req.json();
   const permissions = sanitizePermissions(body.permissions);
   if (permissions.length === 0) {
     return NextResponse.json(
-      { error: "Selecione ao menos uma área de acesso" },
+      { error: t("api.selectArea") },
       { status: 400 },
     );
   }
@@ -40,7 +43,7 @@ export async function PATCH(
 
   if (accountIds.length === 0) {
     return NextResponse.json(
-      { error: "Selecione ao menos uma loja" },
+      { error: t("api.selectStore") },
       { status: 400 },
     );
   }
@@ -53,10 +56,11 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const tc = await getT("common");
   const ctx = await getAuthContext();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ctx) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
   if (!ctx.isOwner)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
 
   const { id } = await params;
   const db = getAdminDb();
@@ -64,7 +68,7 @@ export async function DELETE(
   const snap = await ref.get();
   const data = snap.data();
   if (!snap.exists || !data || data.ownerId !== ctx.uid) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: tc("states.notFound") }, { status: 404 });
   }
 
   const batch = db.batch();

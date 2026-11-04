@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useStoreContext } from "../store-context";
+import { useT } from "@/lib/i18n/client";
 
 export interface AnnotationDefaults {
   title?: string;
@@ -54,6 +55,8 @@ export default function AnnotationModal({
   defaults,
 }: Props) {
   const { accounts } = useStoreContext();
+  const t = useT("workspace");
+  const tc = useT("common");
 
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [title, setTitle] = useState("");
@@ -94,11 +97,11 @@ export default function AnnotationModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao criar anotação");
+      if (!res.ok) throw new Error(data.error ?? t("notes.modal.createError"));
       onCreated?.();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar anotação");
+      setError(err instanceof Error ? err.message : t("notes.modal.createError"));
     } finally {
       setSaving(false);
     }
@@ -130,12 +133,13 @@ export default function AnnotationModal({
               </svg>
             </div>
             <h2 className="text-sm font-semibold text-gray-100">
-              Nova anotação
+              {t("notes.modal.title")}
             </h2>
           </div>
           <button
             onClick={onClose}
             className="text-gray-600 hover:text-gray-300 transition-colors"
+            aria-label={tc("actions.close")}
           >
             <svg
               className="w-4 h-4"
@@ -157,7 +161,7 @@ export default function AnnotationModal({
           {/* Store */}
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Loja
+              {t("notes.modal.store")}
             </label>
             <select
               value={selectedAccountId}
@@ -166,7 +170,7 @@ export default function AnnotationModal({
               className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
             >
               <option value="" disabled>
-                Selecione a loja...
+                {t("notes.modal.selectStore")}
               </option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -184,21 +188,21 @@ export default function AnnotationModal({
             <div className="text-xs text-gray-500 bg-gray-800/40 border border-white/5 rounded-lg px-3 py-2 space-y-0.5">
               {defaults?.customerName && (
                 <p>
-                  Cliente:{" "}
+                  {t("notes.modal.customer")}{" "}
                   <span className="text-gray-300">{defaults.customerName}</span>
                 </p>
               )}
               {defaults?.orderNumber && (
                 <p>
-                  Pedido:{" "}
+                  {t("notes.modal.order")}{" "}
                   <span className="text-gray-300">{defaults.orderNumber}</span>
                 </p>
               )}
               {defaults?.linkedEmailId && (
-                <p className="text-gray-600">Vinculada à conversa</p>
+                <p className="text-gray-600">{t("notes.modal.linkedConversation")}</p>
               )}
               {defaults?.linkedTaskId && (
-                <p className="text-gray-600">Vinculada à tarefa</p>
+                <p className="text-gray-600">{t("notes.modal.linkedTask")}</p>
               )}
             </div>
           )}
@@ -206,13 +210,13 @@ export default function AnnotationModal({
           {/* Title */}
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Título
+              {t("notes.modal.titleLabel")}
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="O que precisa ser acompanhado?"
+              placeholder={t("notes.modal.titlePlaceholder")}
               className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
             />
           </div>
@@ -220,13 +224,13 @@ export default function AnnotationModal({
           {/* Text */}
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Detalhes (opcional)
+              {t("notes.modal.details")}
             </label>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={4}
-              placeholder="Observações, contexto, próximos passos..."
+              placeholder={t("notes.modal.detailsPlaceholder")}
               className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 resize-y focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
             />
           </div>
@@ -243,7 +247,7 @@ export default function AnnotationModal({
             onClick={onClose}
             className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
           >
-            Cancelar
+            {tc("actions.cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -251,7 +255,7 @@ export default function AnnotationModal({
             className="flex items-center gap-2 px-4 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-white transition-colors"
           >
             {saving && <Spinner className="w-3 h-3" />}
-            {saving ? "Salvando..." : "Criar anotação"}
+            {saving ? tc("actions.saving") : t("notes.modal.create")}
           </button>
         </div>
       </div>

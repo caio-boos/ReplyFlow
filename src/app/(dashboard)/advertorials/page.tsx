@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/client";
 
 interface Advertorial {
   id: string;
@@ -23,6 +24,7 @@ function Spinner({ className = "w-4 h-4" }: { className?: string }) {
 }
 
 function CopyButton({ text }: { text: string }) {
+  const t = useT("marketing");
   const [copied, setCopied] = useState(false);
   function copy() {
     navigator.clipboard.writeText(text);
@@ -30,7 +32,7 @@ function CopyButton({ text }: { text: string }) {
     setTimeout(() => setCopied(false), 1500);
   }
   return (
-    <button onClick={copy} title="Copiar link" className="text-gray-500 hover:text-gray-300 transition-colors shrink-0">
+    <button onClick={copy} title={t("advertorials.actions.copyLink")} className="text-gray-500 hover:text-gray-300 transition-colors shrink-0">
       {copied ? (
         <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -53,6 +55,8 @@ interface DomainModalProps {
 }
 
 function DomainModal({ advertorial, onClose, onSaved }: DomainModalProps) {
+  const t = useT("marketing");
+  const tc = useT("common");
   const [domain, setDomain] = useState(advertorial.customDomain ?? "");
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -69,9 +73,9 @@ function DomainModal({ advertorial, onClose, onSaved }: DomainModalProps) {
         body: JSON.stringify({ domain }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error ?? "Erro ao configurar domínio"); }
-      else { toast.success("Domínio configurado! Configure o DNS conforme as instruções."); onSaved(); onClose(); }
-    } catch { toast.error("Erro de conexão"); }
+      if (!res.ok) { toast.error(data.error ?? t("advertorials.domain.saveError")); }
+      else { toast.success(t("advertorials.domain.saved")); onSaved(); onClose(); }
+    } catch { toast.error(tc("states.networkError")); }
     setSaving(false);
   }
 
@@ -80,9 +84,9 @@ function DomainModal({ advertorial, onClose, onSaved }: DomainModalProps) {
     try {
       const res = await fetch(`/api/advertorials/${advertorial.id}/domain`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error ?? "Erro ao remover domínio"); }
-      else { toast.success("Domínio removido"); onSaved(); onClose(); }
-    } catch { toast.error("Erro de conexão"); }
+      if (!res.ok) { toast.error(data.error ?? t("advertorials.domain.removeError")); }
+      else { toast.success(t("advertorials.domain.removed")); onSaved(); onClose(); }
+    } catch { toast.error(tc("states.networkError")); }
     setRemoving(false);
   }
 
@@ -90,7 +94,7 @@ function DomainModal({ advertorial, onClose, onSaved }: DomainModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
-          <h2 className="text-base font-semibold text-gray-100">Domínio personalizado</h2>
+          <h2 className="text-base font-semibold text-gray-100">{t("advertorials.domain.title")}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -99,10 +103,10 @@ function DomainModal({ advertorial, onClose, onSaved }: DomainModalProps) {
         </div>
         <div className="px-6 py-5 space-y-5">
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">Domínio do cliente</label>
-            <input type="text" value={domain} onChange={(e) => setDomain(e.target.value.toLowerCase().trim())} placeholder="portal.seucliente.com"
+            <label className="block text-xs font-medium text-gray-400 mb-1.5">{t("advertorials.domain.label")}</label>
+            <input type="text" value={domain} onChange={(e) => setDomain(e.target.value.toLowerCase().trim())} placeholder={t("advertorials.domain.placeholder")}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 transition-colors" />
-            <p className="text-xs text-gray-600 mt-1.5">Sem https:// — apenas o domínio</p>
+            <p className="text-xs text-gray-600 mt-1.5">{t("advertorials.domain.hint")}</p>
           </div>
           {domain && (
             <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 space-y-3">
@@ -110,46 +114,46 @@ function DomainModal({ advertorial, onClose, onSaved }: DomainModalProps) {
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Configure o DNS do seu cliente
+                {t("advertorials.domain.dnsTitle")}
               </p>
               <div className="font-mono bg-black/30 rounded-lg p-3 text-xs space-y-1">
                 {isApex ? (
                   <>
-                    <div className="flex gap-4"><span className="text-gray-500 w-16">Tipo</span><span className="text-gray-200">A</span></div>
-                    <div className="flex gap-4"><span className="text-gray-500 w-16">Nome</span><span className="text-gray-200">@</span></div>
-                    <div className="flex gap-4"><span className="text-gray-500 w-16">Valor</span><span className="text-indigo-300">76.76.21.21</span></div>
+                    <div className="flex gap-4"><span className="text-gray-500 w-16">{t("advertorials.domain.type")}</span><span className="text-gray-200">A</span></div>
+                    <div className="flex gap-4"><span className="text-gray-500 w-16">{t("advertorials.domain.name")}</span><span className="text-gray-200">@</span></div>
+                    <div className="flex gap-4"><span className="text-gray-500 w-16">{t("advertorials.domain.value")}</span><span className="text-indigo-300">76.76.21.21</span></div>
                   </>
                 ) : (
                   <>
-                    <div className="flex gap-4"><span className="text-gray-500 w-16">Tipo</span><span className="text-gray-200">CNAME</span></div>
-                    <div className="flex gap-4"><span className="text-gray-500 w-16">Nome</span><span className="text-gray-200">{domain.split(".")[0]}</span></div>
-                    <div className="flex gap-4"><span className="text-gray-500 w-16">Valor</span><span className="text-indigo-300">cname.vercel-dns.com</span></div>
+                    <div className="flex gap-4"><span className="text-gray-500 w-16">{t("advertorials.domain.type")}</span><span className="text-gray-200">CNAME</span></div>
+                    <div className="flex gap-4"><span className="text-gray-500 w-16">{t("advertorials.domain.name")}</span><span className="text-gray-200">{domain.split(".")[0]}</span></div>
+                    <div className="flex gap-4"><span className="text-gray-500 w-16">{t("advertorials.domain.value")}</span><span className="text-indigo-300">cname.vercel-dns.com</span></div>
                   </>
                 )}
               </div>
-              <p className="text-xs text-gray-600">A propagação de DNS pode levar até 48h.</p>
+              <p className="text-xs text-gray-600">{t("advertorials.domain.propagation")}</p>
             </div>
           )}
           {advertorial.customDomain && (
             <div className="bg-white/3 border border-white/8 rounded-xl p-3 flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Domínio atual</p>
+                <p className="text-xs text-gray-500">{t("advertorials.domain.current")}</p>
                 <p className="text-sm text-gray-200 font-mono mt-0.5">{advertorial.customDomain}</p>
               </div>
               <button onClick={handleRemove} disabled={removing}
                 className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors">
                 {removing ? <Spinner /> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
-                Remover
+                {t("advertorials.domain.remove")}
               </button>
             </div>
           )}
         </div>
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/8">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors">Cancelar</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors">{tc("actions.cancel")}</button>
           <button onClick={handleSave} disabled={saving || !domain.trim()}
             className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors">
             {saving && <Spinner />}
-            Salvar domínio
+            {t("advertorials.domain.save")}
           </button>
         </div>
       </div>
@@ -160,6 +164,8 @@ function DomainModal({ advertorial, onClose, onSaved }: DomainModalProps) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdvertoriaisPage() {
+  const t = useT("marketing");
+  const tc = useT("common");
   const [advertorials, setAdvertorials] = useState<Advertorial[]>([]);
   const [loading, setLoading] = useState(true);
   const [domainTarget, setDomainTarget] = useState<Advertorial | null>(null);
@@ -187,20 +193,20 @@ export default function AdvertoriaisPage() {
       });
       if (res.ok) {
         setAdvertorials((prev) => prev.map((a) => a.id === adv.id ? { ...a, active: !adv.active } : a));
-        toast.success(adv.active ? "Advertorial pausado" : "Advertorial ativado");
-      } else { toast.error("Erro ao atualizar"); }
-    } catch { toast.error("Erro de conexão"); }
+        toast.success(adv.active ? t("advertorials.toasts.paused") : t("advertorials.toasts.activated"));
+      } else { toast.error(t("advertorials.toasts.updateError")); }
+    } catch { toast.error(tc("states.networkError")); }
     setTogglingId(null);
   }
 
   async function handleDelete(adv: Advertorial) {
-    if (!confirm(`Excluir "${adv.title}"? Esta ação não pode ser desfeita.`)) return;
+    if (!confirm(t("advertorials.toasts.deleteConfirm", { title: adv.title }))) return;
     setDeletingId(adv.id);
     try {
       const res = await fetch(`/api/advertorials/${adv.id}`, { method: "DELETE" });
-      if (res.ok) { setAdvertorials((prev) => prev.filter((a) => a.id !== adv.id)); toast.success("Advertorial excluído"); }
-      else { toast.error("Erro ao excluir"); }
-    } catch { toast.error("Erro de conexão"); }
+      if (res.ok) { setAdvertorials((prev) => prev.filter((a) => a.id !== adv.id)); toast.success(t("advertorials.toasts.deleted")); }
+      else { toast.error(t("advertorials.toasts.deleteError")); }
+    } catch { toast.error(tc("states.networkError")); }
     setDeletingId(null);
   }
 
@@ -216,8 +222,8 @@ export default function AdvertoriaisPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-gray-100">Advertoriais</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Páginas HTML publicadas com link próprio e domínio personalizado</p>
+          <h1 className="text-xl font-semibold text-gray-100">{t("advertorials.title")}</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{t("advertorials.subtitle")}</p>
         </div>
         <Link
           href="/advertorials/new"
@@ -226,25 +232,25 @@ export default function AdvertoriaisPage() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Novo advertorial
+          {t("advertorials.new")}
         </Link>
       </div>
 
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-16 text-gray-600">
-          <Spinner className="w-5 h-5 mr-2" /> Carregando...
+          <Spinner className="w-5 h-5 mr-2" /> {tc("states.loading")}
         </div>
       ) : advertorials.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 border border-white/6 rounded-2xl bg-gray-900/30">
           <svg className="w-10 h-10 mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46" />
           </svg>
-          <p className="text-sm font-medium text-gray-500">Nenhum advertorial criado ainda.</p>
-          <p className="text-xs text-gray-600 mt-1">Cole seu HTML ou clone uma página existente com IA.</p>
+          <p className="text-sm font-medium text-gray-500">{t("advertorials.empty.title")}</p>
+          <p className="text-xs text-gray-600 mt-1">{t("advertorials.empty.description")}</p>
           <Link href="/advertorials/new"
             className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-medium text-white transition-colors">
-            Criar primeiro advertorial
+            {t("advertorials.empty.cta")}
           </Link>
         </div>
       ) : (
@@ -258,7 +264,7 @@ export default function AdvertoriaisPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium text-gray-200 truncate">{adv.title}</span>
                   {!adv.active && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-gray-700/60 text-gray-500 border border-white/6">pausado</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-gray-700/60 text-gray-500 border border-white/6">{t("advertorials.paused")}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
@@ -283,21 +289,21 @@ export default function AdvertoriaisPage() {
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {/* Edit — goes to full page */}
-                <Link href={`/advertorials/${adv.id}/edit`} title="Editar"
+                <Link href={`/advertorials/${adv.id}/edit`} title={tc("actions.edit")}
                   className="p-2 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-all">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                   </svg>
                 </Link>
                 {/* Domain */}
-                <button onClick={() => setDomainTarget(adv)} title="Configurar domínio personalizado"
+                <button onClick={() => setDomainTarget(adv)} title={t("advertorials.actions.domain")}
                   className="p-2 rounded-lg text-gray-500 hover:text-amber-400 hover:bg-amber-500/5 transition-all">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                   </svg>
                 </button>
                 {/* Toggle */}
-                <button onClick={() => handleToggle(adv)} disabled={togglingId === adv.id} title={adv.active ? "Pausar" : "Ativar"}
+                <button onClick={() => handleToggle(adv)} disabled={togglingId === adv.id} title={adv.active ? t("advertorials.actions.pause") : t("advertorials.actions.activate")}
                   className="p-2 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/5 disabled:opacity-50 transition-all">
                   {togglingId === adv.id ? <Spinner /> : adv.active ? (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -310,7 +316,7 @@ export default function AdvertoriaisPage() {
                   )}
                 </button>
                 {/* Delete */}
-                <button onClick={() => handleDelete(adv)} disabled={deletingId === adv.id} title="Excluir"
+                <button onClick={() => handleDelete(adv)} disabled={deletingId === adv.id} title={tc("actions.delete")}
                   className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/5 disabled:opacity-50 transition-all">
                   {deletingId === adv.id ? <Spinner /> : (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

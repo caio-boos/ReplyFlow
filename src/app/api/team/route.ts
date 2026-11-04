@@ -5,7 +5,10 @@ import {
   MEMBERSHIPS_COLLECTION,
 } from "@/lib/auth/session";
 import { sanitizePermissions } from "@/lib/auth/permissions";
+import { assertWithinLimit } from "@/lib/billing/service";
+import { billingErrorResponse } from "@/lib/billing/http";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getLocale, getT } from "@/lib/i18n/server";
 import {
   INVITE_TTL_MS,
   appOrigin,
@@ -16,10 +19,11 @@ import {
 } from "@/lib/team/invites";
 
 export async function GET() {
+  const tc = await getT("common");
   const ctx = await getAuthContext();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ctx) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
   if (!ctx.isOwner)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
 
   const db = getAdminDb();
   const [membersSnap, accountsSnap] = await Promise.all([
@@ -54,10 +58,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const locale = await getLocale();
+  const tc = await getT("common");
+  const t = await getT("team");
   const ctx = await getAuthContext();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ctx) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
   if (!ctx.isOwner)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
 
   const body = await req.json();
   const email = String(body.email ?? "").toLowerCase().trim();
@@ -68,17 +75,17 @@ export async function POST(req: NextRequest) {
     : [];
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: "E-mail inválido" }, { status: 400 });
+    return NextResponse.json({ error: t("api.invalidEmail") }, { status: 400 });
   }
   if (email === ctx.email.toLowerCase()) {
     return NextResponse.json(
-      { error: "Você não pode convidar a si mesmo" },
+      { error: t("api.selfInvite") },
       { status: 400 },
     );
   }
   if (permissions.length === 0) {
     return NextResponse.json(
-      { error: "Selecione ao menos uma área de acesso" },
+      { error: t("api.selectArea") },
       { status: 400 },
     );
   }
@@ -94,7 +101,7 @@ export async function POST(req: NextRequest) {
 
   if (accountIds.length === 0) {
     return NextResponse.json(
-      { error: "Selecione ao menos uma loja" },
+      { error: t("api.selectStore") },
       { status: 400 },
     );
   }
@@ -106,18 +113,21 @@ export async function POST(req: NextRequest) {
     .get();
   if (existing.docs.some((d) => d.data().status !== "revoked")) {
     return NextResponse.json(
-      { error: "Este e-mail já faz parte da equipe" },
+      { error: t("api.alreadyMember") },
       { status: 409 },
     );
+  }
+
+  try {
+    await assertWithinLimit(ctx.uid, "seats");
+  } catch (err) {
+    return billingErrorResponse(err);
   }
 
   const sender = await findSenderAccount(db, ctx.uid);
   if (!sender) {
     return NextResponse.json(
-      {
-        error:
-          "Configure uma conta de e-mail (SMTP) antes de convidar membros.",
-      },
+      { error: t("api.smtpRequiredInvite") },
       { status: 400 },
     );
   }
@@ -145,12 +155,13 @@ export async function POST(req: NextRequest) {
       to: email,
       workspaceName: sender.label,
       inviteUrl: `${appOrigin(req.url)}/convite/${token}`,
-      areas: areaLabels(permissions),
+      areas: areaLabels(permissions, locale),
+      locale,
     });
   } catch {
     await docRef.delete();
     return NextResponse.json(
-      { error: "Não foi possível enviar o e-mail de convite. Verifique o SMTP." },
+      { error: t("api.inviteSendFailed") },
       { status: 502 },
     );
   }

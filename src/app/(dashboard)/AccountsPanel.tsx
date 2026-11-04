@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/client";
+import type { RichTags } from "@/lib/i18n/rich";
 import { useStoreContext } from "./store-context";
 
 interface Account {
@@ -30,8 +32,24 @@ interface Account {
 const PROVIDER_LABELS: Record<string, string> = {
   godaddy: "GoDaddy",
   hostinger: "Hostinger",
-  other: "Outro",
 };
+
+const SHOPIFY_GUIDE_TAGS: RichTags = {
+  mono: (c) => <span className="text-gray-300 font-mono">{c}</span>,
+  b: (c) => <strong className="text-gray-300">{c}</strong>,
+  i: (c) => <em>{c}</em>,
+  code: (c) => <code className="bg-gray-800 px-1 rounded">{c}</code>,
+};
+
+const COUPON_GUIDE_TAGS: RichTags = {
+  mono: (c) => <span className="text-gray-300 font-mono">{c}</span>,
+  b: (c) => <strong className="text-gray-300">{c}</strong>,
+  i: (c) => <em>{c}</em>,
+  code: (c) => <code className="bg-gray-800 px-1.5 py-0.5 rounded text-yellow-300 font-mono">{c}</code>,
+};
+
+const SHOPIFY_GUIDE_STEPS = ["step1", "step2", "step3", "step4", "step5", "step6"] as const;
+const COUPON_GUIDE_STEPS = ["step1", "step2", "step3", "step4", "step5", "step6", "step7", "step8"] as const;
 
 const PROVIDER_DEFAULTS: Record<
   string,
@@ -87,6 +105,9 @@ function AccountForm({
   onSubmit: (e: React.FormEvent) => void; onCancel: () => void;
   saving: boolean; error: string; isEdit: boolean;
 }) {
+  const t = useT("stores");
+  const tc = useT("common");
+
   function handleProviderChange(provider: string) {
     const d = PROVIDER_DEFAULTS[provider] ?? PROVIDER_DEFAULTS.other;
     setForm({ ...form, provider, ...d });
@@ -113,28 +134,28 @@ function AccountForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <FieldLabel>Nome da conta</FieldLabel>
-            <Input required value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Ex: Loja Principal" />
+            <FieldLabel>{t("form.accountName")}</FieldLabel>
+            <Input required value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder={t("form.accountNamePlaceholder")} />
           </div>
           <div>
-            <FieldLabel>Provedor</FieldLabel>
+            <FieldLabel>{t("form.provider")}</FieldLabel>
             <select value={form.provider} onChange={(e) => handleProviderChange(e.target.value)} className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all">
               <option value="godaddy">GoDaddy</option>
               <option value="hostinger">Hostinger</option>
-              <option value="other">Outro (Gmail, etc.)</option>
+              <option value="other">{t("providers.otherOption")}</option>
             </select>
           </div>
         </div>
 
         <div>
-          <FieldLabel>Nome fantasia (para emails)</FieldLabel>
-          <Input value={form.fantasyName} onChange={(e) => setForm({ ...form, fantasyName: e.target.value })} placeholder="Ex: Kenbi™ — nome exibido nos e-mails de remarketing" />
-          <p className="text-xs text-gray-600 mt-1.5">Nome público da loja exibido nos e-mails. Se vazio, usa o nome da conta.</p>
+          <FieldLabel>{t("form.fantasyName")}</FieldLabel>
+          <Input value={form.fantasyName} onChange={(e) => setForm({ ...form, fantasyName: e.target.value })} placeholder={t("form.fantasyNamePlaceholder")} />
+          <p className="text-xs text-gray-600 mt-1.5">{t("form.fantasyNameHint")}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <FieldLabel>Idioma das respostas</FieldLabel>
+            <FieldLabel>{t("form.replyLanguage")}</FieldLabel>
             <select value={form.replyLanguage} onChange={(e) => setForm({ ...form, replyLanguage: e.target.value })} className="w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all">
               <option value="en">English</option>
               <option value="pt">Português</option>
@@ -146,15 +167,15 @@ function AccountForm({
               <option value="ja">日本語</option>
               <option value="zh">中文（简体）</option>
             </select>
-            <p className="text-xs text-gray-600 mt-1.5">Idioma em que o ReplyFlow vai responder os clientes desta conta.</p>
+            <p className="text-xs text-gray-600 mt-1.5">{t("form.replyLanguageHint")}</p>
           </div>
         </div>
 
         <div>
-          <FieldLabel>Logo da loja (ícone)</FieldLabel>
+          <FieldLabel>{t("form.logo")}</FieldLabel>
           <div className="flex items-center gap-3">
             {form.logoUrl ? (
-              <img src={form.logoUrl} alt="Logo" className="w-10 h-10 rounded-lg object-contain bg-gray-800 border border-white/6 shrink-0" />
+              <img src={form.logoUrl} alt={t("form.logoAlt")} className="w-10 h-10 rounded-lg object-contain bg-gray-800 border border-white/6 shrink-0" />
             ) : (
               <div className="w-10 h-10 rounded-lg bg-gray-800 border border-white/6 flex items-center justify-center shrink-0">
                 <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,20 +188,20 @@ function AccountForm({
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                 </svg>
-                {form.logoUrl ? "Trocar logo" : "Carregar logo"}
+                {form.logoUrl ? t("form.changeLogo") : t("form.uploadLogo")}
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  if (file.size > 300 * 1024) { alert("Imagem muito grande. Máximo 300KB."); return; }
+                  if (file.size > 300 * 1024) { alert(t("form.logoTooLarge")); return; }
                   const reader = new FileReader();
                   reader.onload = (ev) => setForm({ ...form, logoUrl: ev.target?.result as string });
                   reader.readAsDataURL(file);
                 }} />
               </label>
-              <p className="text-xs text-gray-600 mt-1">PNG, JPG ou SVG — máx. 300KB. Recomendado: 64×64px.</p>
+              <p className="text-xs text-gray-600 mt-1">{t("form.logoHint")}</p>
             </div>
             {form.logoUrl && (
-              <button type="button" onClick={() => setForm({ ...form, logoUrl: "" })} className="text-gray-600 hover:text-red-400 transition-colors shrink-0" title="Remover logo">
+              <button type="button" onClick={() => setForm({ ...form, logoUrl: "" })} className="text-gray-600 hover:text-red-400 transition-colors shrink-0" title={t("form.removeLogo")}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -191,11 +212,11 @@ function AccountForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <FieldLabel>E-mail</FieldLabel>
-            <Input required={!isEdit} type="email" autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="suporte@loja.com" />
+            <FieldLabel>{t("form.email")}</FieldLabel>
+            <Input required={!isEdit} type="email" autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder={t("form.emailPlaceholder")} />
           </div>
           <div>
-            <FieldLabel>Senha {isEdit && <span className="text-gray-600">(vazio = manter atual)</span>}</FieldLabel>
+            <FieldLabel>{t("form.password")} {isEdit && <span className="text-gray-600">{t("form.keepCurrent")}</span>}</FieldLabel>
             <div className="relative">
               <Input required={!isEdit} type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="pr-10" placeholder="••••••••" />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition-colors">
@@ -206,12 +227,12 @@ function AccountForm({
         </div>
 
         <div>
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-3">Configuração de servidor</p>
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-3">{t("form.serverSettings")}</p>
           <div className="grid grid-cols-4 gap-3">
-            <div className="col-span-3"><FieldLabel>IMAP Host</FieldLabel><Input value={form.imapHost} onChange={(e) => setForm({ ...form, imapHost: e.target.value })} /></div>
-            <div><FieldLabel>Porta</FieldLabel><Input value={form.imapPort} onChange={(e) => setForm({ ...form, imapPort: e.target.value })} /></div>
-            <div className="col-span-3"><FieldLabel>SMTP Host</FieldLabel><Input value={form.smtpHost} onChange={(e) => setForm({ ...form, smtpHost: e.target.value })} /></div>
-            <div><FieldLabel>Porta</FieldLabel><Input value={form.smtpPort} onChange={(e) => setForm({ ...form, smtpPort: e.target.value })} /></div>
+            <div className="col-span-3"><FieldLabel>{t("form.imapHost")}</FieldLabel><Input value={form.imapHost} onChange={(e) => setForm({ ...form, imapHost: e.target.value })} /></div>
+            <div><FieldLabel>{t("form.port")}</FieldLabel><Input value={form.imapPort} onChange={(e) => setForm({ ...form, imapPort: e.target.value })} /></div>
+            <div className="col-span-3"><FieldLabel>{t("form.smtpHost")}</FieldLabel><Input value={form.smtpHost} onChange={(e) => setForm({ ...form, smtpHost: e.target.value })} /></div>
+            <div><FieldLabel>{t("form.port")}</FieldLabel><Input value={form.smtpPort} onChange={(e) => setForm({ ...form, smtpPort: e.target.value })} /></div>
           </div>
         </div>
 
@@ -220,32 +241,29 @@ function AccountForm({
             <svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="currentColor">
               <path d="M15.337 4.27L14.79 4.1c-.06-.016-.12-.03-.18-.042-.07-.016-.14-.027-.21-.036a2.51 2.51 0 00-.25-.022c-.085-.004-.17-.006-.255-.005-.48.004-.95.12-1.375.337-.425.218-.787.535-1.055.922-.268.388-.427.834-.463 1.296-.036.463.053.927.258 1.345.205.42.52.775.91 1.026.39.25.838.39 1.295.403.457.014.91-.099 1.315-.326.405-.228.74-.566.972-.977.233-.41.355-.877.352-1.35a2.79 2.79 0 00-.404-1.47 2.812 2.812 0 00-1.064-1.027zM12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" />
             </svg>
-            <p className="text-xs font-medium text-emerald-500 uppercase tracking-wider">Shopify (opcional)</p>
+            <p className="text-xs font-medium text-emerald-500 uppercase tracking-wider">{t("form.shopifyOptional")}</p>
           </div>
 
           <div className="mb-4 bg-emerald-500/5 border border-emerald-500/15 rounded-lg p-4 text-xs text-gray-400 space-y-2.5">
-            <p className="font-medium text-emerald-400">Como criar seu App no Dev Dashboard da Shopify:</p>
+            <p className="font-medium text-emerald-400">{t("form.shopifyGuide.title")}</p>
             <ol className="space-y-1.5 list-none">
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">1.</span><span>Acesse <span className="text-gray-300 font-mono">admin.shopify.com</span> → Configurações → Apps → <strong className="text-gray-300">Desenvolver apps</strong></span></li>
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">2.</span><span>Clique em <strong className="text-gray-300">Criar app</strong> → dê um nome (ex: ReplyFlow) → desmarque <em>Embed app in Shopify admin</em></span></li>
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">3.</span><span>Em <strong className="text-gray-300">App URL</strong> cole: <code className="bg-gray-800 px-1 rounded">{typeof window !== "undefined" ? window.location.origin : ""}/api/shopify/callback</code></span></li>
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">4.</span><span>Em <strong className="text-gray-300">Access scopes</strong> cole: <code className="bg-gray-800 px-1 rounded">read_orders,read_customers</code></span></li>
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">5.</span><span>Em <strong className="text-gray-300">Settings</strong> copie o <em>Client ID</em> e <em>Client secret</em> e cole nos campos abaixo</span></li>
-              <li className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">6.</span><span>Salve a conta e clique em <strong className="text-gray-300">Conectar Shopify</strong> para autorizar</span></li>
+              {SHOPIFY_GUIDE_STEPS.map((step, i) => (
+                <li key={step} className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">{i + 1}.</span><span>{t.rich(`form.shopifyGuide.${step}`, SHOPIFY_GUIDE_TAGS, { url: `${typeof window !== "undefined" ? window.location.origin : ""}/api/shopify/callback` })}</span></li>
+              ))}
             </ol>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <FieldLabel>Domínio da loja</FieldLabel>
-              <Input value={form.shopifyDomain} onChange={(e) => setForm({ ...form, shopifyDomain: e.target.value })} placeholder="minhaloja.myshopify.com" />
+              <FieldLabel>{t("form.shopDomain")}</FieldLabel>
+              <Input value={form.shopifyDomain} onChange={(e) => setForm({ ...form, shopifyDomain: e.target.value })} placeholder={t("form.shopDomainPlaceholder")} />
             </div>
             <div>
-              <FieldLabel>Client ID</FieldLabel>
+              <FieldLabel>{t("form.clientId")}</FieldLabel>
               <Input value={form.shopifyClientId} onChange={(e) => setForm({ ...form, shopifyClientId: e.target.value })} placeholder="abc123def456..." autoComplete="off" />
             </div>
             <div>
-              <FieldLabel>Client Secret {isEdit && <span className="text-gray-600">(vazio = manter)</span>}</FieldLabel>
+              <FieldLabel>{t("form.clientSecret")} {isEdit && <span className="text-gray-600">{t("form.keepSecret")}</span>}</FieldLabel>
               <div className="relative">
                 <Input type={showPassword ? "text" : "password"} value={form.shopifyClientSecret} onChange={(e) => setForm({ ...form, shopifyClientSecret: e.target.value })} className="pr-10" placeholder="shpss_..." autoComplete="new-password" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition-colors">
@@ -257,19 +275,19 @@ function AccountForm({
         </div>
 
         <div>
-          <FieldLabel>URL de rastreio</FieldLabel>
-          <Input value={form.trackingUrlTemplate} onChange={(e) => setForm({ ...form, trackingUrlTemplate: e.target.value })} placeholder="https://minhaloja.shop/apps/17TRACK?nums={{tracking_number}}" />
-          <p className="text-xs text-gray-600 mt-1.5">Use <code className="bg-gray-800 px-1 rounded text-gray-400">{"{{tracking_number}}"}</code> como marcador. Se vazio, usa o link padrão da Shopify.</p>
+          <FieldLabel>{t("form.trackingUrl")}</FieldLabel>
+          <Input value={form.trackingUrlTemplate} onChange={(e) => setForm({ ...form, trackingUrlTemplate: e.target.value })} placeholder={t("form.trackingUrlPlaceholder", { token: "{{tracking_number}}" })} />
+          <p className="text-xs text-gray-600 mt-1.5">{t.rich("form.trackingUrlHint", { code: (c) => <code className="bg-gray-800 px-1 rounded text-gray-400">{c}</code> }, { token: "{{tracking_number}}" })}</p>
         </div>
       </div>
 
       <div className="flex gap-3 px-5 py-4 border-t border-white/5 bg-black/20">
         <button type="submit" disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-px active:translate-y-0">
           {saving ? (
-            <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Salvando...</>
-          ) : isEdit ? "Salvar alterações" : "Salvar conta"}
+            <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>{tc("actions.saving")}</>
+          ) : isEdit ? t("form.saveChanges") : t("form.saveAccount")}
         </button>
-        <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-white/6 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-all">Cancelar</button>
+        <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-white/6 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-all">{tc("actions.cancel")}</button>
       </div>
     </form>
   );
@@ -284,6 +302,8 @@ interface Props {
 
 export default function AccountsPanel({ initialView, initialEditId }: Props) {
   const { refreshAccounts } = useStoreContext();
+  const t = useT("stores");
+  const tc = useT("common");
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -381,7 +401,7 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
       goToList();
     } else {
       const data = await res.json();
-      setError(data.error ?? "Erro ao salvar conta");
+      setError(data.error ?? t("form.errors.save"));
     }
     setSaving(false);
   }
@@ -411,13 +431,13 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
       goToList();
     } else {
       const data = await res.json();
-      setError(data.error ?? "Erro ao editar conta");
+      setError(data.error ?? t("form.errors.edit"));
     }
     setSaving(false);
   }
 
   async function handleDisconnectShopify(id: string) {
-    if (!confirm("Desconectar a integração Shopify desta conta? O token OAuth será removido.")) return;
+    if (!confirm(t("confirm.disconnectShopify"))) return;
     setDisconnectingId(id);
     await fetch(`/api/accounts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ disconnectShopify: true }) });
     setDisconnectingId(null);
@@ -430,7 +450,7 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Remover esta conta?")) return;
+    if (!confirm(t("confirm.deleteAccount"))) return;
     await fetch(`/api/accounts/${id}`, { method: "DELETE" });
     await loadAccounts();
     refreshAccounts();
@@ -485,10 +505,10 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Voltar para lista
+          {t("page.backToList")}
         </button>
         <AccountForm
-          title="Nova conta" form={addForm} setForm={setAddForm}
+          title={t("form.newTitle")} form={addForm} setForm={setAddForm}
           showPassword={showAddPassword} setShowPassword={setShowAddPassword}
           onSubmit={handleAddSubmit} onCancel={goToList}
           saving={saving} error={error} isEdit={false}
@@ -509,7 +529,7 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Voltar para lista
+          {t("page.backToList")}
         </button>
         {loading || !editingAcc ? (
           <div className="flex items-center justify-center py-12 text-gray-600">
@@ -517,11 +537,11 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Carregando...
+            {tc("states.loading")}
           </div>
         ) : (
           <AccountForm
-            title={`Editando: ${editingAcc.label}`} form={editForm} setForm={setEditForm}
+            title={t("form.editTitle", { name: editingAcc.label })} form={editForm} setForm={setEditForm}
             showPassword={showEditPassword} setShowPassword={setShowEditPassword}
             onSubmit={handleEditSubmit} onCancel={goToList}
             saving={saving} error={error} isEdit={true}
@@ -535,7 +555,7 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
-        <p className="text-xs text-gray-500">Gerencie as caixas IMAP/SMTP conectadas ao ReplyFlow</p>
+        <p className="text-xs text-gray-500">{t("page.subtitle")}</p>
         <button
           onClick={() => { setAddForm({ ...EMPTY_ADD }); setError(""); setSubView("add"); }}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-px active:translate-y-0 shrink-0"
@@ -543,7 +563,7 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Nova conta
+          {t("page.newAccount")}
         </button>
       </div>
 
@@ -553,15 +573,15 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          Carregando...
+          {tc("states.loading")}
         </div>
       ) : accounts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 border border-white/6 rounded-2xl bg-gray-900/30 text-gray-600">
           <svg className="w-10 h-10 mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
           </svg>
-          <p className="text-sm font-medium text-gray-500">Nenhuma conta cadastrada</p>
-          <p className="text-xs text-gray-600 mt-1">Clique em "Nova conta" para começar.</p>
+          <p className="text-sm font-medium text-gray-500">{t("list.emptyTitle")}</p>
+          <p className="text-xs text-gray-600 mt-1">{t("list.emptyHintPanel")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -580,10 +600,10 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-gray-100 text-sm">{acc.label}</span>
-                    <span className="text-xs px-1.5 py-0.5 bg-gray-800/80 border border-white/6 text-gray-500 rounded-md">{PROVIDER_LABELS[acc.provider] ?? acc.provider}</span>
-                    {!acc.active && <span className="text-xs px-1.5 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-md">Inativa</span>}
+                    <span className="text-xs px-1.5 py-0.5 bg-gray-800/80 border border-white/6 text-gray-500 rounded-md">{PROVIDER_LABELS[acc.provider] ?? (acc.provider === "other" ? t("providers.other") : acc.provider)}</span>
+                    {!acc.active && <span className="text-xs px-1.5 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-md">{t("list.inactive")}</span>}
                     {acc.shopifyConnected && <span className="text-xs px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md">Shopify ✓</span>}
-                    {acc.shopifyClientId && !acc.shopifyConnected && <span className="text-xs px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md">Shopify: pendente</span>}
+                    {acc.shopifyClientId && !acc.shopifyConnected && <span className="text-xs px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md">{t("list.shopifyPending")}</span>}
                   </div>
                   <p className="text-sm text-gray-400 mt-0.5">{acc.email}</p>
                   <p className="text-xs text-gray-600 mt-0.5 font-mono">IMAP {acc.imapHost}:{acc.imapPort} · SMTP {acc.smtpHost}:{acc.smtpPort}</p>
@@ -592,25 +612,25 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
                   {acc.shopifyClientId && (
                     <>
                       <a href={`/api/shopify/install?accountId=${acc.id}`} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
-                        {acc.shopifyConnected ? "Reconectar" : "Conectar Shopify"}
+                        {acc.shopifyConnected ? t("list.reconnect") : t("list.connectShopify")}
                       </a>
                       {acc.shopifyConnected && (
                         <>
                           <button onClick={() => { setTestingId(testingId === acc.id ? null : acc.id); setTestQuery(""); setTestResult(null); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${testingId === acc.id ? "bg-violet-500/20 text-violet-300 border-violet-500/30" : "bg-gray-800/60 text-gray-400 border-white/6 hover:text-gray-200 hover:bg-gray-800"}`}>
-                            Testar
+                            {t("list.test")}
                           </button>
                           <button onClick={() => handleDisconnectShopify(acc.id)} disabled={disconnectingId === acc.id} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 disabled:opacity-50 transition-colors">
-                            {disconnectingId === acc.id ? "..." : "Desconectar"}
+                            {disconnectingId === acc.id ? "..." : t("list.disconnect")}
                           </button>
                         </>
                       )}
                     </>
                   )}
-                  <button onClick={() => openEdit(acc)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800/60 text-gray-400 border border-white/6 hover:text-gray-200 hover:bg-gray-800 transition-colors">Editar</button>
+                  <button onClick={() => openEdit(acc)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800/60 text-gray-400 border border-white/6 hover:text-gray-200 hover:bg-gray-800 transition-colors">{tc("actions.edit")}</button>
                   <button onClick={() => handleToggle(acc.id, acc.active)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${acc.active ? "bg-gray-800/60 text-gray-500 border-white/6 hover:text-gray-200 hover:bg-gray-800" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"}`}>
-                    {acc.active ? "Desativar" : "Ativar"}
+                    {acc.active ? t("list.deactivate") : t("list.activate")}
                   </button>
-                  <button onClick={() => handleDelete(acc.id)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors">Remover</button>
+                  <button onClick={() => handleDelete(acc.id)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors">{tc("actions.remove")}</button>
                 </div>
               </div>
 
@@ -622,23 +642,23 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
                       <button type="button" onClick={() => handleToggleRemarketing(acc.id, acc.remarketingEnabled ?? false)} disabled={remarketingTogglingId === acc.id} className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${acc.remarketingEnabled ? "bg-indigo-600" : "bg-gray-700"}`}>
                         <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${acc.remarketingEnabled ? "translate-x-4" : "translate-x-0"}`} />
                       </button>
-                      <span className="text-xs text-gray-400">Recuperação de carrinho{!acc.remarketingEnabled && <span className="ml-1 text-gray-600">(desabilitado)</span>}</span>
+                      <span className="text-xs text-gray-400">{t("remarketing.cartRecovery")}{!acc.remarketingEnabled && <span className="ml-1 text-gray-600">{t("remarketing.disabled")}</span>}</span>
                     </div>
                     {acc.remarketingEnabled && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 shrink-0">Janela:</span>
+                        <span className="text-xs text-gray-500 shrink-0">{t("remarketing.window")}</span>
                         <input type="number" min="1" max="365" value={recoveryDaysEditId === acc.id ? recoveryDaysInput : String(acc.recoveryLookbackDays ?? 7)} onFocus={() => { setRecoveryDaysEditId(acc.id); setRecoveryDaysInput(String(acc.recoveryLookbackDays ?? 7)); }} onChange={(e) => setRecoveryDaysInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSaveRecoveryDays(acc.id)} className="bg-gray-800/60 border border-white/6 rounded-md px-2 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-14 text-center" />
-                        <span className="text-xs text-gray-600">dias</span>
-                        {recoveryDaysEditId === acc.id && <button type="button" onClick={() => handleSaveRecoveryDays(acc.id)} className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shrink-0">Salvar</button>}
+                        <span className="text-xs text-gray-600">{t("remarketing.days")}</span>
+                        {recoveryDaysEditId === acc.id && <button type="button" onClick={() => handleSaveRecoveryDays(acc.id)} className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shrink-0">{tc("actions.save")}</button>}
                       </div>
                     )}
                     {acc.remarketingEnabled && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 shrink-0">Teste:</span>
-                        <input value={remarketingEditId === acc.id ? remarketingTestInput : (acc.testEmail ?? "")} onFocus={() => { setRemarketingEditId(acc.id); setRemarketingTestInput(acc.testEmail ?? ""); }} onChange={(e) => setRemarketingTestInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSaveTestEmail(acc.id)} className="bg-gray-800/60 border border-white/6 rounded-md px-2.5 py-1 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-44" placeholder="e-mail de teste" />
-                        {remarketingEditId === acc.id && <button type="button" onClick={() => handleSaveTestEmail(acc.id)} className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shrink-0">Salvar</button>}
+                        <span className="text-xs text-gray-500 shrink-0">{t("remarketing.test")}</span>
+                        <input value={remarketingEditId === acc.id ? remarketingTestInput : (acc.testEmail ?? "")} onFocus={() => { setRemarketingEditId(acc.id); setRemarketingTestInput(acc.testEmail ?? ""); }} onChange={(e) => setRemarketingTestInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSaveTestEmail(acc.id)} className="bg-gray-800/60 border border-white/6 rounded-md px-2.5 py-1 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-44" placeholder={t("remarketing.testEmailPlaceholder")} />
+                        {remarketingEditId === acc.id && <button type="button" onClick={() => handleSaveTestEmail(acc.id)} className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shrink-0">{tc("actions.save")}</button>}
                         {acc.testEmail && remarketingEditId !== acc.id && <span className="text-xs text-amber-400 font-mono">{acc.testEmail}</span>}
-                        {!acc.testEmail && remarketingEditId !== acc.id && <span className="text-xs text-gray-600">todos</span>}
+                        {!acc.testEmail && remarketingEditId !== acc.id && <span className="text-xs text-gray-600">{t("remarketing.everyone")}</span>}
                       </div>
                     )}
                   </div>
@@ -651,8 +671,8 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
                           <svg className="w-3.5 h-3.5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM14.25 15h.008v.008h-.008V15zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                           </svg>
-                          <span className="text-xs font-medium text-gray-300">Cupom de desconto</span>
-                          <span className="text-xs text-gray-600">— incluído no e-mail de recuperação</span>
+                          <span className="text-xs font-medium text-gray-300">{t("coupon.title")}</span>
+                          <span className="text-xs text-gray-600">{t("coupon.subtitle")}</span>
                         </div>
                         <button
                           type="button"
@@ -662,13 +682,13 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
                           </svg>
-                          Como criar no Shopify
+                          {t("coupon.howTo")}
                         </button>
                       </div>
 
                       <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 shrink-0">Código:</span>
+                          <span className="text-xs text-gray-500 shrink-0">{t("coupon.code")}</span>
                           <input
                             value={couponEditId === acc.id ? couponCodeInput : (acc.couponCode ?? "CART20")}
                             onFocus={() => { setCouponEditId(acc.id); setCouponCodeInput(acc.couponCode ?? "CART20"); setCouponPercentInput(String(acc.discountPercent ?? 20)); }}
@@ -679,7 +699,7 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
                           />
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 shrink-0">Desconto:</span>
+                          <span className="text-xs text-gray-500 shrink-0">{t("coupon.discount")}</span>
                           <input
                             type="number" min="1" max="100"
                             value={couponEditId === acc.id ? couponPercentInput : String(acc.discountPercent ?? 20)}
@@ -691,26 +711,21 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
                           <span className="text-xs text-gray-600">%</span>
                         </div>
                         {couponEditId === acc.id && (
-                          <button type="button" onClick={() => handleSaveCoupon(acc.id)} className="text-xs px-2.5 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded-md transition-colors shrink-0">Salvar</button>
+                          <button type="button" onClick={() => handleSaveCoupon(acc.id)} className="text-xs px-2.5 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded-md transition-colors shrink-0">{tc("actions.save")}</button>
                         )}
                         {couponEditId !== acc.id && (
-                          <span className="text-xs text-yellow-400 font-mono">{acc.couponCode ?? "CART20"} · {acc.discountPercent ?? 20}% off</span>
+                          <span className="text-xs text-yellow-400 font-mono">{t("coupon.summary", { code: acc.couponCode ?? "CART20", percent: acc.discountPercent ?? 20 })}</span>
                         )}
                       </div>
 
                       {/* Shopify coupon creation instructions */}
                       {couponInstructionsId === acc.id && (
                         <div className="bg-yellow-500/5 border border-yellow-500/15 rounded-lg p-4 text-xs text-gray-400 space-y-2.5 mt-1">
-                          <p className="font-medium text-yellow-400">Como criar o cupom <span className="font-mono">{acc.couponCode ?? "CART20"}</span> no Shopify:</p>
+                          <p className="font-medium text-yellow-400">{t.rich("coupon.guide.title", { code: (c) => <span className="font-mono">{c}</span> }, { code: acc.couponCode ?? "CART20" })}</p>
                           <ol className="space-y-1.5 list-none">
-                            <li className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">1.</span><span>Acesse <span className="text-gray-300 font-mono">admin.shopify.com</span> → <strong className="text-gray-300">Descontos</strong> → clique em <strong className="text-gray-300">Criar desconto</strong></span></li>
-                            <li className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">2.</span><span>Selecione <strong className="text-gray-300">Valor de desconto no pedido</strong> → tipo <strong className="text-gray-300">Código</strong></span></li>
-                            <li className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">3.</span><span>No campo <strong className="text-gray-300">Código de desconto</strong> digite: <code className="bg-gray-800 px-1.5 py-0.5 rounded text-yellow-300 font-mono">{acc.couponCode ?? "CART20"}</code></span></li>
-                            <li className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">4.</span><span>Em <strong className="text-gray-300">Valor do desconto</strong>: selecione <em>Porcentagem</em> e digite <code className="bg-gray-800 px-1.5 py-0.5 rounded text-yellow-300">{acc.discountPercent ?? 20}</code></span></li>
-                            <li className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">5.</span><span>Em <strong className="text-gray-300">Elegibilidade</strong>: <em>Todos os clientes</em></span></li>
-                            <li className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">6.</span><span>Em <strong className="text-gray-300">Máximo de usos</strong>: marque <em>Limitar a um uso por cliente</em></span></li>
-                            <li className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">7.</span><span>Em <strong className="text-gray-300">Combinações</strong>: habilite <em>Descontos de produto</em> (para acumular com promoções de item)</span></li>
-                            <li className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">8.</span><span>Clique em <strong className="text-gray-300">Salvar desconto</strong> — pronto! O ReplyFlow usará este código automaticamente.</span></li>
+                            {COUPON_GUIDE_STEPS.map((step, i) => (
+                              <li key={step} className="flex gap-2"><span className="text-yellow-500 font-bold shrink-0">{i + 1}.</span><span>{t.rich(`coupon.guide.${step}`, COUPON_GUIDE_TAGS, { code: acc.couponCode ?? "CART20", percent: acc.discountPercent ?? 20 })}</span></li>
+                            ))}
                           </ol>
                         </div>
                       )}
@@ -723,13 +738,13 @@ export default function AccountsPanel({ initialView, initialEditId }: Props) {
                 <div className="px-5 py-4 border-t border-white/5 bg-black/20 space-y-3">
                   <div className="flex items-center gap-2 text-xs text-violet-400 font-medium">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-                    Testar integração Shopify
+                    {t("test.title")}
                   </div>
                   <div className="flex gap-2">
-                    <input value={testQuery} onChange={(e) => setTestQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleShopifyTest(acc.id)} className="flex-1 bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/40 transition-all" placeholder="Número do pedido (#1234) ou e-mail do cliente" />
+                    <input value={testQuery} onChange={(e) => setTestQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleShopifyTest(acc.id)} className="flex-1 bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/40 transition-all" placeholder={t("test.placeholder")} />
                     <button onClick={() => handleShopifyTest(acc.id)} disabled={testLoading || !testQuery.trim()} className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm font-semibold text-white transition-all">
                       {testLoading && <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
-                      {testLoading ? "Buscando..." : "Buscar"}
+                      {testLoading ? t("test.searching") : t("test.search")}
                     </button>
                   </div>
                   {testResult && (testResult.success ? (

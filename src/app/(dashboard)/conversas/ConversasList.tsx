@@ -3,15 +3,12 @@
 import { useState, useMemo } from "react";
 import { EmailDoc } from "@/lib/types";
 import type { CustomerGroup } from "./page";
+import { useT, useFormat } from "@/lib/i18n/client";
+import type { Translator } from "@/lib/i18n/translator";
 
 type Tab = "all" | "auto" | "manual" | "spam";
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "all", label: "Todos" },
-  { key: "auto", label: "Automático" },
-  { key: "manual", label: "Manual" },
-  { key: "spam", label: "Spam" },
-];
+const TABS: Tab[] = ["all", "auto", "manual", "spam"];
 
 const STATUS_DOT: Record<string, string> = {
   pending: "bg-amber-400 animate-pulse",
@@ -29,16 +26,18 @@ function getGroupTab(group: CustomerGroup): Tab {
   return "all";
 }
 
-function relativeTime(seconds: number): string {
+function relativeTime(
+  seconds: number,
+  t: Translator<"inbox">,
+  tc: Translator<"common">,
+  f: ReturnType<typeof useFormat>,
+): string {
   const diff = Date.now() / 1000 - seconds;
-  if (diff < 60) return "agora";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
-  return new Date(seconds * 1000).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-  });
+  if (diff < 60) return tc("time.now");
+  if (diff < 3600) return t("relative.minutes", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t("relative.hours", { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return t("relative.days", { count: Math.floor(diff / 86400) });
+  return f.date(seconds * 1000, { day: "2-digit", month: "2-digit" });
 }
 
 function Avatar({ name }: { name: string }) {
@@ -90,6 +89,9 @@ export default function ConversasList({
   sentProgress,
   onSendPending,
 }: Props) {
+  const t = useT("inbox");
+  const tc = useT("common");
+  const f = useFormat();
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
   const [imagesOnly, setImagesOnly] = useState(false);
@@ -102,8 +104,8 @@ export default function ConversasList({
       spam: 0,
     };
     groups.forEach((g) => {
-      const t = getGroupTab(g);
-      if (t !== "all") c[t]++;
+      const groupTab = getGroupTab(g);
+      if (groupTab !== "all") c[groupTab]++;
     });
     return c;
   }, [groups]);
@@ -155,7 +157,7 @@ export default function ConversasList({
               />
             </svg>
             <span className="text-xs text-amber-400 font-medium truncate">
-              IA pausada — modo manual
+              {t("list.pausedBanner")}
             </span>
           </div>
           <button
@@ -163,7 +165,7 @@ export default function ConversasList({
             disabled={toggling}
             className="shrink-0 text-xs text-amber-400 hover:text-amber-200 underline underline-offset-2 disabled:opacity-50 transition-colors"
           >
-            {toggling ? "..." : "Retomar"}
+            {toggling ? "..." : t("list.resume")}
           </button>
         </div>
       )}
@@ -209,8 +211,8 @@ export default function ConversasList({
             )}
             <span className="text-xs text-sky-300 font-medium truncate">
               {sendingPending
-                ? `Enviando... ${sentProgress} processado(s)`
-                : `${pendingCount} e-mail(s) pendente(s)`}
+                ? t("list.sendingProgress", { count: sentProgress })
+                : t("list.pendingCount", { count: pendingCount })}
             </span>
           </div>
           <button
@@ -218,7 +220,7 @@ export default function ConversasList({
             disabled={sendingPending}
             className="shrink-0 text-xs text-sky-300 hover:text-sky-100 underline underline-offset-2 disabled:opacity-50 disabled:no-underline transition-colors"
           >
-            {sendingPending ? "Aguarde" : "Enviar todos"}
+            {sendingPending ? t("list.wait") : t("list.sendAll")}
           </button>
         </div>
       )}
@@ -243,7 +245,7 @@ export default function ConversasList({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cliente ou assunto..."
+              placeholder={t("list.searchPlaceholder")}
               className="w-full pl-8 pr-8 py-2 bg-white/5 border border-white/8 rounded-lg text-xs text-gray-300 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/30 transition-colors"
             />
             {search && (
@@ -271,7 +273,7 @@ export default function ConversasList({
           {imagesCount > 0 && (
             <button
               onClick={() => setImagesOnly((v) => !v)}
-              title="Filtrar conversas com imagens"
+              title={t("list.imagesFilter")}
               className={`relative shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border transition-all ${
                 imagesOnly
                   ? "text-indigo-300 bg-indigo-500/15 border-indigo-500/30"
@@ -303,7 +305,7 @@ export default function ConversasList({
             <button
               onClick={onTogglePause}
               disabled={toggling}
-              title="Pausar respostas automáticas da IA"
+              title={t("list.pauseTitle")}
               className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-40 border border-white/8 hover:border-amber-500/20 transition-all"
             >
               {toggling ? (
@@ -348,7 +350,9 @@ export default function ConversasList({
 
       {/* Date range filter */}
       <div className="flex items-center gap-1 px-3 pb-1.5 shrink-0">
-        <span className="text-[11px] text-gray-600 mr-0.5">Últimos:</span>
+        <span className="text-[11px] text-gray-600 mr-0.5">
+          {t("list.lastDays")}
+        </span>
         {([7, 30, 60, 90, 180] as const).map((d) => (
           <button
             key={d}
@@ -359,33 +363,33 @@ export default function ConversasList({
                 : "text-gray-600 hover:text-gray-400"
             }`}
           >
-            {d}d
+            {t("list.dayOption", { count: d })}
           </button>
         ))}
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-0.5 px-2 pb-1.5 border-b border-white/5 shrink-0">
-        {TABS.map((t) => (
+        {TABS.map((key) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={key}
+            onClick={() => setTab(key)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              tab === t.key
+              tab === key
                 ? "bg-indigo-500/15 text-indigo-300"
                 : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
             }`}
           >
-            {t.label}
-            {counts[t.key] > 0 && (
+            {t(`list.tabs.${key}`)}
+            {counts[key] > 0 && (
               <span
                 className={`px-1 min-w-4 text-center rounded text-[10px] leading-4 ${
-                  tab === t.key
+                  tab === key
                     ? "bg-indigo-500/30 text-indigo-300"
                     : "bg-white/8 text-gray-500"
                 }`}
               >
-                {counts[t.key]}
+                {counts[key]}
               </span>
             )}
           </button>
@@ -420,10 +424,10 @@ export default function ConversasList({
                 />
               </svg>
             </div>
-            <p className="text-xs text-gray-500">Nenhuma conversa encontrada</p>
+            <p className="text-xs text-gray-500">{t("list.empty")}</p>
             {search && (
               <p className="text-xs text-gray-600 mt-0.5">
-                Tente ajustar os filtros
+                {t("list.emptyHint")}
               </p>
             )}
           </div>
@@ -433,7 +437,7 @@ export default function ConversasList({
               const latest = group.latestEmail;
               const isSelected = latest.id === selectedId;
               const ts = latest.receivedAt?.seconds
-                ? relativeTime(latest.receivedAt.seconds)
+                ? relativeTime(latest.receivedAt.seconds, t, tc, f)
                 : "—";
               const lowConfidence =
                 latest.classifyConfidence === "low" ||
@@ -459,7 +463,7 @@ export default function ConversasList({
                         <div className="flex items-center gap-1.5 shrink-0">
                           {latest.chargebackRisk && (
                             <svg
-                              aria-label="Risco de chargeback"
+                              aria-label={t("list.chargebackRisk")}
                               className="w-3 h-3 text-red-400"
                               fill="currentColor"
                               viewBox="0 0 24 24"
@@ -473,7 +477,9 @@ export default function ConversasList({
                           )}
                           {lowConfidence && (
                             <span
-                              title={`Confiança da IA: ${latest.classifyConfidence}`}
+                              title={t("list.aiConfidence", {
+                                level: latest.classifyConfidence,
+                              })}
                               className="text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 leading-none"
                             >
                               ?
@@ -491,7 +497,7 @@ export default function ConversasList({
                         {group.from}
                       </p>
                       <p className="text-xs text-gray-500 truncate mt-0.5 leading-snug">
-                        {latest.subject || "(sem assunto)"}
+                        {latest.subject || t("list.noSubject")}
                       </p>
                     </div>
                   </div>
@@ -528,7 +534,7 @@ export default function ConversasList({
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                         />
                       </svg>
-                      Carregando...
+                      {tc("states.loading")}
                     </>
                   ) : (
                     <>
@@ -545,7 +551,7 @@ export default function ConversasList({
                           d="M19 9l-7 7-7-7"
                         />
                       </svg>
-                      Carregar mais conversas
+                      {t("list.loadMore")}
                     </>
                   )}
                 </button>

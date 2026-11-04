@@ -7,6 +7,7 @@ import { EmailDoc } from "@/lib/types";
 import { useStoreContext } from "../store-context";
 import ConversasList from "./ConversasList";
 import ConversaDetail from "./ConversaDetail";
+import { useT } from "@/lib/i18n/client";
 
 export interface CustomerGroup {
   groupId: string;
@@ -56,6 +57,8 @@ function groupByCustomer(emails: EmailDoc[]): CustomerGroup[] {
 function ConversasContent() {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useT("inbox");
+  const tc = useT("common");
   const selectedId = params.get("id");
   const {
     selectedAccountId,
@@ -195,7 +198,7 @@ function ConversasContent() {
         });
         const data = await res.json();
         if (!res.ok) {
-          toast.error(data.error ?? "Erro ao processar pendentes");
+          toast.error(data.error ?? t("errors.processPendingFailed"));
           break;
         }
         const done = (data.processed ?? 0) + (data.failed ?? 0);
@@ -203,10 +206,10 @@ function ConversasContent() {
         total += done;
         setSentProgress(total);
       }
-      if (total > 0) toast.success(`${total} e-mail(s) processado(s)`);
-      else toast.info("Nenhum e-mail pendente pronto para envio");
+      if (total > 0) toast.success(t("page.processed", { count: total }));
+      else toast.info(t("page.noneReady"));
     } catch {
-      toast.error("Erro de conex\u00e3o");
+      toast.error(tc("states.networkError"));
     } finally {
       setSendingPending(false);
       initialLoaded.current = false;
@@ -288,7 +291,7 @@ function ConversasContent() {
         <ConversaDetail
           emailId={selectedId}
           onBack={backFromDetail}
-          backLabel={backToTask ? "Tarefas" : undefined}
+          backLabel={backToTask ? t("nav.tasks") : undefined}
           onRefresh={refreshEmails}
         />
       </div>

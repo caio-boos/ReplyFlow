@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 export default function NotificationsSection() {
+  const t = useT("settings");
+  const tc = useT("common");
   const [current, setCurrent] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -28,13 +31,13 @@ export default function NotificationsSection() {
         body: JSON.stringify({ notificationEmail: email.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao salvar");
+      if (!res.ok) throw new Error(data.error ?? t("notifications.errors.saveFailed"));
       setCurrent(email.trim());
       setEmail("");
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar");
+      setError(err instanceof Error ? err.message : t("notifications.errors.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -54,9 +57,9 @@ export default function NotificationsSection() {
   return (
     <section>
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-white">Notificações</h2>
+        <h2 className="text-sm font-semibold text-white">{t("notifications.title")}</h2>
         <p className="text-xs text-gray-500 mt-0.5">
-          Avisos quando um cliente que você está acompanhando responde
+          {t("notifications.description")}
         </p>
       </div>
 
@@ -64,16 +67,20 @@ export default function NotificationsSection() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-gray-200">
-              E-mail de notificação
+              {t("notifications.emailTitle")}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Você recebe um aviso quando chega resposta de um cliente com
-              anotação aberta ou de um e-mail enviado pelo Compor E-mail.
+              {t("notifications.emailDescription")}
             </p>
             {current && (
               <p className="text-xs text-gray-400 mt-1">
-                Enviando para:{" "}
-                <span className="font-mono text-gray-300">{current}</span>
+                {t.rich(
+                  "notifications.sendingTo",
+                  {
+                    email: (c) => <span className="font-mono text-gray-300">{c}</span>,
+                  },
+                  { email: current },
+                )}
               </p>
             )}
           </div>
@@ -84,7 +91,11 @@ export default function NotificationsSection() {
                 : "bg-white/5 border-white/10 text-gray-500"
             }`}
           >
-            {loading ? "..." : current ? "Ativo" : "Não configurado"}
+            {loading
+              ? "..."
+              : current
+                ? t("notifications.status.active")
+                : t("notifications.status.notConfigured")}
           </span>
         </div>
 
@@ -93,7 +104,9 @@ export default function NotificationsSection() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder={current ? "Substituir e-mail…" : "seu@email.com"}
+            placeholder={
+              current ? t("notifications.placeholderReplace") : t("notifications.placeholder")
+            }
             autoComplete="off"
             className="flex-1 bg-gray-900/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500/60"
           />
@@ -102,7 +115,7 @@ export default function NotificationsSection() {
             disabled={saving || !email.trim()}
             className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium text-white cursor-pointer"
           >
-            {saving ? "Salvando…" : "Salvar"}
+            {saving ? tc("actions.saving") : tc("actions.save")}
           </button>
           {current && (
             <button
@@ -110,7 +123,7 @@ export default function NotificationsSection() {
               disabled={saving}
               className="px-4 py-2 rounded-lg bg-white/5 border border-white/6 text-sm text-gray-400 hover:text-gray-200 disabled:opacity-40 cursor-pointer"
             >
-              Desativar
+              {t("notifications.disable")}
             </button>
           )}
         </div>
@@ -122,13 +135,12 @@ export default function NotificationsSection() {
         )}
         {saved && (
           <p className="text-xs text-emerald-400">
-            E-mail de notificação salvo com sucesso.
+            {t("notifications.saved")}
           </p>
         )}
 
         <p className="text-[11px] text-gray-600 leading-relaxed">
-          A notificação é enviada pela própria conta de e-mail da loja que
-          recebeu a resposta, com um link direto para a conversa.
+          {t("notifications.footer")}
         </p>
       </div>
     </section>

@@ -3,24 +3,26 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
+import { getT } from "@/lib/i18n/server";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const tc = await getT("common");
   const session = await getSession();
-  if (!session) return new NextResponse("Unauthorized", { status: 401 });
+  if (!session) return new NextResponse(tc("states.unauthorized"), { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
   const doc = await db.collection("remarketing").doc(id).get();
-  if (!doc.exists) return new NextResponse("Not found", { status: 404 });
+  if (!doc.exists) return new NextResponse(tc("states.notFound"), { status: 404 });
 
   const d = doc.data()!;
 
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(d.accountId as string)) {
-    return new NextResponse("Forbidden", { status: 403 });
+    return new NextResponse(tc("states.forbidden"), { status: 403 });
   }
 
   const accountDoc = await db

@@ -1,3 +1,5 @@
+import { VideoError } from "./errors";
+
 const MAX_EDGE = 1024;
 const QUALITY = 0.82;
 
@@ -21,7 +23,9 @@ export async function prepareReferenceImage(
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", QUALITY),
   );
-  if (!blob) throw new Error("Não foi possível preparar a imagem de referência.");
+  if (!blob) {
+    throw new VideoError("referencePrepareFailed", "Couldn't prepare the reference image.");
+  }
 
   return new File([blob], `ref-${index}.jpg`, { type: "image/jpeg" });
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getT } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
@@ -21,9 +22,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const tc = await getT("common");
+  const t = await getT("inbox");
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const { id } = await params;
 
@@ -59,13 +65,16 @@ export async function POST(
   const emailDoc = await emailRef.get();
 
   if (!emailDoc.exists)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: t("errors.emailNotFound") },
+      { status: 404 },
+    );
 
   const emailData = emailDoc.data()!;
 
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(emailData.accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
   }
 
   const allowedStatuses =
@@ -75,7 +84,15 @@ export async function POST(
 
   if (!allowedStatuses.includes(emailData.status)) {
     return NextResponse.json(
-      { error: `Cannot send email with status "${emailData.status}"` },
+      {
+        error: t("api.cannotSendStatus", {
+          status: t.dynamic(
+            `status.${emailData.status}`,
+            undefined,
+            String(emailData.status),
+          ),
+        }),
+      },
       { status: 400 },
     );
   }
@@ -92,7 +109,10 @@ export async function POST(
       .get();
     if (!accountDoc.exists) {
       await emailRef.update({ status: "failed", error: "Account not found" });
-      return NextResponse.json({ error: "Account not found" }, { status: 400 });
+      return NextResponse.json(
+        { error: t("api.accountNotFound") },
+        { status: 400 },
+      );
     }
 
     const accountData = accountDoc.data()!;

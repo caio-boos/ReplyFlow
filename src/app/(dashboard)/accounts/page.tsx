@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useT } from "@/lib/i18n/client";
+import type { RichTags } from "@/lib/i18n/rich";
 
 function ShopifyParamsReader({
   onMessage,
@@ -51,8 +53,23 @@ interface Account {
 const PROVIDER_LABELS: Record<string, string> = {
   godaddy: "GoDaddy",
   hostinger: "Hostinger",
-  other: "Outro",
 };
+
+const SHOPIFY_GUIDE_TAGS: RichTags = {
+  mono: (c) => <span className="text-gray-300 font-mono">{c}</span>,
+  b: (c) => <strong className="text-gray-300">{c}</strong>,
+  i: (c) => <em>{c}</em>,
+  code: (c) => <code className="bg-gray-800 px-1 rounded">{c}</code>,
+};
+
+const SHOPIFY_GUIDE_STEPS = [
+  "step1",
+  "step2",
+  "step3",
+  "step4",
+  "step5",
+  "step6",
+] as const;
 
 const PROVIDER_DEFAULTS: Record<
   string,
@@ -174,6 +191,9 @@ function AccountForm({
   error: string;
   isEdit: boolean;
 }) {
+  const t = useT("stores");
+  const tc = useT("common");
+
   function handleProviderChange(provider: string) {
     const d = PROVIDER_DEFAULTS[provider] ?? PROVIDER_DEFAULTS.other;
     setForm({ ...form, provider, ...d });
@@ -225,16 +245,16 @@ function AccountForm({
         {/* Row 1: label + provider */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <FieldLabel>Nome da conta</FieldLabel>
+            <FieldLabel>{t("form.accountName")}</FieldLabel>
             <Input
               required
               value={form.label}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
-              placeholder="Ex: Loja Principal"
+              placeholder={t("form.accountNamePlaceholder")}
             />
           </div>
           <div>
-            <FieldLabel>Provedor</FieldLabel>
+            <FieldLabel>{t("form.provider")}</FieldLabel>
             <select
               value={form.provider}
               onChange={(e) => handleProviderChange(e.target.value)}
@@ -242,29 +262,28 @@ function AccountForm({
             >
               <option value="godaddy">GoDaddy</option>
               <option value="hostinger">Hostinger</option>
-              <option value="other">Outro (Gmail, etc.)</option>
+              <option value="other">{t("providers.otherOption")}</option>
             </select>
           </div>
         </div>
 
         {/* Fantasy name */}
         <div>
-          <FieldLabel>Nome fantasia (para emails)</FieldLabel>
+          <FieldLabel>{t("form.fantasyName")}</FieldLabel>
           <Input
             value={form.fantasyName}
             onChange={(e) => setForm({ ...form, fantasyName: e.target.value })}
-            placeholder="Ex: Kenbi™ — nome exibido nos e-mails de remarketing"
+            placeholder={t("form.fantasyNamePlaceholder")}
           />
           <p className="text-xs text-gray-600 mt-1.5">
-            Nome público da loja exibido nos e-mails. Se vazio, usa o nome da
-            conta.
+            {t("form.fantasyNameHint")}
           </p>
         </div>
 
         {/* Reply language */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <FieldLabel>Idioma das respostas</FieldLabel>
+            <FieldLabel>{t("form.replyLanguage")}</FieldLabel>
             <select
               value={form.replyLanguage}
               onChange={(e) =>
@@ -283,19 +302,19 @@ function AccountForm({
               <option value="zh">中文（简体）</option>
             </select>
             <p className="text-xs text-gray-600 mt-1.5">
-              Idioma em que o ReplyFlow vai responder os clientes desta conta.
+              {t("form.replyLanguageHint")}
             </p>
           </div>
         </div>
 
         {/* Logo upload */}
         <div>
-          <FieldLabel>Logo da loja (ícone)</FieldLabel>
+          <FieldLabel>{t("form.logo")}</FieldLabel>
           <div className="flex items-center gap-3">
             {form.logoUrl ? (
               <img
                 src={form.logoUrl}
-                alt="Logo"
+                alt={t("form.logoAlt")}
                 className="w-10 h-10 rounded-lg object-contain bg-gray-800 border border-white/6 shrink-0"
               />
             ) : (
@@ -330,7 +349,7 @@ function AccountForm({
                     d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
                   />
                 </svg>
-                {form.logoUrl ? "Trocar logo" : "Carregar logo"}
+                {form.logoUrl ? t("form.changeLogo") : t("form.uploadLogo")}
                 <input
                   type="file"
                   accept="image/*"
@@ -339,7 +358,7 @@ function AccountForm({
                     const file = e.target.files?.[0];
                     if (!file) return;
                     if (file.size > 300 * 1024) {
-                      alert("Imagem muito grande. Máximo 300KB.");
+                      alert(t("form.logoTooLarge"));
                       return;
                     }
                     const reader = new FileReader();
@@ -354,7 +373,7 @@ function AccountForm({
                 />
               </label>
               <p className="text-xs text-gray-600 mt-1">
-                PNG, JPG ou SVG — máx. 300KB. Recomendado: 64×64px.
+                {t("form.logoHint")}
               </p>
             </div>
             {form.logoUrl && (
@@ -362,7 +381,7 @@ function AccountForm({
                 type="button"
                 onClick={() => setForm({ ...form, logoUrl: "" })}
                 className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
-                title="Remover logo"
+                title={t("form.removeLogo")}
               >
                 <svg
                   className="w-4 h-4"
@@ -385,21 +404,21 @@ function AccountForm({
         {/* Row 2: email + password */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <FieldLabel>E-mail</FieldLabel>
+            <FieldLabel>{t("form.email")}</FieldLabel>
             <Input
               required={!isEdit}
               type="email"
               autoComplete="off"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="suporte@loja.com"
+              placeholder={t("form.emailPlaceholder")}
             />
           </div>
           <div>
             <FieldLabel>
-              Senha{" "}
+              {t("form.password")}{" "}
               {isEdit && (
-                <span className="text-gray-600">(vazio = manter atual)</span>
+                <span className="text-gray-600">{t("form.keepCurrent")}</span>
               )}
             </FieldLabel>
             <div className="relative">
@@ -426,32 +445,32 @@ function AccountForm({
         {/* Row 3: IMAP + SMTP */}
         <div>
           <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-3">
-            Configuração de servidor
+            {t("form.serverSettings")}
           </p>
           <div className="grid grid-cols-4 gap-3">
             <div className="col-span-3">
-              <FieldLabel>IMAP Host</FieldLabel>
+              <FieldLabel>{t("form.imapHost")}</FieldLabel>
               <Input
                 value={form.imapHost}
                 onChange={(e) => setForm({ ...form, imapHost: e.target.value })}
               />
             </div>
             <div>
-              <FieldLabel>Porta</FieldLabel>
+              <FieldLabel>{t("form.port")}</FieldLabel>
               <Input
                 value={form.imapPort}
                 onChange={(e) => setForm({ ...form, imapPort: e.target.value })}
               />
             </div>
             <div className="col-span-3">
-              <FieldLabel>SMTP Host</FieldLabel>
+              <FieldLabel>{t("form.smtpHost")}</FieldLabel>
               <Input
                 value={form.smtpHost}
                 onChange={(e) => setForm({ ...form, smtpHost: e.target.value })}
               />
             </div>
             <div>
-              <FieldLabel>Porta</FieldLabel>
+              <FieldLabel>{t("form.port")}</FieldLabel>
               <Input
                 value={form.smtpPort}
                 onChange={(e) => setForm({ ...form, smtpPort: e.target.value })}
@@ -471,89 +490,44 @@ function AccountForm({
               <path d="M15.337 4.27L14.79 4.1c-.06-.016-.12-.03-.18-.042-.07-.016-.14-.027-.21-.036a2.51 2.51 0 00-.25-.022c-.085-.004-.17-.006-.255-.005-.48.004-.95.12-1.375.337-.425.218-.787.535-1.055.922-.268.388-.427.834-.463 1.296-.036.463.053.927.258 1.345.205.42.52.775.91 1.026.39.25.838.39 1.295.403.457.014.91-.099 1.315-.326.405-.228.74-.566.972-.977.233-.41.355-.877.352-1.35a2.79 2.79 0 00-.404-1.47 2.812 2.812 0 00-1.064-1.027zM12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" />
             </svg>
             <p className="text-xs font-medium text-emerald-500 uppercase tracking-wider">
-              Shopify (opcional)
+              {t("form.shopifyOptional")}
             </p>
           </div>
 
           {/* Instructions */}
           <div className="mb-4 bg-emerald-500/5 border border-emerald-500/15 rounded-lg p-4 text-xs text-gray-400 space-y-2.5">
             <p className="font-medium text-emerald-400">
-              Como criar seu App no Dev Dashboard da Shopify:
+              {t("form.shopifyGuide.title")}
             </p>
             <ol className="space-y-1.5 list-none">
-              <li className="flex gap-2">
-                <span className="text-emerald-500 font-bold shrink-0">1.</span>
-                <span>
-                  Acesse{" "}
-                  <span className="text-gray-300 font-mono">
-                    admin.shopify.com
-                  </span>{" "}
-                  → Configurações → Apps →{" "}
-                  <strong className="text-gray-300">Desenvolver apps</strong>
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-emerald-500 font-bold shrink-0">2.</span>
-                <span>
-                  Clique em <strong className="text-gray-300">Criar app</strong>{" "}
-                  → dê um nome (ex: ReplyFlow) → desmarque{" "}
-                  <em>Embed app in Shopify admin</em>
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-emerald-500 font-bold shrink-0">3.</span>
-                <span>
-                  Em <strong className="text-gray-300">App URL</strong> cole:{" "}
-                  <code className="bg-gray-800 px-1 rounded">
-                    {typeof window !== "undefined"
-                      ? window.location.origin
-                      : ""}
-                    /api/shopify/callback
-                  </code>
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-emerald-500 font-bold shrink-0">4.</span>
-                <span>
-                  Em <strong className="text-gray-300">Access scopes</strong>{" "}
-                  cole:{" "}
-                  <code className="bg-gray-800 px-1 rounded">
-                    read_orders,read_customers
-                  </code>
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-emerald-500 font-bold shrink-0">5.</span>
-                <span>
-                  Em <strong className="text-gray-300">Settings</strong> copie o{" "}
-                  <em>Client ID</em> e <em>Client secret</em> e cole nos campos
-                  abaixo
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-emerald-500 font-bold shrink-0">6.</span>
-                <span>
-                  Salve a conta e clique em{" "}
-                  <strong className="text-gray-300">Conectar Shopify</strong>{" "}
-                  para autorizar
-                </span>
-              </li>
+              {SHOPIFY_GUIDE_STEPS.map((step, i) => (
+                <li key={step} className="flex gap-2">
+                  <span className="text-emerald-500 font-bold shrink-0">
+                    {i + 1}.
+                  </span>
+                  <span>
+                    {t.rich(`form.shopifyGuide.${step}`, SHOPIFY_GUIDE_TAGS, {
+                      url: `${typeof window !== "undefined" ? window.location.origin : ""}/api/shopify/callback`,
+                    })}
+                  </span>
+                </li>
+              ))}
             </ol>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <FieldLabel>Domínio da loja</FieldLabel>
+              <FieldLabel>{t("form.shopDomain")}</FieldLabel>
               <Input
                 value={form.shopifyDomain}
                 onChange={(e) =>
                   setForm({ ...form, shopifyDomain: e.target.value })
                 }
-                placeholder="minhaloja.myshopify.com"
+                placeholder={t("form.shopDomainPlaceholder")}
               />
             </div>
             <div>
-              <FieldLabel>Client ID</FieldLabel>
+              <FieldLabel>{t("form.clientId")}</FieldLabel>
               <Input
                 value={form.shopifyClientId}
                 onChange={(e) =>
@@ -565,9 +539,9 @@ function AccountForm({
             </div>
             <div>
               <FieldLabel>
-                Client Secret{" "}
+                {t("form.clientSecret")}{" "}
                 {isEdit && (
-                  <span className="text-gray-600">(vazio = manter)</span>
+                  <span className="text-gray-600">{t("form.keepSecret")}</span>
                 )}
               </FieldLabel>
               <div className="relative">
@@ -595,20 +569,26 @@ function AccountForm({
 
         {/* Tracking URL template */}
         <div>
-          <FieldLabel>URL de rastreio</FieldLabel>
+          <FieldLabel>{t("form.trackingUrl")}</FieldLabel>
           <Input
             value={form.trackingUrlTemplate}
             onChange={(e) =>
               setForm({ ...form, trackingUrlTemplate: e.target.value })
             }
-            placeholder="https://minhaloja.shop/apps/17TRACK?nums={{tracking_number}}"
+            placeholder={t("form.trackingUrlPlaceholder", {
+              token: "{{tracking_number}}",
+            })}
           />
           <p className="text-xs text-gray-600 mt-1.5">
-            Use{" "}
-            <code className="bg-gray-800 px-1 rounded text-gray-400">
-              {"{{tracking_number}}"}
-            </code>{" "}
-            como marcador. Se vazio, usa o link padrão da Shopify.
+            {t.rich(
+              "form.trackingUrlHint",
+              {
+                code: (c) => (
+                  <code className="bg-gray-800 px-1 rounded text-gray-400">{c}</code>
+                ),
+              },
+              { token: "{{tracking_number}}" },
+            )}
           </p>
         </div>
       </div>
@@ -641,12 +621,12 @@ function AccountForm({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              Salvando...
+              {tc("actions.saving")}
             </>
           ) : isEdit ? (
-            "Salvar alterações"
+            t("form.saveChanges")
           ) : (
-            "Salvar conta"
+            t("form.saveAccount")
           )}
         </button>
         <button
@@ -654,7 +634,7 @@ function AccountForm({
           onClick={onCancel}
           className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-white/6 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-all"
         >
-          Cancelar
+          {tc("actions.cancel")}
         </button>
       </div>
     </form>
@@ -662,6 +642,8 @@ function AccountForm({
 }
 
 export default function AccountsPage() {
+  const t = useT("stores");
+  const tc = useT("common");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -777,7 +759,7 @@ export default function AccountsPage() {
       loadAccounts();
     } else {
       const data = await res.json();
-      setError(data.error ?? "Erro ao salvar conta");
+      setError(data.error ?? t("form.errors.save"));
     }
     setSaving(false);
   }
@@ -814,16 +796,14 @@ export default function AccountsPage() {
       loadAccounts();
     } else {
       const data = await res.json();
-      setError(data.error ?? "Erro ao editar conta");
+      setError(data.error ?? t("form.errors.edit"));
     }
     setSaving(false);
   }
 
   async function handleDisconnectShopify(id: string) {
     if (
-      !confirm(
-        "Desconectar a integração Shopify desta conta? O token OAuth será removido.",
-      )
+      !confirm(t("confirm.disconnectShopify"))
     )
       return;
     setDisconnectingId(id);
@@ -846,7 +826,7 @@ export default function AccountsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Remover esta conta?")) return;
+    if (!confirm(t("confirm.deleteAccount"))) return;
     await fetch(`/api/accounts/${id}`, { method: "DELETE" });
     loadAccounts();
   }
@@ -930,14 +910,22 @@ export default function AccountsPage() {
               </svg>
             )}
             {shopifyMsg.type === "success"
-              ? "Shopify conectado com sucesso!"
-              : `Erro ao conectar Shopify${shopifyMsg.reason ? `: ${shopifyMsg.reason.replace(/_/g, " ")}` : ""}`}
+              ? t("shopifyCallback.connected")
+              : shopifyMsg.reason
+                ? t("shopifyCallback.errorWithReason", {
+                    reason: t.dynamic(
+                      `shopifyCallback.reasons.${shopifyMsg.reason}`,
+                      undefined,
+                      shopifyMsg.reason.replace(/_/g, " "),
+                    ),
+                  })
+                : t("shopifyCallback.error")}
           </div>
           <button
             onClick={() => setShopifyMsg(null)}
             className="text-xs opacity-60 hover:opacity-100 transition-opacity"
           >
-            Fechar
+            {tc("actions.close")}
           </button>
         </div>
       )}
@@ -946,10 +934,10 @@ export default function AccountsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-100">
-            Contas de E-mail
+            {t("page.title")}
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            Gerencie as caixas IMAP/SMTP conectadas ao ReplyFlow
+            {t("page.subtitle")}
           </p>
         </div>
         <button
@@ -973,14 +961,14 @@ export default function AccountsPage() {
               d="M12 4.5v15m7.5-7.5h-15"
             />
           </svg>
-          Adicionar conta
+          {t("page.addAccount")}
         </button>
       </div>
 
       {/* Add form */}
       {showAddForm && (
         <AccountForm
-          title="Nova conta"
+          title={t("form.newTitle")}
           form={addForm}
           setForm={setAddForm}
           showPassword={showAddPassword}
@@ -1015,7 +1003,7 @@ export default function AccountsPage() {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          Carregando...
+          {tc("states.loading")}
         </div>
       ) : accounts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 border border-white/6 rounded-2xl bg-gray-900/30 text-gray-600">
@@ -1033,10 +1021,10 @@ export default function AccountsPage() {
             />
           </svg>
           <p className="text-sm font-medium text-gray-500">
-            Nenhuma conta cadastrada
+            {t("list.emptyTitle")}
           </p>
           <p className="text-xs text-gray-600 mt-1">
-            Adicione sua primeira conta acima para começar.
+            {t("list.emptyHintPage")}
           </p>
         </div>
       ) : (
@@ -1045,7 +1033,7 @@ export default function AccountsPage() {
             <div key={acc.id}>
               {editingId === acc.id ? (
                 <AccountForm
-                  title={`Editando: ${acc.label}`}
+                  title={t("form.editTitle", { name: acc.label })}
                   form={editForm}
                   setForm={setEditForm}
                   showPassword={showEditPassword}
@@ -1096,11 +1084,14 @@ export default function AccountsPage() {
                           {acc.label}
                         </span>
                         <span className="text-xs px-1.5 py-0.5 bg-gray-800/80 border border-white/6 text-gray-500 rounded-md">
-                          {PROVIDER_LABELS[acc.provider] ?? acc.provider}
+                          {PROVIDER_LABELS[acc.provider] ??
+                            (acc.provider === "other"
+                              ? t("providers.other")
+                              : acc.provider)}
                         </span>
                         {!acc.active && (
                           <span className="text-xs px-1.5 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-md">
-                            Inativa
+                            {t("list.inactive")}
                           </span>
                         )}
                         {acc.shopifyConnected && (
@@ -1110,7 +1101,7 @@ export default function AccountsPage() {
                         )}
                         {acc.shopifyClientId && !acc.shopifyConnected && (
                           <span className="text-xs px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md">
-                            Shopify: pendente
+                            {t("list.shopifyPending")}
                           </span>
                         )}
                       </div>
@@ -1132,8 +1123,8 @@ export default function AccountsPage() {
                             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                           >
                             {acc.shopifyConnected
-                              ? "Reconectar"
-                              : "Conectar Shopify"}
+                              ? t("list.reconnect")
+                              : t("list.connectShopify")}
                           </a>
                           {acc.shopifyConnected && (
                             <>
@@ -1151,7 +1142,7 @@ export default function AccountsPage() {
                                     : "bg-gray-800/60 text-gray-400 border-white/6 hover:text-gray-200 hover:bg-gray-800"
                                 }`}
                               >
-                                Testar
+                                {t("list.test")}
                               </button>
                               <button
                                 onClick={() => handleDisconnectShopify(acc.id)}
@@ -1160,7 +1151,7 @@ export default function AccountsPage() {
                               >
                                 {disconnectingId === acc.id
                                   ? "..."
-                                  : "Desconectar"}
+                                  : t("list.disconnect")}
                               </button>
                             </>
                           )}
@@ -1170,7 +1161,7 @@ export default function AccountsPage() {
                         onClick={() => handleEditOpen(acc)}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800/60 text-gray-400 border border-white/6 hover:text-gray-200 hover:bg-gray-800 transition-colors"
                       >
-                        Editar
+                        {tc("actions.edit")}
                       </button>
                       <button
                         onClick={() => handleToggle(acc.id, acc.active)}
@@ -1180,13 +1171,13 @@ export default function AccountsPage() {
                             : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
                         }`}
                       >
-                        {acc.active ? "Desativar" : "Ativar"}
+                        {acc.active ? t("list.deactivate") : t("list.activate")}
                       </button>
                       <button
                         onClick={() => handleDelete(acc.id)}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
                       >
-                        Remover
+                        {tc("actions.remove")}
                       </button>
                     </div>
                   </div>
@@ -1219,10 +1210,10 @@ export default function AccountsPage() {
                           />
                         </button>
                         <span className="text-xs text-gray-400">
-                          Recuperação de carrinho
+                          {t("remarketing.cartRecovery")}
                           {!acc.remarketingEnabled && (
                             <span className="ml-1 text-gray-600">
-                              (desabilitado)
+                              {t("remarketing.disabled")}
                             </span>
                           )}
                         </span>
@@ -1231,7 +1222,7 @@ export default function AccountsPage() {
                       {acc.remarketingEnabled && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500 shrink-0">
-                            Janela de recuperação:
+                            {t("remarketing.recoveryWindow")}
                           </span>
                           <input
                             type="number"
@@ -1257,14 +1248,14 @@ export default function AccountsPage() {
                             }
                             className="bg-gray-800/60 border border-white/6 rounded-md px-2 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-14 text-center"
                           />
-                          <span className="text-xs text-gray-600">dias</span>
+                          <span className="text-xs text-gray-600">{t("remarketing.days")}</span>
                           {recoveryDaysEditId === acc.id && (
                             <button
                               type="button"
                               onClick={() => handleSaveRecoveryDays(acc.id)}
                               className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shrink-0"
                             >
-                              Salvar
+                              {tc("actions.save")}
                             </button>
                           )}
                         </div>
@@ -1272,7 +1263,7 @@ export default function AccountsPage() {
                       {acc.remarketingEnabled && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500 shrink-0">
-                            E-mail de teste:
+                            {t("remarketing.testEmail")}
                           </span>
                           <input
                             value={
@@ -1291,7 +1282,7 @@ export default function AccountsPage() {
                               e.key === "Enter" && handleSaveTestEmail(acc.id)
                             }
                             className="bg-gray-800/60 border border-white/6 rounded-md px-2.5 py-1 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-56"
-                            placeholder="vazio = envia para todos (ex: a@b.com, c@d.com)"
+                            placeholder={t("remarketing.testEmailPlaceholderLong")}
                           />
                           {remarketingEditId === acc.id && (
                             <button
@@ -1299,7 +1290,7 @@ export default function AccountsPage() {
                               onClick={() => handleSaveTestEmail(acc.id)}
                               className="text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shrink-0"
                             >
-                              Salvar
+                              {tc("actions.save")}
                             </button>
                           )}
                           {acc.testEmail && remarketingEditId !== acc.id && (
@@ -1309,7 +1300,7 @@ export default function AccountsPage() {
                           )}
                           {!acc.testEmail && remarketingEditId !== acc.id && (
                             <span className="text-xs text-gray-600">
-                              todos os clientes
+                              {t("remarketing.allCustomers")}
                             </span>
                           )}
                         </div>
@@ -1334,7 +1325,7 @@ export default function AccountsPage() {
                             d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
                           />
                         </svg>
-                        Testar integração Shopify
+                        {t("test.title")}
                       </div>
                       <div className="flex gap-2">
                         <input
@@ -1344,7 +1335,7 @@ export default function AccountsPage() {
                             e.key === "Enter" && handleShopifyTest(acc.id)
                           }
                           className="flex-1 bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/40 transition-all"
-                          placeholder="Número do pedido (#1234) ou e-mail do cliente"
+                          placeholder={t("test.placeholder")}
                         />
                         <button
                           onClick={() => handleShopifyTest(acc.id)}
@@ -1372,7 +1363,7 @@ export default function AccountsPage() {
                               />
                             </svg>
                           ) : null}
-                          {testLoading ? "Buscando..." : "Buscar"}
+                          {testLoading ? t("test.searching") : t("test.search")}
                         </button>
                       </div>
                       {testResult &&

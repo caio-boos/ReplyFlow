@@ -3,6 +3,9 @@ import { getOwnerSession, getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { encrypt } from "@/lib/crypto/encryption";
 import { FieldValue } from "firebase-admin/firestore";
+import { getT } from "@/lib/i18n/server";
+import { assertWithinLimit } from "@/lib/billing/service";
+import { billingErrorResponse } from "@/lib/billing/http";
 
 const PROVIDER_DEFAULTS: Record<
   string,
@@ -24,9 +27,10 @@ const PROVIDER_DEFAULTS: Record<
 };
 
 export async function GET() {
+  const tc = await getT("common");
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const db = getAdminDb();
   const snap = await db
@@ -65,9 +69,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const tc = await getT("common");
+  const t = await getT("stores");
   const session = await getOwnerSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const body = await req.json();
   const {
@@ -88,12 +94,18 @@ export async function POST(req: NextRequest) {
 
   if (!label || !email || !password || !provider) {
     return NextResponse.json(
-      { error: "label, email, password and provider are required" },
+      { error: t("api.requiredFields") },
       { status: 400 },
     );
   }
 
   const defaults = PROVIDER_DEFAULTS[provider] ?? PROVIDER_DEFAULTS.other;
+
+  try {
+    await assertWithinLimit(session.uid, "stores");
+  } catch (err) {
+    return billingErrorResponse(err);
+  }
 
   const db = getAdminDb();
   const docRef = await db.collection("accounts").add({

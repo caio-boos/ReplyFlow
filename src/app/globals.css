@@ -142,6 +142,8 @@ html.light-theme .bg-purple-600.text-white   { color: #ffffff; }
 html.light-theme .bg-purple-700.text-white   { color: #ffffff; }
 html.light-theme .bg-gray-700.text-white     { color: #ffffff; }
 html.light-theme .bg-gray-600.text-white     { color: #ffffff; }
+html.light-theme .bg-red-600.text-white      { color: #ffffff; }
+html.light-theme .bg-red-500\/90.text-white  { color: #ffffff; }
 
 /* Divide lines */
 html.light-theme .divide-white\/4 > * + * { border-color: rgb(148 163 184 / 25%); }
@@ -157,4 +159,44 @@ html.light-theme .bg-gray-900\/60.z-50 { background-color: rgb(255 255 255 / 97%
 /* Logo invert for light mode (white logo → dark) */
 html.light-theme img[alt="ReplyFlow"] {
   filter: invert(1) brightness(0.2);
+}
+
+/* ─── Scrollbars: thin + dark (global, all scrollable elements) ───────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #3f3f46;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #52525b;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html.light-theme * {
+  scrollbar-color: #94a3b8 transparent;
+}
+
+html.light-theme ::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+}
+
+html.light-theme ::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
 }

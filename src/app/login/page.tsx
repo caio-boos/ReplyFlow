@@ -7,6 +7,8 @@ import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, getIdToken } from "firebase/auth";
 import { getClientAuth } from "@/lib/firebase/client";
+import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
+import { useT } from "@/lib/i18n/client";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,6 +39,7 @@ const fadeUp = {
 // ─── Marketing panel ──────────────────────────────────────────────────────────
 
 function MarketingPanel() {
+  const t = useT("auth");
   const pct = useCountUp(87);
   const sec = useCountUp(90);
   const roi = useCountUp(3);
@@ -69,7 +72,7 @@ function MarketingPanel() {
           <motion.div variants={fadeUp} transition={{ duration: 0.45 }}>
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/8 px-3 py-1 text-[11px] font-medium text-emerald-400">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-              Active protection
+              {t("login.panel.badge")}
             </span>
           </motion.div>
 
@@ -78,9 +81,9 @@ function MarketingPanel() {
             transition={{ duration: 0.5 }}
             className="text-[2rem] font-black leading-[1.1] tracking-tight text-white"
           >
-            Your gateway.
+            {t("login.panel.titleLine1")}
             <br />
-            <span className="text-emerald-400">Protected 24/7.</span>
+            <span className="text-emerald-400">{t("login.panel.titleLine2")}</span>
           </motion.h2>
 
           <motion.p
@@ -88,8 +91,7 @@ function MarketingPanel() {
             transition={{ duration: 0.45 }}
             className="max-w-xs text-sm leading-relaxed text-zinc-400"
           >
-            ReplyFlow handles every complaint before it becomes a chargeback.
-            One tool. No missed emails. No gateway suspensions.
+            {t("login.panel.body")}
           </motion.p>
         </div>
 
@@ -103,19 +105,19 @@ function MarketingPanel() {
             {
               value: pct,
               suffix: "%",
-              label: "chargebacks stopped",
+              label: t("login.panel.stats.chargebacks"),
               color: "text-amber-400",
             },
             {
               value: sec,
               suffix: "s",
-              label: "avg. reply time",
+              label: t("login.panel.stats.replyTime"),
               color: "text-sky-400",
             },
             {
               value: roi,
               suffix: "×",
-              label: "avg. ROI",
+              label: t("login.panel.stats.roi"),
               color: "text-emerald-400",
             },
           ].map((s, i) => (
@@ -153,9 +155,7 @@ function MarketingPanel() {
             ))}
           </div>
           <p className="text-sm leading-relaxed text-zinc-400">
-            &ldquo;My Shopify Payments got suspended once. After ReplyFlow, I
-            dropped from 2.3% to 0.4% chargeback rate in six weeks. Haven&apos;t
-            had a gateway issue since.&rdquo;
+            &ldquo;{t("login.panel.testimonial.quote")}&rdquo;
           </p>
           <div className="mt-4 flex items-center gap-2.5 border-t border-white/6 pt-3.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-zinc-800 text-[10px] font-bold text-zinc-400">
@@ -166,7 +166,7 @@ function MarketingPanel() {
                 Mateus R.
               </p>
               <p className="text-[10px] text-zinc-600">
-                Dropshipping · 800+ orders/mo
+                {t("login.panel.testimonial.role")}
               </p>
             </div>
           </div>
@@ -179,7 +179,7 @@ function MarketingPanel() {
         transition={{ duration: 0.4 }}
         className="text-[11px] text-zinc-700"
       >
-        © {new Date().getFullYear()} ReplyFlow. All rights reserved.
+        {t("shared.rights", { year: String(new Date().getFullYear()) })}
       </motion.p>
     </motion.div>
   );
@@ -231,6 +231,7 @@ function EyeIcon({ open }: { open: boolean }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
+  const t = useT("auth");
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -250,7 +251,7 @@ export default function LoginPage() {
         password,
       );
       if (!credential.user.emailVerified) {
-        setError("E-mail não verificado. Verifique sua caixa de entrada.");
+        setError(t("login.errors.emailNotVerified"));
         setLoading(false);
         return;
       }
@@ -264,7 +265,7 @@ export default function LoginPage() {
         router.push("/dashboard");
       } else {
         const data = await res.json();
-        setError(data.error ?? "Erro ao fazer login");
+        setError(data.error ?? t("login.errors.generic"));
       }
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
@@ -273,11 +274,11 @@ export default function LoginPage() {
         code === "auth/wrong-password" ||
         code === "auth/user-not-found"
       ) {
-        setError("E-mail ou senha incorretos");
+        setError(t("login.errors.invalidCredentials"));
       } else if (code === "auth/too-many-requests") {
-        setError("Muitas tentativas. Aguarde alguns minutos.");
+        setError(t("login.errors.tooManyRequests"));
       } else {
-        setError("Erro ao fazer login");
+        setError(t("login.errors.generic"));
       }
     }
     setLoading(false);
@@ -310,6 +311,10 @@ export default function LoginPage() {
         {/* bg subtle glow */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_70%_-10%,rgba(16,185,129,0.05),transparent)]" />
 
+        <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+          <LanguageSwitcher variant="public" />
+        </div>
+
         {/* Mobile logo */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -337,10 +342,10 @@ export default function LoginPage() {
         >
           <div className="mb-7">
             <h1 className="text-xl font-black tracking-tight text-white">
-              Bem-vindo de volta
+              {t("login.title")}
             </h1>
             <p className="mt-1 text-sm text-zinc-500">
-              Acesse seu painel de controle
+              {t("login.subtitle")}
             </p>
           </div>
 
@@ -384,7 +389,7 @@ export default function LoginPage() {
               className="space-y-1.5"
             >
               <label className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-                E-mail
+                {t("shared.emailLabel")}
               </label>
               <input
                 type="email"
@@ -393,7 +398,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-white/8 bg-white/4 px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition-all focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
-                placeholder="admin@minhaloja.com"
+                placeholder={t("shared.emailPlaceholder")}
               />
             </motion.div>
 
@@ -403,7 +408,7 @@ export default function LoginPage() {
               className="space-y-1.5"
             >
               <label className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-                Senha
+                {t("shared.passwordLabel")}
               </label>
               <div className="relative">
                 <input
@@ -420,7 +425,11 @@ export default function LoginPage() {
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute inset-y-0 right-3 flex items-center text-zinc-600 transition-colors hover:text-zinc-400"
                   tabIndex={-1}
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  aria-label={
+                    showPassword
+                      ? t("shared.hidePassword")
+                      : t("shared.showPassword")
+                  }
                 >
                   <EyeIcon open={showPassword} />
                 </button>
@@ -458,22 +467,22 @@ export default function LoginPage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                       />
                     </svg>
-                    Entrando...
+                    {t("login.submitting")}
                   </span>
                 ) : (
-                  "Entrar"
+                  t("login.submit")
                 )}
               </button>
             </motion.div>
           </motion.form>
 
           <p className="mt-6 text-center text-xs text-zinc-600">
-            Não tem conta?{" "}
+            {t("login.noAccount")}{" "}
             <Link
               href="/register"
               className="text-zinc-400 transition-colors hover:text-white"
             >
-              Criar conta grátis
+              {t("login.createAccount")}
             </Link>
           </p>
         </motion.div>

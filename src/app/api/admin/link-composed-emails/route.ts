@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { matchOrCreateCustomer } from "@/lib/customer/identifier";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * Backfill pontual: vincula e-mails enviados pelo "Compor E-mail" que ficaram
@@ -12,13 +13,16 @@ import { matchOrCreateCustomer } from "@/lib/customer/identifier";
  */
 async function runBackfill() {
   const session = await getSession();
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const t = await getT("settings");
+  if (!session) {
+    const tc = await getT("common");
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
+  }
 
   const db = getAdminDb();
   const ownedIds = new Set(await getOwnedAccountIds(db, session.uid));
   if (ownedIds.size === 0)
-    return NextResponse.json({ linked: 0, message: "Nenhuma loja encontrada." });
+    return NextResponse.json({ linked: 0, message: t("admin.noStores") });
 
   const snap = await db
     .collection("emails")
@@ -68,8 +72,8 @@ async function runBackfill() {
     ...(errors.length > 0 ? { errors } : {}),
     message:
       linked > 0
-        ? `${linked} e-mail(s) vinculados às conversas dos clientes.`
-        : "Nenhum e-mail pendente de vínculo.",
+        ? t("admin.linked", { count: linked })
+        : t("admin.nothingToLink"),
   });
 }
 

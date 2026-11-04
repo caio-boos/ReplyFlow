@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getLocale, getT } from "@/lib/i18n/server";
+import { LOCALE_META } from "@/lib/i18n/config";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
@@ -13,14 +15,22 @@ function getClient() {
 }
 
 export async function POST(req: NextRequest) {
+  const tc = await getT("common");
+  const t = await getT("inbox");
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const { text, emailId } = await req.json();
   if (!text || typeof text !== "string") {
-    return NextResponse.json({ error: "Missing text" }, { status: 400 });
+    return NextResponse.json({ error: t("api.missingText") }, { status: 400 });
   }
+
+  // Traduz para o idioma da interface de quem está lendo.
+  const targetLanguage = LOCALE_META[await getLocale()].aiName;
 
   const completion = await getClient().chat.completions.create({
     model: "gpt-4o-mini",
@@ -28,7 +38,7 @@ export async function POST(req: NextRequest) {
       {
         role: "system",
         content:
-          "Translate the following text to Brazilian Portuguese. Return only the translation, no explanations.",
+          `Translate the following text to ${targetLanguage}. Return only the translation, no explanations.`,
       },
       { role: "user", content: text.slice(0, 3000) },
     ],

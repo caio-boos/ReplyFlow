@@ -5,6 +5,7 @@ import Link from "next/link";
 import Paginator from "../Paginator";
 import { useStoreContext } from "../store-context";
 import { toast } from "sonner";
+import { useFormat, useT } from "@/lib/i18n/client";
 
 interface AccountOption {
   id: string;
@@ -33,30 +34,34 @@ interface RemarketingItem {
   createdAt: string | null;
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<
+  RemarketingItem["status"],
+  { labelKey: `remarketing.status.${RemarketingItem["status"]}`; color: string; dot: string }
+> = {
   sent: {
-    label: "Enviado",
+    labelKey: "remarketing.status.sent",
     color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     dot: "bg-emerald-400",
   },
   failed: {
-    label: "Falhou",
+    labelKey: "remarketing.status.failed",
     color: "bg-red-500/10 text-red-400 border-red-500/20",
     dot: "bg-red-400",
   },
   replied: {
-    label: "Respondido",
+    labelKey: "remarketing.status.replied",
     color: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     dot: "bg-blue-400",
   },
   recovered: {
-    label: "Recuperado ✓",
+    labelKey: "remarketing.status.recovered",
     color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
     dot: "bg-yellow-400",
   },
 };
 
 function StatusBadge({ status }: { status: string }) {
+  const t = useT("marketing");
   const cfg =
     STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.sent;
   return (
@@ -64,26 +69,28 @@ function StatusBadge({ status }: { status: string }) {
       className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium border ${cfg.color}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-      {cfg.label}
+      {t(cfg.labelKey)}
     </span>
   );
 }
 
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+};
 
 const ACCOUNT_FILTER_KEY = "replyflow.remarketing.accountFilter"; // kept for localStorage migration only
 
 export default function RemarketingPage() {
   const { selectedAccountId, loading: storeLoading } = useStoreContext();
+  const t = useT("marketing");
+  const tc = useT("common");
+  const f = useFormat();
+  const formatDate = (iso: string | null) => (iso ? f.date(iso, DATE_FORMAT) : "—");
+  const formatMoney = (value: number) => f.number(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const [items, setItems] = useState<RemarketingItem[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -130,13 +137,13 @@ export default function RemarketingPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(data.message ?? "Concluído!");
+        toast.success(data.message ?? t("remarketing.toasts.done"));
         fetchData();
       } else {
-        toast.error(data.error ?? "Erro");
+        toast.error(data.error ?? t("remarketing.toasts.error"));
       }
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setTriggering(false);
   }
@@ -152,19 +159,17 @@ export default function RemarketingPage() {
       const data = await res.json();
       const recovered = data.recovered ?? 0;
       if (!res.ok) {
-        toast.error(data.error ?? "Erro");
+        toast.error(data.error ?? t("remarketing.toasts.error"));
       } else if (recovered === 0) {
-        toast.info(data.message ?? "Nenhuma recuperação nova encontrada.");
+        toast.info(data.message ?? t("remarketing.toasts.noNewRecoveries"));
       } else if (selectedAccountId !== "all") {
-        toast.success(
-          `${recovered} carrinho(s) recuperado(s). Selecione "Todas as lojas" para ver todos.`,
-        );
+        toast.success(t("remarketing.toasts.recoveredSelectAll", { count: recovered }));
       } else {
-        toast.success(`${recovered} carrinho(s) recuperado(s)!`);
+        toast.success(t("remarketing.toasts.recovered", { count: recovered }));
       }
       if (res.ok) fetchData();
     } catch {
-      toast.error("Erro de conexão");
+      toast.error(tc("states.networkError"));
     }
     setCheckingRecovery(false);
   }
@@ -201,7 +206,7 @@ export default function RemarketingPage() {
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
               <span className="text-sm font-medium text-gray-300">
-                Preview do e-mail
+                {t("remarketing.preview.title")}
               </span>
               <button
                 onClick={() => setPreviewId(null)}
@@ -225,7 +230,7 @@ export default function RemarketingPage() {
             <iframe
               src={`/api/remarketing/${previewId}/preview`}
               className="w-full h-150 border-0"
-              title="Email preview"
+              title={t("remarketing.preview.title")}
             />
           </div>
         </div>
@@ -233,10 +238,9 @@ export default function RemarketingPage() {
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-100">Remarketing</h1>
+          <h1 className="text-xl font-semibold text-gray-100">{t("remarketing.title")}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Carrinhos abandonados — cupom de 20% de desconto enviado
-            automaticamente
+            {t("remarketing.subtitle")}
           </p>
         </div>
         <div className="flex flex-col sm:items-end gap-2">
@@ -281,7 +285,7 @@ export default function RemarketingPage() {
                     />
                   </svg>
                 )}
-                Verificar recuperações
+                {t("remarketing.actions.checkRecovery")}
               </button>
               <button
                 onClick={triggerCron}
@@ -323,7 +327,7 @@ export default function RemarketingPage() {
                     />
                   </svg>
                 )}
-                Buscar carrinhos agora
+                {t("remarketing.actions.fetchNow")}
               </button>
             </div>
           </div>
@@ -333,26 +337,26 @@ export default function RemarketingPage() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               {
-                label: "Total processados",
+                label: t("remarketing.stats.total"),
                 value: stats.total,
                 color: "text-gray-100",
               },
               {
-                label: "Enviados com sucesso",
+                label: t("remarketing.stats.sent"),
                 value: stats.sent,
                 color: "text-emerald-400",
               },
               {
-                label: "Recuperados",
+                label: t("remarketing.stats.recovered"),
                 value: stats.recovered,
                 color: "text-yellow-400",
               },
               {
-                label: "Respondidos",
+                label: t("remarketing.stats.replied"),
                 value: stats.replied,
                 color: "text-blue-400",
               },
-              { label: "Falhos", value: stats.failed, color: "text-red-400" },
+              { label: t("remarketing.stats.failed"), value: stats.failed, color: "text-red-400" },
             ].map((s) => (
               <div
                 key={s.label}
@@ -386,7 +390,7 @@ export default function RemarketingPage() {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              Carregando...
+              {tc("states.loading")}
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 border border-white/6 rounded-2xl bg-gray-900/30 text-gray-600">
@@ -404,17 +408,16 @@ export default function RemarketingPage() {
                 />
               </svg>
               <p className="text-sm font-medium text-gray-500">
-                Nenhum email de remarketing enviado ainda.
+                {t("remarketing.empty.title")}
               </p>
               <p className="text-xs text-gray-600 mt-1 text-center max-w-xs">
-                Conecte uma loja Shopify e ative o remarketing nas configurações
-                da conta.
+                {t("remarketing.empty.description")}
               </p>
               <Link
                 href="/accounts"
                 className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-medium text-white transition-colors"
               >
-                Configurar conta Shopify
+                {t("remarketing.empty.cta")}
               </Link>
             </div>
           ) : (
@@ -463,9 +466,7 @@ export default function RemarketingPage() {
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-sm font-semibold text-gray-200">
                           {item.currency}{" "}
-                          {item.cartValue.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                          })}
+                          {formatMoney(item.cartValue)}
                         </span>
                         <StatusBadge status={item.status} />
                         <span className="text-xs text-gray-600 hidden lg:block">
@@ -493,7 +494,7 @@ export default function RemarketingPage() {
                           {/* Cart details */}
                           <div>
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                              Itens do carrinho
+                              {t("remarketing.details.cartItems")}
                             </p>
                             <div className="space-y-1.5">
                               {item.lineItems.map((li, idx) => (
@@ -505,17 +506,15 @@ export default function RemarketingPage() {
                                     {li.quantity}x {li.title}
                                   </span>
                                   <span>
-                                    {item.currency} {li.price.toFixed(2)}
+                                    {item.currency} {formatMoney(li.price)}
                                   </span>
                                 </div>
                               ))}
                               <div className="flex justify-between text-gray-200 text-xs font-semibold border-t border-white/6 pt-1.5 mt-1">
-                                <span>Total</span>
+                                <span>{t("remarketing.details.total")}</span>
                                 <span>
                                   {item.currency}{" "}
-                                  {item.cartValue.toLocaleString("pt-BR", {
-                                    minimumFractionDigits: 2,
-                                  })}
+                                  {formatMoney(item.cartValue)}
                                 </span>
                               </div>
                             </div>
@@ -524,19 +523,19 @@ export default function RemarketingPage() {
                           {/* Remarketing details */}
                           <div>
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                              Detalhes do remarketing
+                              {t("remarketing.details.title")}
                             </p>
                             <div className="space-y-2.5">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-500">
-                                  Cupom enviado:
+                                  {t("remarketing.details.couponSent")}
                                 </span>
                                 <span className="font-mono text-xs bg-gray-800 border border-white/10 px-2 py-0.5 rounded text-yellow-400">
                                   {item.couponCode}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span>Enviado em:</span>
+                                <span>{t("remarketing.details.sentAt")}</span>
                                 <span className="text-gray-400">
                                   {formatDate(item.sentAt)}
                                 </span>
@@ -548,7 +547,7 @@ export default function RemarketingPage() {
                                   rel="noopener noreferrer"
                                   className="text-xs text-indigo-400 hover:text-indigo-300 underline"
                                 >
-                                  Ver carrinho na Shopify ↗
+                                  {t("remarketing.details.viewCart")}
                                 </a>
                               </div>
                               {item.status === "replied" &&
@@ -571,14 +570,14 @@ export default function RemarketingPage() {
                                           d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                                         />
                                       </svg>
-                                      Ver resposta do cliente →
+                                      {t("remarketing.details.viewReply")}
                                     </Link>
                                   </div>
                                 )}
                               {item.status === "recovered" && (
                                 <div className="flex items-center gap-2 text-xs">
                                   <span className="text-gray-500">
-                                    Pedido gerado:
+                                    {t("remarketing.details.orderCreated")}
                                   </span>
                                   <span className="font-semibold text-yellow-400">
                                     {item.recoveredOrderName ?? "—"}
@@ -617,7 +616,7 @@ export default function RemarketingPage() {
                                       d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                                     />
                                   </svg>
-                                  Ver e-mail enviado
+                                  {t("remarketing.details.viewEmail")}
                                 </button>
                               )}
                             </div>

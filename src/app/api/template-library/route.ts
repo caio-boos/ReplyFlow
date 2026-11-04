@@ -4,25 +4,31 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { FieldValue } from "firebase-admin/firestore";
 import { TemplateType } from "@/lib/types";
+import { getT } from "@/lib/i18n/server";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
+  const t = await getT("compose");
+  const tc = await getT("common");
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const accountId = req.nextUrl.searchParams.get("accountId");
   const type = req.nextUrl.searchParams.get("type") as TemplateType | null;
 
   if (!accountId || !type)
     return NextResponse.json(
-      { error: "accountId and type required" },
+      { error: t("api.accountAndTypeRequired") },
       { status: 400 },
     );
 
   const db = getAdminDb();
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(accountId))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
 
   const snap = await db
     .collection("templateLibrary")
@@ -37,8 +43,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
+  const t = await getT("compose");
+  const tc = await getT("common");
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const body = await req.json();
   const { accountId, type, name, config } = body as {
@@ -50,14 +61,14 @@ export async function POST(req: NextRequest) {
 
   if (!accountId || !type || !name || !config)
     return NextResponse.json(
-      { error: "accountId, type, name and config required" },
+      { error: t("api.templateFieldsRequired") },
       { status: 400 },
     );
 
   const db = getAdminDb();
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(accountId))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
 
   const ref = db.collection("templateLibrary").doc();
   await ref.set({

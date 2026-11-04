@@ -6,11 +6,17 @@ import { decrypt } from "@/lib/crypto/encryption";
 import { renderEmailHtml } from "@/lib/email/html-template";
 import { sendEmail } from "@/lib/email/smtp";
 import { ReplyTemplateConfig } from "@/lib/types";
+import { getT } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
+  const t = await getT("compose");
+  const tc = await getT("common");
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const body = await req.json();
   const { accountId, testEmail, template } = body as {
@@ -21,18 +27,21 @@ export async function POST(req: NextRequest) {
 
   if (!accountId || !testEmail)
     return NextResponse.json(
-      { error: "accountId and testEmail required" },
+      { error: t("api.accountAndTestEmailRequired") },
       { status: 400 },
     );
 
   const db = getAdminDb();
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(accountId))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
 
   const accountDoc = await db.collection("accounts").doc(accountId).get();
   if (!accountDoc.exists)
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: t("api.accountNotFound") },
+      { status: 404 },
+    );
 
   const account = accountDoc.data()!;
 
@@ -43,7 +52,7 @@ export async function POST(req: NextRequest) {
     !account.encryptedPassword
   )
     return NextResponse.json(
-      { error: "Credenciais SMTP não configuradas na conta" },
+      { error: t("api.smtpMissing") },
       { status: 400 },
     );
 
@@ -84,13 +93,13 @@ Equipe ${storeName}`;
 
     return NextResponse.json({
       success: true,
-      message: "Email de teste enviado!",
+      message: t("api.testSent"),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("Erro ao enviar email de teste (reply template):", error);
     return NextResponse.json(
-      { error: "Falha ao enviar email de teste", details: message },
+      { error: t("api.testFailed"), details: message },
       { status: 500 },
     );
   }

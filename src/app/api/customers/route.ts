@@ -3,10 +3,11 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { FieldValue } from "firebase-admin/firestore";
+import { getT } from "@/lib/i18n/server";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: (await getT("common"))("states.unauthorized") }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 500);
@@ -37,12 +38,12 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: (await getT("common"))("states.unauthorized") }, { status: 401 });
 
   // Manually link two customers together (merge)
   const { sourceId, targetId } = await req.json();
   if (!sourceId || !targetId) {
-    return NextResponse.json({ error: "sourceId and targetId required" }, { status: 400 });
+    return NextResponse.json({ error: (await getT("workspace"))("api.mergeIdsRequired") }, { status: 400 });
   }
 
   const db = getAdminDb();
@@ -52,7 +53,7 @@ export async function PATCH(req: NextRequest) {
   ]);
 
   if (!sourceDoc.exists || !targetDoc.exists) {
-    return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    return NextResponse.json({ error: (await getT("workspace"))("api.customerNotFound") }, { status: 404 });
   }
 
   const source = sourceDoc.data()!;

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { createT, localeFromRequest } from "@/lib/i18n/server";
 
 export async function GET(
   req: NextRequest,
@@ -32,7 +33,8 @@ export async function GET(
   const snap = await query.limit(1).get();
 
   if (snap.empty) {
-    return new Response("Página não encontrada", {
+    const t = createT(localeFromRequest(req), "marketing");
+    return new Response(t("publicPage.notFound"), {
       status: 404,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });

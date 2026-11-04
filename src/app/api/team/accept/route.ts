@@ -6,19 +6,21 @@ import {
 } from "@/lib/auth/session";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 import { hashInviteToken } from "@/lib/team/invites";
+import { getT } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
+  const t = await getT("auth");
   const body = await req.json();
   const token = typeof body.token === "string" ? body.token : "";
   const password = typeof body.password === "string" ? body.password : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
 
   if (!token) {
-    return NextResponse.json({ error: "Convite inválido." }, { status: 400 });
+    return NextResponse.json({ error: t("api.inviteInvalid") }, { status: 400 });
   }
   if (password.length < 8) {
     return NextResponse.json(
-      { error: "A senha precisa ter ao menos 8 caracteres." },
+      { error: t("api.passwordTooShort") },
       { status: 400 },
     );
   }
@@ -34,12 +36,12 @@ export async function POST(req: NextRequest) {
   const data = doc?.data();
   if (!doc || !data || data.status !== "pending") {
     return NextResponse.json(
-      { error: "Convite inválido ou já utilizado." },
+      { error: t("api.inviteUsed") },
       { status: 404 },
     );
   }
   if (typeof data.inviteExpiresAt === "number" && data.inviteExpiresAt < Date.now()) {
-    return NextResponse.json({ error: "Convite expirado." }, { status: 410 });
+    return NextResponse.json({ error: t("api.inviteExpired") }, { status: 410 });
   }
 
   const email = data.email as string;
@@ -68,10 +70,7 @@ export async function POST(req: NextRequest) {
       .get();
     if (indexSnap.exists && indexSnap.data()?.membershipId !== doc.id) {
       return NextResponse.json(
-        {
-          error:
-            "Este e-mail já faz parte de outra equipe. Use outro endereço de e-mail.",
-        },
+        { error: t("api.emailInOtherTeam") },
         { status: 409 },
       );
     }

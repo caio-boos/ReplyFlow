@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Paginator from "../Paginator";
 import { useStoreContext } from "../store-context";
+import { useT } from "@/lib/i18n/client";
 
 interface Customer {
   id: string;
@@ -40,6 +41,8 @@ function avatarGradient(id: string) {
 
 export default function CustomersPage() {
   const { selectedAccountId } = useStoreContext();
+  const t = useT("workspace");
+  const tc = useT("common");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -85,14 +88,14 @@ export default function CustomersPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-100">Clientes</h1>
+          <h1 className="text-xl font-semibold text-gray-100">{t("customers.title")}</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            Perfis automáticos criados a partir dos e-mails recebidos
+            {t("customers.subtitle")}
           </p>
         </div>
         {!loading && customers.length > 0 && (
           <span className="shrink-0 text-xs px-2.5 py-1 bg-gray-800/80 border border-white/6 text-gray-400 rounded-lg">
-            {customers.length} cliente{customers.length !== 1 ? "s" : ""}
+            {t("customers.count", { count: customers.length })}
           </span>
         )}
       </div>
@@ -116,7 +119,7 @@ export default function CustomersPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome, e-mail ou pedido…"
+            placeholder={t("customers.searchPlaceholder")}
             className="w-full bg-gray-900/60 border border-white/6 rounded-xl pl-10 pr-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all"
           />
         </div>
@@ -144,7 +147,7 @@ export default function CustomersPage() {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          Carregando...
+          {tc("states.loading")}
         </div>
       ) : customers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 border border-white/6 rounded-2xl bg-gray-900/30 text-gray-600">
@@ -162,16 +165,16 @@ export default function CustomersPage() {
             />
           </svg>
           <p className="text-sm font-medium text-gray-500">
-            Nenhum cliente identificado
+            {t("customers.empty.title")}
           </p>
           <p className="text-xs text-gray-600 mt-1 text-center max-w-xs">
-            Os perfis são criados automaticamente quando e-mails chegam.
+            {t("customers.empty.hint")}
           </p>
           <Link
             href="/accounts"
             className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-medium text-white transition-colors"
           >
-            Configurar conta de e-mail
+            {t("customers.empty.cta")}
           </Link>
         </div>
       ) : filtered.length === 0 ? (
@@ -190,13 +193,13 @@ export default function CustomersPage() {
             />
           </svg>
           <p className="text-sm text-gray-500">
-            Nenhum resultado para &ldquo;{search}&rdquo;
+            {t("customers.noResults", { query: search })}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
           {paginatedCustomers.map((c) => {
-            const displayName = c.name || "(sem nome)";
+            const displayName = c.name || t("customers.unnamed");
             const initials = getInitials(displayName);
             const gradient = avatarGradient(c.id);
             return (
@@ -221,8 +224,9 @@ export default function CustomersPage() {
                     </span>
                     {c.suggestedLinks.length > 0 && (
                       <span className="text-xs px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md">
-                        {c.suggestedLinks.length} sugest
-                        {c.suggestedLinks.length === 1 ? "ão" : "ões"}
+                        {t("customers.suggestions", {
+                          count: c.suggestedLinks.length,
+                        })}
                       </span>
                     )}
                   </div>
@@ -243,9 +247,13 @@ export default function CustomersPage() {
                   </div>
                   {c.orderNumbers.length > 0 && (
                     <p className="text-xs text-gray-600 mt-1">
-                      Pedidos: {c.orderNumbers.slice(0, 4).join(", ")}
-                      {c.orderNumbers.length > 4 &&
-                        ` +${c.orderNumbers.length - 4}`}
+                      {t("customers.orders", {
+                        list:
+                          c.orderNumbers.slice(0, 4).join(", ") +
+                          (c.orderNumbers.length > 4
+                            ? ` +${c.orderNumbers.length - 4}`
+                            : ""),
+                      })}
                     </p>
                   )}
                 </div>
@@ -257,7 +265,9 @@ export default function CustomersPage() {
                       {c.linkedEmailIds.length}
                     </p>
                     <p className="text-xs text-gray-600">
-                      e-mail{c.linkedEmailIds.length !== 1 ? "s" : ""}
+                      {t("customers.emailsUnit", {
+                        count: c.linkedEmailIds.length,
+                      })}
                     </p>
                   </div>
                   <svg

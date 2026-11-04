@@ -5,6 +5,7 @@ import { getAbandonedCheckouts } from "@/lib/shopify/client";
 import { sendEmail } from "@/lib/email/smtp";
 import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
 import { FieldValue } from "firebase-admin/firestore";
+import { entitlementMemo } from "@/lib/billing/store";
 
 const DEFAULT_COUPON_CODE = process.env.REMARKETING_COUPON_CODE ?? "CARRINHO20";
 const DEFAULT_DISCOUNT_PERCENT = 20;
@@ -125,12 +126,21 @@ async function run(req: NextRequest) {
 
   let totalSent = 0;
   const now = new Date();
+  const entitlementFor = entitlementMemo();
 
   for (const accountDoc of accountsSnap.docs) {
     const data = accountDoc.data();
 
     if (!data.shopifyDomain || !data.encryptedShopifyToken) continue;
     if (!data.remarketingEnabled) continue;
+
+    const entitlement = await entitlementFor(data.userId as string | undefined);
+    if (
+      entitlement &&
+      (!entitlement.automation || !entitlement.features.includes("remarketing"))
+    ) {
+      continue;
+    }
 
     let shopifyToken: string;
     try {

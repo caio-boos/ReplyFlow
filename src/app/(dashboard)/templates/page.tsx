@@ -3,11 +3,13 @@
 import { useStoreContext } from "../store-context";
 import TemplateManager from "./TemplateManager";
 import { useState, useEffect } from "react";
+import { useT } from "@/lib/i18n/client";
 
 type Tab = "reply" | "remarketing";
 
 export default function TemplatesPage() {
   const { selectedAccountId } = useStoreContext();
+  const t = useT("compose");
   const [activeTab, setActiveTab] = useState<Tab>("reply");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
@@ -25,13 +27,13 @@ export default function TemplatesPage() {
   const tabs: { id: Tab; label: string; desc: string }[] = [
     {
       id: "reply",
-      label: "Resposta IA",
-      desc: "Emails enviados automaticamente pela IA",
+      label: t("library.tabs.reply"),
+      desc: t("library.tabs.replyDesc"),
     },
     {
       id: "remarketing",
-      label: "Remarketing",
-      desc: "Emails de carrinho abandonado",
+      label: t("library.tabs.remarketing"),
+      desc: t("library.tabs.remarketingDesc"),
     },
   ];
 
@@ -40,12 +42,14 @@ export default function TemplatesPage() {
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold text-gray-100">
-          Templates de Email
+          {t("library.title")}
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Crie e gerencie templates. Apenas o template marcado como{" "}
-          <strong className="text-gray-400">Ativo</strong> será usado nos
-          envios.
+          {t.rich("library.description", {
+            strong: (chunks) => (
+              <strong className="text-gray-400">{chunks}</strong>
+            ),
+          })}
         </p>
       </div>
 

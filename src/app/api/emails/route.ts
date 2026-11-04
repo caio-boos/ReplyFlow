@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getT } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
@@ -7,9 +8,13 @@ import { Timestamp } from "firebase-admin/firestore";
 const PAGE_SIZE = 100;
 
 export async function GET(req: NextRequest) {
+  const tc = await getT("common");
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const db = getAdminDb();
   const { searchParams } = new URL(req.url);

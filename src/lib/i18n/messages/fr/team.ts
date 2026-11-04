@@ -1,0 +1,77 @@
+import type { Messages } from "../en";
+
+const team: Messages["team"] = {
+  title: "Membres de l’équipe",
+  subtitle: "Invitez des personnes, choisissez leurs boutiques et définissez précisément ce à quoi chacune peut accéder.",
+  invite: "Inviter un membre",
+  noStores: "Ajoutez au moins une boutique avec SMTP configuré avant d’inviter des membres.",
+  empty: {
+    title: "Aucun membre pour l’instant.",
+    hint: "Invitez quelqu’un à collaborer sur vos boutiques.",
+  },
+  status: {
+    active: "Actif",
+    pending: "Invitation envoyée",
+  },
+  summary: "{count, plural, one {# boutique} other {# boutiques}} · {areas}",
+  noAccess: "aucun accès",
+  actions: {
+    resend: "Renvoyer",
+    permissions: "Autorisations",
+    remove: "Retirer",
+  },
+  form: {
+    inviteTitle: "Inviter un membre",
+    editTitle: "Modifier les autorisations",
+    inviteHint: "Nous enverrons un e-mail avec un lien pour créer le mot de passe.",
+    editHint: "Les modifications s’appliquent à la prochaine requête du membre.",
+    email: "E-mail",
+    emailPlaceholder: "personne@entreprise.com",
+    name: "Nom (facultatif)",
+    stores: "Boutiques",
+    storesHint: "Le membre ne voit que les données des boutiques sélectionnées.",
+    sendInvite: "Envoyer l’invitation",
+  },
+  toasts: {
+    loadError: "Impossible de charger l’équipe.",
+    saveError: "Impossible d’enregistrer.",
+    updated: "Autorisations mises à jour.",
+    invited: "Invitation envoyée !",
+    resendError: "Impossible de renvoyer l’invitation.",
+    resent: "Invitation renvoyée.",
+    removeError: "Impossible de retirer le membre.",
+    removed: "Membre retiré.",
+  },
+  confirmRemove: {
+    title: "Retirer le membre",
+    description: "{email} perdra immédiatement son accès. Voulez-vous continuer ?",
+    confirm: "Retirer",
+  },
+  api: {
+    invalidEmail: "Adresse e-mail invalide.",
+    selfInvite: "Vous ne pouvez pas vous inviter vous-même.",
+    selectArea: "Sélectionnez au moins une zone d’accès.",
+    selectStore: "Sélectionnez au moins une boutique.",
+    alreadyMember: "Cet e-mail fait déjà partie de l’équipe.",
+    smtpRequiredInvite: "Configurez un compte e-mail (SMTP) avant d’inviter des membres.",
+    smtpRequiredResend: "Configurez un compte e-mail (SMTP) avant d’envoyer des invitations.",
+    inviteSendFailed: "Impossible d’envoyer l’e-mail d’invitation. Vérifiez la configuration SMTP.",
+    emailSendFailed: "Impossible d’envoyer l’e-mail. Vérifiez la configuration SMTP.",
+    alreadyAccepted: "Ce membre a déjà accepté l’invitation.",
+  },
+  email: {
+    subject: "Invitation à rejoindre {workspace} sur ReplyFlow",
+    textIntro: "Vous avez été invité(e) à rejoindre l’équipe de {workspace} sur ReplyFlow.",
+    textAreas: "Accès accordés : {areas}",
+    textCta: "Utilisez le lien ci-dessous pour créer votre mot de passe et activer votre accès :",
+    textExpiry: "Le lien expire dans 7 jours.",
+    heading: "Vous avez été invité(e) dans l’équipe",
+    intro: "Vous avez reçu une invitation à collaborer sur <strong>{workspace}</strong> dans ReplyFlow. Cliquez sur le bouton ci-dessous pour créer votre mot de passe et activer votre accès.",
+    areasLabel: "Accès accordés :",
+    button: "Accepter l’invitation",
+    copyLink: "Ou copiez-collez ce lien dans votre navigateur :",
+    expiry: "Cette invitation expire dans 7 jours. Si vous ne vous attendiez pas à cet e-mail, vous pouvez l’ignorer.",
+  },
+};
+
+export default team;

@@ -2,24 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useFormat, useT } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/types";
 import {
   DEFAULT_VIDEO_EDIT_MODEL_ID,
   EDIT_INTENSITIES,
   EditIntensity,
   findVideoEditModel,
-  INTENSITY_HINTS,
-  INTENSITY_LABELS,
   PRESERVATION_CLAUSE,
   referenceTag,
   REFERENCE_TAG_PATTERN,
   VIDEO_EDIT_MODELS,
   VideoEditModelId,
 } from "@/lib/video/edit-models";
+import { videoErrorMessage } from "@/lib/video/errors";
 import { prepareReferenceImage } from "@/lib/video/reference-image";
 import { compressForUpload } from "@/lib/video/watermark-remover";
 import TimelineSelector from "../marca-dagua/TimelineSelector";
 
 type Status = "idle" | "editing" | "processing" | "done";
+type Stage = keyof Messages["tools"]["stages"];
 
 interface Reference {
   file: File;
@@ -45,6 +47,8 @@ function editSize(width: number, height: number): { w: number; h: number } {
 }
 
 export default function CloneVideoPage() {
+  const t = useT("tools");
+  const f = useFormat();
   const [file, setFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -59,7 +63,7 @@ export default function CloneVideoPage() {
 
   const [status, setStatus] = useState<Status>("idle");
   const [progress, setProgress] = useState(0);
-  const [stage, setStage] = useState("");
+  const [stage, setStage] = useState<Stage | null>(null);
   const [logLine, setLogLine] = useState("");
   const [resultUrl, setResultUrl] = useState("");
   const [predictionId, setPredictionId] = useState("");
@@ -78,6 +82,8 @@ export default function CloneVideoPage() {
   const clipTooShort = clipDuration > 0 && clipDuration < model.minSeconds;
   const clipTooLong = clipDuration > model.maxSeconds;
   // Sem o marcador no prompt o Kling recebe as imagens e simplesmente as ignora.
+  const seconds = (value: number) =>
+    f.number(value, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const referencesUncited =
     model.usesReferenceTags &&
     references.length > 0 &&
@@ -105,11 +111,11 @@ export default function CloneVideoPage() {
     (next: File | undefined) => {
       if (!next) return;
       if (!next.type.startsWith("video/")) {
-        toast.error("Selecione um arquivo de vídeo.");
+        toast.error(t("shared.selectVideo"));
         return;
       }
       if (next.size > MAX_SIZE_MB * 1024 * 1024) {
-        toast.error(`O vídeo precisa ter menos de ${MAX_SIZE_MB}MB.`);
+        toast.error(t("shared.videoTooLarge", { max: MAX_SIZE_MB }));
         return;
       }
       if (videoUrl) URL.revokeObjectURL(videoUrl);
@@ -124,7 +130,7 @@ export default function CloneVideoPage() {
       setVideoUrl(URL.createObjectURL(next));
       setStatus("editing");
     },
-    [videoUrl, resultUrl],
+    [videoUrl, resultUrl, t],
   );
 
   function handleMetadata() {
@@ -141,7 +147,9 @@ export default function CloneVideoPage() {
     if (!files || files.length === 0) return;
     const room = model.maxReferenceImages - references.length;
     if (room <= 0) {
-      toast.error(`${model.label} aceita no máximo ${model.maxReferenceImages} imagem(ns).`);
+      toast.error(
+        t("clone.maxReferences", { model: model.label, count: model.maxReferenceImages }),
+      );
       return;
     }
 
@@ -152,7 +160,7 @@ export default function CloneVideoPage() {
         const prepared = await prepareReferenceImage(raw, references.length + accepted.length);
         accepted.push({ file: prepared, url: URL.createObjectURL(prepared) });
       } catch {
-        toast.error(`Não foi possível ler "${raw.name}".`);
+        toast.error(t("clone.readImageFailed", { name: raw.name }));
       }
     }
     if (accepted.length > 0) setReferences((current) => [...current, ...accepted]);
@@ -190,13 +198,13 @@ export default function CloneVideoPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Falha ao melhorar o prompt.");
+      if (!res.ok) throw new Error(data.error ?? t("errors.improveFailed"));
 
       setPromptBackup(prompt);
       setPrompt(data.prompt.slice(0, MAX_PROMPT_CHARS));
-      toast.success("Prompt reescrito no formato do modelo.");
+      toast.success(t("clone.improved"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao melhorar o prompt.");
+      toast.error(videoErrorMessage(t, err, t("errors.improveFailed")));
     } finally {
       setImproving(false);
     }
@@ -248,24 +256,28 @@ export default function CloneVideoPage() {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       const res = await fetch(`/api/video/clone/${id}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Falha ao consultar o job.");
+      if (!res.ok) throw new Error(data.error ?? t("errors.jobStatusFailed"));
       if (data.ready) return;
       if (data.status === "failed" || data.status === "canceled") {
-        throw new Error(data.error ?? "A IA não conseguiu processar o vídeo.");
+        throw new Error(data.error ?? t("errors.aiFailed"));
       }
     }
-    throw new Error("Tempo esgotado esperando o resultado da IA.");
+    throw new Error(t("errors.aiTimeout"));
   }
 
   async function handleProcess() {
     if (!file) return;
     if (!prompt.trim()) {
-      toast.error("Descreva o que você quer mudar no vídeo.");
+      toast.error(t("clone.describeChanges"));
       return;
     }
     if (clipTooShort || clipTooLong) {
       toast.error(
-        `${model.label} aceita trechos de ${model.minSeconds}s a ${model.maxSeconds}s.`,
+        t("clone.clipRange", {
+          model: model.label,
+          min: model.minSeconds,
+          max: model.maxSeconds,
+        }),
       );
       return;
     }
@@ -274,7 +286,7 @@ export default function CloneVideoPage() {
     setStatus("processing");
     setProgress(0);
     setLogLine("");
-    setStage("Preparando vídeo…");
+    setStage("preparingVideo");
 
     try {
       const referenceBytes = references.reduce((sum, item) => sum + item.file.size, 0);
@@ -288,7 +300,7 @@ export default function CloneVideoPage() {
         onLog: setLogLine,
       });
 
-      setStage("Enviando para a IA…");
+      setStage("uploading");
       setProgress(0);
       const form = new FormData();
       form.append("video", compressed.file);
@@ -299,26 +311,26 @@ export default function CloneVideoPage() {
 
       const res = await fetch("/api/video/clone", { method: "POST", body: form });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Falha ao enviar o vídeo.");
+      if (!res.ok) throw new Error(data.error ?? t("errors.uploadFailed"));
       setPredictionId(data.id);
 
-      setStage("Gerando o novo vídeo (pode levar alguns minutos)…");
+      setStage("generating");
       await waitForPrediction(data.id);
 
-      setStage("Baixando resultado…");
+      setStage("downloading");
       const output = await fetch(`/api/video/clone/${data.id}/download`);
-      if (!output.ok) throw new Error("Falha ao baixar o resultado.");
+      if (!output.ok) throw new Error(t("errors.downloadFailed"));
 
       if (resultUrl) URL.revokeObjectURL(resultUrl);
       setResultUrl(URL.createObjectURL(await output.blob()));
       setStatus("done");
-      toast.success("Vídeo gerado.");
+      toast.success(t("clone.generated"));
     } catch (err) {
       console.error(err);
       setStatus("editing");
-      toast.error(err instanceof Error ? err.message : "Falha ao processar o vídeo.");
+      toast.error(videoErrorMessage(t, err, t("errors.processFailed")));
     } finally {
-      setStage("");
+      setStage(null);
     }
   }
 
@@ -336,7 +348,7 @@ export default function CloneVideoPage() {
     setSize({ w: 0, h: 0 });
     setStatus("idle");
     setProgress(0);
-    setStage("");
+    setStage(null);
     setLogLine("");
   }
 
@@ -353,11 +365,8 @@ export default function CloneVideoPage() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-100">Clonar vídeo com IA</h1>
-        <p className="text-gray-500 text-sm mt-0.5">
-          Reaproveite um vídeo que funciona: descreva as mudanças e a IA regenera
-          o trecho mantendo o movimento original.
-        </p>
+        <h1 className="text-xl font-semibold text-gray-100">{t("clone.title")}</h1>
+        <p className="text-gray-500 text-sm mt-0.5">{t("clone.subtitle")}</p>
       </div>
 
       <div className="flex gap-3 p-4 bg-amber-500/[0.07] border border-amber-500/20 rounded-xl">
@@ -375,8 +384,7 @@ export default function CloneVideoPage() {
           />
         </svg>
         <p className="text-sm text-amber-300/80 leading-relaxed">
-          Use apenas conteúdo próprio ou licenciado. Não gere depoimentos falsos
-          nem altere a aparência de pessoas reais sem autorização delas.
+          {t("clone.disclaimer")}
         </p>
       </div>
 
@@ -418,11 +426,9 @@ export default function CloneVideoPage() {
             />
           </svg>
           <div className="text-center">
-            <p className="text-sm text-gray-300">
-              Arraste um vídeo ou clique para selecionar
-            </p>
+            <p className="text-sm text-gray-300">{t("shared.dropzone")}</p>
             <p className="text-xs text-gray-600 mt-1">
-              MP4, MOV ou WebM · trecho de 2 a 10 segundos · até {MAX_SIZE_MB}MB
+              {t("clone.dropzoneHint", { max: MAX_SIZE_MB })}
             </p>
           </div>
         </label>
@@ -443,7 +449,7 @@ export default function CloneVideoPage() {
               disabled={locked}
               className="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 cursor-pointer"
             >
-              Trocar vídeo
+              {t("shared.changeVideo")}
             </button>
           </div>
 
@@ -487,7 +493,7 @@ export default function CloneVideoPage() {
                       <button
                         onClick={togglePlay}
                         disabled={locked}
-                        aria-label={playing ? "Pausar" : "Reproduzir trecho"}
+                        aria-label={playing ? t("shared.pause") : t("shared.playClip")}
                         className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg bg-white/6 hover:bg-white/10 text-gray-200 disabled:opacity-40 cursor-pointer"
                       >
                         {playing ? (
@@ -520,15 +526,19 @@ export default function CloneVideoPage() {
 
                   {(clipTooShort || clipTooLong) && (
                     <p className="text-xs text-amber-400">
-                      {model.label} aceita trechos de {model.minSeconds}s a{" "}
-                      {model.maxSeconds}s. O trecho atual tem {clipDuration.toFixed(1)}s.
+                      {t("clone.clipRangeCurrent", {
+                        model: model.label,
+                        min: model.minSeconds,
+                        max: model.maxSeconds,
+                        current: seconds(clipDuration),
+                      })}
                     </p>
                   )}
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-3">
                       <label htmlFor="clone-prompt" className="block text-xs text-gray-500">
-                        O que mudar no vídeo
+                        {t("clone.promptLabel")}
                       </label>
                       <div className="flex items-center gap-2">
                         {promptBackup !== null && (
@@ -540,16 +550,16 @@ export default function CloneVideoPage() {
                             disabled={locked || improving}
                             className="text-[11px] text-gray-500 hover:text-gray-300 disabled:opacity-40 cursor-pointer"
                           >
-                            Desfazer
+                            {t("shared.undo")}
                           </button>
                         )}
                         <button
                           onClick={improvePrompt}
                           disabled={locked || improving || !prompt.trim()}
-                          title="Reescreve em inglês, no imperativo e com uma instrução por imagem"
+                          title={t("clone.improveTitle")}
                           className="px-2 py-1 rounded-md text-[11px] bg-white/5 border border-white/6 text-gray-400 hover:text-indigo-300 hover:border-indigo-500/40 disabled:opacity-40 cursor-pointer"
                         >
-                          {improving ? "Melhorando…" : "✨ Melhorar prompt"}
+                          {improving ? t("clone.improving") : t("clone.improve")}
                         </button>
                       </div>
                     </div>
@@ -561,20 +571,23 @@ export default function CloneVideoPage() {
                       maxLength={MAX_PROMPT_CHARS}
                       onChange={(e) => setPrompt(e.target.value)}
                       rows={3}
-                      placeholder={model.promptPlaceholder}
+                      placeholder={t(`clone.models.${model.id}.placeholder`, {
+                        tag: referenceTag(0),
+                      })}
                       className="w-full px-3 py-2 rounded-lg bg-white/3 border border-white/6 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50 resize-y"
                     />
                     <div className="flex justify-between text-[11px] text-gray-600">
-                      <span>Descreva o resultado, não o passo a passo.</span>
+                      <span>{t("clone.promptHint")}</span>
                       <span>
                         {prompt.length}/{MAX_PROMPT_CHARS}
                       </span>
                     </div>
                     {referencesUncited && (
                       <p className="text-[11px] text-amber-400 leading-snug">
-                        Você enviou imagens de referência mas não citou nenhuma no
-                        prompt. O {model.label} ignora imagens que não sejam
-                        mencionadas — clique em {referenceTag(0)} abaixo para inserir.
+                        {t("clone.referencesUncited", {
+                          model: model.label,
+                          tag: referenceTag(0),
+                        })}
                       </p>
                     )}
                   </div>
@@ -583,7 +596,7 @@ export default function CloneVideoPage() {
                     <div className="space-y-2">
                       <div className="flex items-baseline justify-between">
                         <span className="text-xs text-gray-500">
-                          Imagens de referência (rosto ou estilo)
+                          {t("clone.referencesLabel")}
                         </span>
                         <span className="text-[11px] text-gray-600">
                           {references.length}/{model.maxReferenceImages}
@@ -602,7 +615,7 @@ export default function CloneVideoPage() {
                               <button
                                 onClick={() => removeReference(index)}
                                 disabled={locked}
-                                aria-label="Remover imagem"
+                                aria-label={t("clone.removeImage")}
                                 className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded bg-gray-950/80 text-gray-300 hover:text-white disabled:opacity-40 cursor-pointer"
                               >
                                 ×
@@ -612,7 +625,7 @@ export default function CloneVideoPage() {
                               <button
                                 onClick={() => insertTag(referenceTag(index))}
                                 disabled={locked}
-                                title="Inserir no prompt"
+                                title={t("clone.insertInPrompt")}
                                 className="w-20 px-1 py-0.5 rounded text-[10px] font-mono bg-white/5 border border-white/6 text-gray-400 hover:text-indigo-300 hover:border-indigo-500/40 disabled:opacity-40 cursor-pointer truncate"
                               >
                                 {referenceTag(index)}
@@ -643,14 +656,14 @@ export default function CloneVideoPage() {
                       </div>
                       <p className="text-[11px] text-gray-600">
                         {model.usesReferenceTags
-                          ? "Cite a imagem no prompt pelo marcador para o modelo usá-la. Ex.: “substitua a mulher à esquerda por <<<image_1>>>”."
-                          : "As referências ancoram o resultado e reduzem a deformação."}
+                          ? t("clone.referencesTagHint", { tag: referenceTag(0) })
+                          : t("clone.referencesHint")}
                       </p>
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    <span className="text-xs text-gray-500">Modelo</span>
+                    <span className="text-xs text-gray-500">{t("clone.modelLabel")}</span>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {VIDEO_EDIT_MODELS.map((option) => (
                         <button
@@ -671,7 +684,7 @@ export default function CloneVideoPage() {
                             {option.label}
                           </p>
                           <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
-                            {option.summary}
+                            {t(`clone.models.${option.id}.summary`)}
                           </p>
                         </button>
                       ))}
@@ -679,7 +692,9 @@ export default function CloneVideoPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <span className="text-xs text-gray-500">Intensidade</span>
+                    <span className="text-xs text-gray-500">
+                      {t("clone.intensityLabel")}
+                    </span>
                     <div className="flex rounded-lg border border-white/6 overflow-hidden w-fit">
                       {EDIT_INTENSITIES.map((option) => (
                         <button
@@ -692,25 +707,22 @@ export default function CloneVideoPage() {
                               : "bg-white/5 text-gray-400 hover:text-gray-200"
                           }`}
                         >
-                          {INTENSITY_LABELS[option]}
+                          {t(`clone.intensity.${option}.label`)}
                         </button>
                       ))}
                     </div>
-                    <p className="text-[11px] text-gray-500">{INTENSITY_HINTS[intensity]}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {t(`clone.intensity.${intensity}.hint`)}
+                    </p>
                     {!model.nativeIntensity && (
                       <p className="text-[11px] text-gray-600 leading-snug">
-                        {model.label} não tem parâmetro de intensidade.{" "}
-                        {clause ? (
-                          <>
-                            Isto é acrescentado ao seu prompt:{" "}
-                            <span className="italic">“{clause}”</span>
-                          </>
-                        ) : (
-                          <>
-                            Nesta opção nada é acrescentado — seu prompt vai exatamente
-                            como escrito.
-                          </>
-                        )}
+                        {clause
+                          ? t.rich(
+                              "clone.intensityAppended",
+                              { clause: (chunks) => <span className="italic">{chunks}</span> },
+                              { model: model.label, clause },
+                            )
+                          : t("clone.intensityNothingAppended", { model: model.label })}
                       </p>
                     )}
                   </div>
@@ -721,13 +733,13 @@ export default function CloneVideoPage() {
                   disabled={locked || !prompt.trim() || clipTooShort || clipTooLong}
                   className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white cursor-pointer"
                 >
-                  {locked ? "Processando…" : "Gerar vídeo"}
+                  {locked ? t("shared.processing") : t("clone.generate")}
                 </button>
 
                 {locked && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-gray-400">
-                      <span>{stage}</span>
+                      <span>{stage ? t(`stages.${stage}`) : ""}</span>
                       {progress > 0 && <span>{progress}%</span>}
                     </div>
                     <div className="h-1.5 rounded-full bg-white/6 overflow-hidden">
@@ -750,12 +762,12 @@ export default function CloneVideoPage() {
 
             {status === "done" && resultUrl && (
               <>                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">Comparar:</span>
+                  <span className="text-xs text-gray-500">{t("shared.compare")}</span>
                   <div className="flex rounded-lg border border-white/6 overflow-hidden">
                     {(
                       [
-                        { id: "result" as const, label: "Resultado" },
-                        { id: "original" as const, label: "Original" },
+                        { id: "result" as const, label: t("clone.viewResult") },
+                        { id: "original" as const, label: t("clone.viewOriginal") },
                       ]
                     ).map((option) => (
                       <button
@@ -772,7 +784,7 @@ export default function CloneVideoPage() {
                     ))}
                   </div>
                   <span className="text-[11px] text-gray-600">
-                    Confira se o produto não deformou.
+                    {t("clone.checkProduct")}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -781,7 +793,7 @@ export default function CloneVideoPage() {
                     download={`clone-${file.name.replace(/\.[^.]+$/, "")}.mp4`}
                     className="flex-1 min-w-45 text-center py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white"
                   >
-                    Baixar vídeo
+                    {t("shared.downloadVideo")}
                   </a>
                   <button
                     onClick={() => {
@@ -790,7 +802,7 @@ export default function CloneVideoPage() {
                     }}
                     className="px-4 py-2.5 rounded-lg bg-white/5 border border-white/6 text-sm text-gray-300 hover:text-gray-100 cursor-pointer"
                   >
-                    Ajustar prompt
+                    {t("clone.adjustPrompt")}
                   </button>
                 </div>
               </>
@@ -803,7 +815,7 @@ export default function CloneVideoPage() {
                 rel="noopener noreferrer"
                 className="block text-[11px] text-gray-600 hover:text-gray-400"
               >
-                Ver a entrada exata e os logs desta geração no Replicate ↗
+                {t("clone.replicateLink")}
               </a>
             )}
           </div>

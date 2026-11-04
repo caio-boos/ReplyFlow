@@ -2,11 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  PERMISSION_GROUPS,
-  PERMISSION_META,
-  Permission,
-} from "@/lib/auth/permissions";
+import { PERMISSION_GROUPS, Permission } from "@/lib/auth/permissions";
+import { useT } from "@/lib/i18n/client";
 import { useConfirm } from "../ConfirmDialog";
 
 interface Member {
@@ -25,6 +22,12 @@ interface AccountOption {
   email: string;
 }
 
+// PERMISSION_GROUPS labels are internal; map them to translation keys for display.
+const GROUP_LABEL_KEYS: Record<string, "groups.main" | "groups.tools"> = {
+  Principal: "groups.main",
+  Ferramentas: "groups.tools",
+};
+
 const emptyDraft = {
   email: "",
   name: "",
@@ -34,6 +37,9 @@ const emptyDraft = {
 
 export default function MembersManager() {
   const confirm = useConfirm();
+  const t = useT("team");
+  const tc = useT("common");
+  const tp = useT("permissions");
   const [members, setMembers] = useState<Member[]>([]);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +51,7 @@ export default function MembersManager() {
   const load = useCallback(async () => {
     const res = await fetch("/api/team");
     if (!res.ok) {
-      toast.error("Não foi possível carregar a equipe.");
+      toast.error(t("toasts.loadError"));
       setLoading(false);
       return;
     }
@@ -53,7 +59,7 @@ export default function MembersManager() {
     setMembers(data.members ?? []);
     setAccounts(data.accounts ?? []);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- carregamento inicial assíncrono
@@ -115,11 +121,11 @@ export default function MembersManager() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Não foi possível salvar.");
+        toast.error(data.error ?? t("toasts.saveError"));
         return;
       }
 
-      toast.success(editingId ? "Permissões atualizadas." : "Convite enviado!");
+      toast.success(editingId ? t("toasts.updated") : t("toasts.invited"));
       setFormOpen(false);
       await load();
     } finally {
@@ -133,28 +139,29 @@ export default function MembersManager() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      toast.error(data.error ?? "Falha ao reenviar o convite.");
+      toast.error(data.error ?? t("toasts.resendError"));
       return;
     }
-    toast.success("Convite reenviado.");
+    toast.success(t("toasts.resent"));
     await load();
   }
 
   async function remove(member: Member) {
     const ok = await confirm({
-      title: "Remover membro",
-      description: `${member.email} perderá o acesso imediatamente. Deseja continuar?`,
-      confirmLabel: "Remover",
+      title: t("confirmRemove.title"),
+      description: t("confirmRemove.description", { email: member.email }),
+      confirmLabel: t("confirmRemove.confirm"),
+      cancelLabel: tc("actions.cancel"),
       danger: true,
     });
     if (!ok) return;
 
     const res = await fetch(`/api/team/${member.id}`, { method: "DELETE" });
     if (!res.ok) {
-      toast.error("Falha ao remover o membro.");
+      toast.error(t("toasts.removeError"));
       return;
     }
-    toast.success("Membro removido.");
+    toast.success(t("toasts.removed"));
     await load();
   }
 
@@ -162,25 +169,21 @@ export default function MembersManager() {
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="flex items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-lg font-semibold text-white">Membros da equipe</h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Convide pessoas, escolha as lojas e defina exatamente o que cada uma
-            pode acessar.
-          </p>
+          <h1 className="text-lg font-semibold text-white">{t("title")}</h1>
+          <p className="text-xs text-gray-500 mt-1">{t("subtitle")}</p>
         </div>
         <button
           onClick={openNew}
           disabled={accounts.length === 0}
           className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
         >
-          Convidar membro
+          {t("invite")}
         </button>
       </div>
 
       {accounts.length === 0 && !loading && (
         <p className="mb-6 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3">
-          Cadastre ao menos uma loja com SMTP configurado antes de convidar
-          membros.
+          {t("noStores")}
         </p>
       )}
 
@@ -192,10 +195,8 @@ export default function MembersManager() {
         </div>
       ) : members.length === 0 ? (
         <div className="rounded-xl border border-white/6 bg-white/3 px-6 py-12 text-center">
-          <p className="text-sm text-gray-400">Nenhum membro ainda.</p>
-          <p className="text-xs text-gray-600 mt-1">
-            Convide alguém para colaborar nas suas lojas.
-          </p>
+          <p className="text-sm text-gray-400">{t("empty.title")}</p>
+          <p className="text-xs text-gray-600 mt-1">{t("empty.hint")}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -217,18 +218,22 @@ export default function MembersManager() {
                           : "bg-amber-500/15 text-amber-300"
                       }`}
                     >
-                      {member.status === "active" ? "Ativo" : "Convite enviado"}
+                      {member.status === "active"
+                        ? t("status.active")
+                        : t("status.pending")}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 truncate mt-0.5">
                     {member.email}
                   </p>
                   <p className="text-xs text-gray-600 mt-1.5">
-                    {member.accountIds.length} loja
-                    {member.accountIds.length !== 1 ? "s" : ""} ·{" "}
-                    {member.permissions
-                      .map((p) => PERMISSION_META[p].label)
-                      .join(", ") || "sem acesso"}
+                    {t("summary", {
+                      count: member.accountIds.length,
+                      areas:
+                        member.permissions
+                          .map((p) => tp(`${p}.label`))
+                          .join(", ") || t("noAccess"),
+                    })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -237,20 +242,20 @@ export default function MembersManager() {
                       onClick={() => resend(member)}
                       className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors"
                     >
-                      Reenviar
+                      {t("actions.resend")}
                     </button>
                   )}
                   <button
                     onClick={() => openEdit(member)}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors"
                   >
-                    Permissões
+                    {t("actions.permissions")}
                   </button>
                   <button
                     onClick={() => remove(member)}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-300 bg-red-500/10 hover:bg-red-500/20 transition-colors"
                   >
-                    Remover
+                    {t("actions.remove")}
                   </button>
                 </div>
               </div>
@@ -267,19 +272,17 @@ export default function MembersManager() {
           />
           <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 bg-gray-900 p-6">
             <h2 className="text-sm font-semibold text-white">
-              {editingId ? "Editar permissões" : "Convidar membro"}
+              {editingId ? t("form.editTitle") : t("form.inviteTitle")}
             </h2>
             <p className="text-xs text-gray-500 mt-1">
-              {editingId
-                ? "As alterações valem na próxima requisição do membro."
-                : "Enviaremos um e-mail com o link para criar a senha."}
+              {editingId ? t("form.editHint") : t("form.inviteHint")}
             </p>
 
             {!editingId && (
               <div className="mt-5 space-y-3">
                 <label className="block">
                   <span className="text-xs font-medium text-gray-400">
-                    E-mail
+                    {t("form.email")}
                   </span>
                   <input
                     type="email"
@@ -287,13 +290,13 @@ export default function MembersManager() {
                     onChange={(e) =>
                       setDraft((d) => ({ ...d, email: e.target.value }))
                     }
-                    placeholder="pessoa@empresa.com"
+                    placeholder={t("form.emailPlaceholder")}
                     className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-500"
                   />
                 </label>
                 <label className="block">
                   <span className="text-xs font-medium text-gray-400">
-                    Nome (opcional)
+                    {t("form.name")}
                   </span>
                   <input
                     type="text"
@@ -308,9 +311,9 @@ export default function MembersManager() {
             )}
 
             <div className="mt-6">
-              <p className="text-xs font-semibold text-white">Lojas</p>
+              <p className="text-xs font-semibold text-white">{t("form.stores")}</p>
               <p className="text-[11px] text-gray-600 mb-2">
-                O membro só enxerga dados das lojas selecionadas.
+                {t("form.storesHint")}
               </p>
               <div className="space-y-1">
                 {accounts.map((a) => (
@@ -336,7 +339,9 @@ export default function MembersManager() {
             {PERMISSION_GROUPS.map((group) => (
               <div key={group.label} className="mt-6">
                 <p className="text-xs font-semibold text-white mb-2">
-                  {group.label}
+                  {GROUP_LABEL_KEYS[group.label]
+                    ? tp(GROUP_LABEL_KEYS[group.label])
+                    : group.label}
                 </p>
                 <div className="space-y-1">
                   {group.keys.map((key) => (
@@ -352,10 +357,10 @@ export default function MembersManager() {
                       />
                       <span>
                         <span className="block text-sm text-gray-200">
-                          {PERMISSION_META[key].label}
+                          {tp(`${key}.label`)}
                         </span>
                         <span className="block text-[11px] text-gray-600">
-                          {PERMISSION_META[key].description}
+                          {tp(`${key}.description`)}
                         </span>
                       </span>
                     </label>
@@ -370,7 +375,7 @@ export default function MembersManager() {
                 disabled={saving}
                 className="px-4 py-2 rounded-lg text-sm text-gray-300 bg-white/5 hover:bg-white/10 transition-colors"
               >
-                Cancelar
+                {tc("actions.cancel")}
               </button>
               <button
                 onClick={submit}
@@ -378,10 +383,10 @@ export default function MembersManager() {
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-colors"
               >
                 {saving
-                  ? "Salvando..."
+                  ? tc("actions.saving")
                   : editingId
-                    ? "Salvar"
-                    : "Enviar convite"}
+                    ? tc("actions.save")
+                    : t("form.sendInvite")}
               </button>
             </div>
           </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/i18n/client";
+
 interface PaginatorProps {
   page: number; // 1-based
   totalPages: number;
@@ -21,17 +23,18 @@ export default function Paginator({
   onPageChange,
   className = "",
 }: PaginatorProps) {
+  const t = useT("shell");
   if (totalPages <= 1) return null;
 
   return (
     <nav
-      aria-label="Paginação"
+      aria-label={t("pagination.label")}
       className={`flex items-center justify-center gap-1 ${className}`}
     >
       <button
         onClick={() => onPageChange(page - 1)}
         disabled={page === 1}
-        aria-label="Página anterior"
+        aria-label={t("pagination.previous")}
         className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/6 text-gray-500 hover:text-gray-200 hover:border-white/12 disabled:opacity-30 disabled:cursor-not-allowed bg-gray-900/60 transition-all"
       >
         <svg
@@ -61,7 +64,7 @@ export default function Paginator({
           <button
             key={p}
             onClick={() => onPageChange(p as number)}
-            aria-label={`Página ${p}`}
+            aria-label={t("pagination.page", { page: p })}
             aria-current={page === p ? "page" : undefined}
             className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
               page === p
@@ -77,7 +80,7 @@ export default function Paginator({
       <button
         onClick={() => onPageChange(page + 1)}
         disabled={page === totalPages}
-        aria-label="Próxima página"
+        aria-label={t("pagination.next")}
         className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/6 text-gray-500 hover:text-gray-200 hover:border-white/12 disabled:opacity-30 disabled:cursor-not-allowed bg-gray-900/60 transition-all"
       >
         <svg

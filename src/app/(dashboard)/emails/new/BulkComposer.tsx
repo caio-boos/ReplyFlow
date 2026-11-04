@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useConfirm } from "../../ConfirmDialog";
 import { applyTokens } from "@/lib/shopify/audience";
+import { useT, useFormat } from "@/lib/i18n/client";
 
 export interface BulkAccount {
   id: string;
@@ -68,6 +69,12 @@ function Spinner({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+const NUMERIC_DATE: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+};
+
 function isoDaysAgo(days: number) {
   const d = new Date();
   d.setDate(d.getDate() - days);
@@ -82,6 +89,9 @@ export default function BulkComposer({
   accountsLoading: boolean;
 }) {
   const openConfirm = useConfirm();
+  const t = useT("compose");
+  const tc = useT("common");
+  const f = useFormat();
 
   const shopifyAccounts = useMemo(
     () => accounts.filter((a) => a.shopifyConnected),
@@ -142,14 +152,15 @@ export default function BulkComposer({
         );
         const data = await res.json();
         if (cancelled) return;
-        if (!res.ok) throw new Error(data.error ?? "Erro ao carregar produtos");
+        if (!res.ok)
+          throw new Error(data.error ?? t("bulk.errors.loadProducts"));
         setProducts(data.products ?? []);
         setProductsError(null);
       } catch (err) {
         if (cancelled) return;
         setProducts([]);
         setProductsError(
-          err instanceof Error ? err.message : "Erro ao carregar produtos",
+          err instanceof Error ? err.message : t("bulk.errors.loadProducts"),
         );
       } finally {
         if (!cancelled) setLoadedFor(id);
@@ -159,7 +170,7 @@ export default function BulkComposer({
     return () => {
       cancelled = true;
     };
-  }, [effectiveAccountId]);
+  }, [effectiveAccountId, t]);
 
   const filteredProducts = useMemo(() => {
     if (!productsReady) return [];
@@ -231,11 +242,11 @@ export default function BulkComposer({
         body: JSON.stringify(rangePayload()),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao buscar clientes");
+      if (!res.ok) throw new Error(data.error ?? t("bulk.errors.loadAudience"));
       setAudience(data);
     } catch (err) {
       setAudienceError(
-        err instanceof Error ? err.message : "Erro ao buscar clientes",
+        err instanceof Error ? err.message : t("bulk.errors.loadAudience"),
       );
     } finally {
       setAudienceLoading(false);
@@ -265,7 +276,7 @@ export default function BulkComposer({
         method: "POST",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro durante o envio");
+      if (!res.ok) throw new Error(data.error ?? t("bulk.errors.sending"));
       done = data.done === true;
       setProgress({
         campaignId,
@@ -305,8 +316,8 @@ export default function BulkComposer({
     try {
       const preview = audience?.members[0];
       const vars = {
-        name: preview?.name ?? "Cliente",
-        product: selectedProduct?.title ?? "seu produto",
+        name: preview?.name ?? t("bulk.test.defaultName"),
+        product: selectedProduct?.title ?? t("bulk.test.defaultProduct"),
         order: preview?.orderName ?? "#1001",
       };
       const res = await fetch("/api/emails/compose", {
@@ -315,17 +326,21 @@ export default function BulkComposer({
         body: JSON.stringify({
           accountId: effectiveAccountId,
           to: target,
-          subject: `[TESTE] ${applyTokens(subject.trim(), vars)}`,
+          subject: `${t("bulk.test.subjectPrefix")} ${applyTokens(subject.trim(), vars)}`,
           body: applyTokens(body.trim(), vars),
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar teste");
-      setTestFeedback({ ok: true, message: `E-mail de teste enviado para ${target}.` });
+      if (!res.ok) throw new Error(data.error ?? t("bulk.errors.sendTest"));
+      setTestFeedback({
+        ok: true,
+        message: t("bulk.test.sent", { email: target }),
+      });
     } catch (err) {
       setTestFeedback({
         ok: false,
-        message: err instanceof Error ? err.message : "Erro ao enviar teste",
+        message:
+          err instanceof Error ? err.message : t("bulk.errors.sendTest"),
       });
     } finally {
       setTestSending(false);
@@ -335,11 +350,12 @@ export default function BulkComposer({
   async function handleSend() {
     if (!canSend || !audience) return;
     const confirmed = await openConfirm({
-      title: `Disparar para ${audience.total} cliente(s)?`,
-      description: `Os e-mails serão enviados um a um a partir de ${
-        shopifyAccounts.find((a) => a.id === effectiveAccountId)?.email ?? ""
-      }. Pedidos cancelados ou estornados já foram excluídos da lista.`,
-      confirmLabel: "Disparar campanha",
+      title: t("bulk.confirm.title", { count: audience.total }),
+      description: t("bulk.confirm.description", {
+        email:
+          shopifyAccounts.find((a) => a.id === effectiveAccountId)?.email ?? "",
+      }),
+      confirmLabel: t("bulk.confirm.confirmLabel"),
     });
     if (!confirmed) return;
 
@@ -359,7 +375,8 @@ export default function BulkComposer({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao criar campanha");
+      if (!res.ok)
+        throw new Error(data.error ?? t("bulk.errors.createCampaign"));
 
       setProgress({
         campaignId: data.id,
@@ -370,7 +387,7 @@ export default function BulkComposer({
       });
       await runBatches(data.id, data.total);
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Erro ao enviar");
+      setSendError(err instanceof Error ? err.message : t("bulk.errors.send"));
     } finally {
       setSending(false);
     }
@@ -383,7 +400,7 @@ export default function BulkComposer({
     try {
       await runBatches(progress.campaignId, progress.total);
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Erro ao enviar");
+      setSendError(err instanceof Error ? err.message : t("bulk.errors.send"));
     } finally {
       setSending(false);
     }
@@ -408,7 +425,7 @@ export default function BulkComposer({
     return (
       <div className="flex items-center gap-2 text-sm text-gray-600 py-6">
         <Spinner className="w-3.5 h-3.5" />
-        Carregando contas...
+        {t("shared.loadingAccounts")}
       </div>
     );
   }
@@ -417,11 +434,10 @@ export default function BulkComposer({
     return (
       <div className="bg-gray-900/60 border border-white/6 rounded-xl px-5 py-8 text-center space-y-2">
         <p className="text-sm text-gray-300">
-          Nenhuma loja com Shopify conectada
+          {t("bulk.noStores.title")}
         </p>
         <p className="text-xs text-gray-500">
-          Conecte uma loja Shopify em Contas para disparar campanhas por produto
-          comprado.
+          {t("bulk.noStores.description")}
         </p>
       </div>
     );
@@ -436,14 +452,14 @@ export default function BulkComposer({
             1
           </span>
           <h2 className="text-sm font-semibold text-gray-200">
-            Loja e produto
+            {t("bulk.step1.title")}
           </h2>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Loja (conta de envio)
+              {t("bulk.step1.store")}
             </label>
             <select
               value={effectiveAccountId}
@@ -456,7 +472,7 @@ export default function BulkComposer({
               className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="" disabled>
-                Selecione uma loja...
+                {t("bulk.step1.selectStore")}
               </option>
               {shopifyAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -468,14 +484,14 @@ export default function BulkComposer({
 
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Buscar produto
+              {t("bulk.step1.searchProduct")}
             </label>
             <input
               type="text"
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
               disabled={!effectiveAccountId}
-              placeholder="Filtrar por nome..."
+              placeholder={t("bulk.step1.productFilter")}
               className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
@@ -488,7 +504,7 @@ export default function BulkComposer({
               href={`/api/shopify/install?accountId=${encodeURIComponent(effectiveAccountId)}`}
               className="inline-block px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-gray-300"
             >
-              Reconectar loja Shopify
+              {t("bulk.step1.reconnect")}
             </a>
           </div>
         )}
@@ -496,7 +512,7 @@ export default function BulkComposer({
         {productsLoading ? (
           <div className="flex items-center gap-2 text-sm text-gray-600 py-2">
             <Spinner className="w-3.5 h-3.5" />
-            Carregando produtos da loja...
+            {t("bulk.step1.loadingProducts")}
           </div>
         ) : (
           effectiveAccountId && (
@@ -504,18 +520,20 @@ export default function BulkComposer({
               {filteredProducts.length === 0 ? (
                 <div className="px-3 py-4 text-center space-y-1">
                   <p className="text-xs text-gray-600">
-                    Nenhum produto encontrado.
+                    {t("bulk.step1.noProducts")}
                   </p>
                   {products.length === 0 && !productsError && (
                     <p className="text-[11px] text-gray-600">
-                      Se a loja tem produtos cadastrados,{" "}
-                      <a
-                        href={`/api/shopify/install?accountId=${encodeURIComponent(effectiveAccountId)}`}
-                        className="text-indigo-400 hover:text-indigo-300 underline"
-                      >
-                        reconecte o Shopify
-                      </a>{" "}
-                      para conceder a permissão de leitura de produtos.
+                      {t.rich("bulk.step1.reconnectHint", {
+                        link: (chunks) => (
+                          <a
+                            href={`/api/shopify/install?accountId=${encodeURIComponent(effectiveAccountId)}`}
+                            className="text-indigo-400 hover:text-indigo-300 underline"
+                          >
+                            {chunks}
+                          </a>
+                        ),
+                      })}
                     </p>
                   )}
                 </div>
@@ -549,12 +567,12 @@ export default function BulkComposer({
                     </span>
                     {p.status !== "active" && (
                       <span className="text-[10px] text-amber-400 shrink-0">
-                        {p.status}
+                        {t.dynamic(`bulk.step1.status.${p.status}`, undefined, p.status)}
                       </span>
                     )}
                     {productId === p.id && (
                       <span className="text-[10px] text-indigo-300 shrink-0">
-                        selecionado
+                        {t("bulk.step1.selected")}
                       </span>
                     )}
                   </button>
@@ -572,14 +590,14 @@ export default function BulkComposer({
             2
           </span>
           <h2 className="text-sm font-semibold text-gray-200">
-            Período da compra
+            {t("bulk.step2.title")}
           </h2>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              De
+              {t("bulk.step2.from")}
             </label>
             <input
               type="date"
@@ -593,7 +611,7 @@ export default function BulkComposer({
           </div>
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Até
+              {t("bulk.step2.to")}
             </label>
             <input
               type="date"
@@ -607,7 +625,7 @@ export default function BulkComposer({
           </div>
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Atalhos
+              {t("bulk.step2.shortcuts")}
             </label>
             <div className="flex gap-1.5">
               {[30, 90, 180, 365].map((d) => (
@@ -621,7 +639,7 @@ export default function BulkComposer({
                   }}
                   className="flex-1 px-2 py-2 bg-gray-800/60 hover:bg-gray-700/60 border border-white/8 rounded-lg text-[11px] text-gray-400 hover:text-gray-200 transition-colors"
                 >
-                  {d}d
+                  {t("bulk.step2.shortcut", { days: d })}
                 </button>
               ))}
             </div>
@@ -639,7 +657,7 @@ export default function BulkComposer({
             className="accent-indigo-500"
           />
           <span className="text-xs text-gray-400">
-            Enviar apenas para clientes inscritos em marketing (opt-in Shopify)
+            {t("bulk.step2.onlySubscribed")}
           </span>
         </label>
 
@@ -651,10 +669,12 @@ export default function BulkComposer({
             className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed border border-white/8 rounded-lg text-xs text-gray-300 transition-colors"
           >
             {audienceLoading && <Spinner className="w-3 h-3" />}
-            {audienceLoading ? "Buscando clientes..." : "Buscar clientes"}
+            {audienceLoading
+              ? t("bulk.step2.searching")
+              : t("bulk.step2.search")}
           </button>
           <p className="text-[11px] text-gray-600">
-            Exclui automaticamente pedidos cancelados, estornados e de teste.
+            {t("bulk.step2.excludesHint")}
           </p>
         </div>
 
@@ -672,10 +692,13 @@ export default function BulkComposer({
                   {audience.total}
                 </span>
                 <span className="text-xs text-gray-500">
-                  cliente(s) elegíveis
+                  {t("bulk.step2.eligible", { count: audience.total })}
                   {onlySubscribed &&
                     audience.totalBeforeConsentFilter > audience.total &&
-                    ` · ${audience.totalBeforeConsentFilter - audience.total} sem opt-in ignorados`}
+                    ` ${t("bulk.step2.skippedNoOptIn", {
+                      count:
+                        audience.totalBeforeConsentFilter - audience.total,
+                    })}`}
                 </span>
               </div>
               {audience.members.length > 0 && (
@@ -684,7 +707,7 @@ export default function BulkComposer({
                   onClick={() => setShowAudienceModal(true)}
                   className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/8 rounded-md text-xs text-gray-300 transition-colors shrink-0"
                 >
-                  Ver todos
+                  {tc("actions.seeAll")}
                 </button>
               )}
             </div>
@@ -700,8 +723,7 @@ export default function BulkComposer({
                       <span className="text-gray-600">{m.email}</span>
                     </span>
                     <span className="text-[11px] text-gray-600 shrink-0">
-                      {m.orderName} ·{" "}
-                      {new Date(m.orderDate).toLocaleDateString("pt-BR")}
+                      {m.orderName} · {f.date(m.orderDate, NUMERIC_DATE)}
                     </span>
                   </div>
                 ))}
@@ -711,7 +733,7 @@ export default function BulkComposer({
                     onClick={() => setShowAudienceModal(true)}
                     className="w-full text-left text-[11px] text-indigo-400 hover:text-indigo-300 px-3 py-1.5"
                   >
-                    + {audience.total - 25} outros — ver lista completa
+                    {t("bulk.step2.more", { count: audience.total - 25 })}
                   </button>
                 )}
               </div>
@@ -726,18 +748,23 @@ export default function BulkComposer({
           <span className="w-5 h-5 rounded-md bg-indigo-600/20 border border-indigo-500/20 text-[10px] font-semibold text-indigo-300 flex items-center justify-center">
             3
           </span>
-          <h2 className="text-sm font-semibold text-gray-200">Mensagem</h2>
+          <h2 className="text-sm font-semibold text-gray-200">
+            {t("bulk.step3.title")}
+          </h2>
         </div>
 
         <div className="space-y-1.5">
           <label className="text-xs text-gray-500 uppercase tracking-wider">
-            Assunto
+            {t("shared.subject")}
           </label>
           <input
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Ex.: {{nome}}, o que achou do seu {{produto}}?"
+            placeholder={t("bulk.step3.subjectPlaceholder", {
+              name: "{{nome}}",
+              product: "{{produto}}",
+            })}
             className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
@@ -745,7 +772,7 @@ export default function BulkComposer({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Corpo
+              {t("bulk.step3.body")}
             </label>
             <button
               type="button"
@@ -754,18 +781,18 @@ export default function BulkComposer({
               className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-600/15 hover:bg-violet-600/25 disabled:opacity-40 border border-violet-500/20 rounded-md text-xs font-medium text-violet-300 transition-all"
             >
               {enhancing && <Spinner className="w-3 h-3" />}
-              {enhancing ? "Aperfeiçoando..." : "Aperfeiçoar com IA"}
+              {enhancing ? t("shared.enhancing") : t("shared.enhance")}
             </button>
           </div>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={10}
-            placeholder="Olá {{nome}}, ..."
+            placeholder={t("bulk.step3.bodyPlaceholder", { name: "{{nome}}" })}
             className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 resize-y focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono leading-relaxed"
           />
           <p className="text-[11px] text-gray-600">
-            Variáveis disponíveis:{" "}
+            {t("bulk.step3.variables")}{" "}
             <code className="text-gray-400">{"{{nome}}"}</code>{" "}
             <code className="text-gray-400">{"{{produto}}"}</code>{" "}
             <code className="text-gray-400">{"{{pedido}}"}</code>
@@ -775,7 +802,7 @@ export default function BulkComposer({
         {/* Test send */}
         <div className="border-t border-white/5 pt-4 space-y-2">
           <label className="text-xs text-gray-500 uppercase tracking-wider">
-            Enviar teste
+            {t("bulk.test.label")}
           </label>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
@@ -785,7 +812,7 @@ export default function BulkComposer({
                 setTestEmail(e.target.value);
                 setTestFeedback(null);
               }}
-              placeholder={fallbackTestEmail || "seu@email.com"}
+              placeholder={fallbackTestEmail || t("shared.testEmailPlaceholder")}
               className="flex-1 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             <button
@@ -801,12 +828,11 @@ export default function BulkComposer({
               className="flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed border border-white/8 rounded-lg text-xs text-gray-300 transition-colors shrink-0"
             >
               {testSending && <Spinner className="w-3 h-3" />}
-              {testSending ? "Enviando teste..." : "Enviar e-mail de teste"}
+              {testSending ? t("bulk.test.sending") : t("bulk.test.button")}
             </button>
           </div>
           <p className="text-[11px] text-gray-600">
-            O teste usa os dados do primeiro cliente da lista para preencher as
-            variáveis e vai com o prefixo [TESTE] no assunto.
+            {t("bulk.test.hint")}
           </p>
           {testFeedback && (
             <p
@@ -855,8 +881,8 @@ export default function BulkComposer({
                 )}
                 <span className="text-sm font-medium text-gray-200">
                   {progress.done
-                    ? "Campanha concluída"
-                    : "Enviando campanha..."}
+                    ? t("bulk.progress.done")
+                    : t("bulk.progress.sending")}
                 </span>
               </div>
               <span className="text-xl font-semibold tabular-nums text-gray-100">
@@ -879,19 +905,24 @@ export default function BulkComposer({
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
               <span className="text-gray-400 tabular-nums">
-                {processed} de {progress.total} processados
+                {t("bulk.progress.processed", {
+                  processed,
+                  total: progress.total,
+                })}
               </span>
               <span className="text-emerald-400 tabular-nums">
-                {progress.sentCount} enviados
+                {t("bulk.progress.sent", { count: progress.sentCount })}
               </span>
               {progress.failedCount > 0 && (
                 <span className="text-red-400 tabular-nums">
-                  {progress.failedCount} falhas
+                  {t("bulk.progress.failed", { count: progress.failedCount })}
                 </span>
               )}
               {!progress.done && (
                 <span className="text-gray-600 tabular-nums">
-                  {progress.total - processed} restantes
+                  {t("bulk.progress.remaining", {
+                    count: progress.total - processed,
+                  })}
                 </span>
               )}
             </div>
@@ -924,7 +955,7 @@ export default function BulkComposer({
                 onClick={handleResume}
                 className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-gray-300 shrink-0"
               >
-                Retomar
+                {t("bulk.progress.resume")}
               </button>
             )}
           </div>
@@ -933,10 +964,13 @@ export default function BulkComposer({
         <div className="flex items-center justify-between gap-4">
           <p className="text-[11px] text-gray-600">
             {sending
-              ? `Enviando ${processed} de ${progress?.total ?? 0} — não feche esta aba.`
+              ? t("bulk.footer.sendingStatus", {
+                  processed,
+                  total: progress?.total ?? 0,
+                })
               : audience
-                ? `Pronto para disparar para ${audience.total} cliente(s).`
-                : "Busque os clientes antes de disparar."}
+                ? t("bulk.footer.ready", { count: audience.total })
+                : t("bulk.footer.needAudience")}
           </p>
           <button
             type="button"
@@ -946,10 +980,10 @@ export default function BulkComposer({
           >
             {sending && <Spinner className="w-3 h-3" />}
             {sending
-              ? `Enviando... ${percent}%`
+              ? t("bulk.footer.sendingButton", { percent })
               : progress?.done
-                ? "Disparar novamente"
-                : "Disparar campanha"}
+                ? t("bulk.footer.sendAgain")
+                : t("bulk.footer.send")}
           </button>
         </div>
       </div>
@@ -966,13 +1000,21 @@ export default function BulkComposer({
             <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-white/5">
               <div>
                 <h3 className="text-sm font-semibold text-gray-100">
-                  Clientes selecionados
+                  {t("bulk.modal.title")}
                 </h3>
                 <p className="text-xs text-gray-500">
-                  {audience.total} cliente(s) que compraram
-                  {selectedProduct ? ` "${selectedProduct.title}"` : ""} entre{" "}
-                  {new Date(`${from}T00:00:00`).toLocaleDateString("pt-BR")} e{" "}
-                  {new Date(`${to}T00:00:00`).toLocaleDateString("pt-BR")}
+                  {selectedProduct
+                    ? t("bulk.modal.descriptionWithProduct", {
+                        count: audience.total,
+                        product: selectedProduct.title,
+                        from: f.date(new Date(`${from}T00:00:00`), NUMERIC_DATE),
+                        to: f.date(new Date(`${to}T00:00:00`), NUMERIC_DATE),
+                      })
+                    : t("bulk.modal.description", {
+                        count: audience.total,
+                        from: f.date(new Date(`${from}T00:00:00`), NUMERIC_DATE),
+                        to: f.date(new Date(`${to}T00:00:00`), NUMERIC_DATE),
+                      })}
                 </p>
               </div>
               <button
@@ -1001,7 +1043,7 @@ export default function BulkComposer({
                 type="text"
                 value={audienceSearch}
                 onChange={(e) => setAudienceSearch(e.target.value)}
-                placeholder="Filtrar por nome, e-mail ou pedido..."
+                placeholder={t("bulk.modal.filterPlaceholder")}
                 className="flex-1 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <button
@@ -1009,14 +1051,14 @@ export default function BulkComposer({
                 onClick={handleCopyEmails}
                 className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/8 rounded-lg text-xs text-gray-300 transition-colors shrink-0"
               >
-                {copied ? "Copiado!" : "Copiar e-mails"}
+                {copied ? tc("actions.copied") : t("bulk.modal.copyEmails")}
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-white/5">
               {audienceResults.length === 0 ? (
                 <p className="text-xs text-gray-600 px-5 py-6 text-center">
-                  Nenhum cliente corresponde ao filtro.
+                  {t("bulk.modal.noMatch")}
                 </p>
               ) : (
                 audienceResults.map((m, idx) => (
@@ -1040,8 +1082,7 @@ export default function BulkComposer({
                     <div className="text-right shrink-0">
                       <p className="text-[11px] text-gray-400">{m.orderName}</p>
                       <p className="text-[10px] text-gray-600">
-                        {new Date(m.orderDate).toLocaleDateString("pt-BR")} ·{" "}
-                        {m.quantity}x
+                        {f.date(m.orderDate, NUMERIC_DATE)} · {m.quantity}x
                       </p>
                     </div>
                   </div>
@@ -1051,14 +1092,17 @@ export default function BulkComposer({
 
             <div className="flex items-center justify-between gap-4 px-5 py-3 border-t border-white/5">
               <p className="text-[11px] text-gray-600">
-                Exibindo {audienceResults.length} de {audience.total}
+                {t("bulk.modal.showing", {
+                  shown: audienceResults.length,
+                  total: audience.total,
+                })}
               </p>
               <button
                 type="button"
                 onClick={() => setShowAudienceModal(false)}
                 className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/8 rounded-lg text-xs text-gray-300 transition-colors"
               >
-                Fechar
+                {tc("actions.close")}
               </button>
             </div>
           </div>

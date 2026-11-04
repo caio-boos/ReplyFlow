@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/types";
+import { videoErrorMessage, VideoError } from "@/lib/video/errors";
 import { maskToRects, normalizeRects, targetSize } from "@/lib/video/mask-rects";
 import { maskToPngBlob } from "@/lib/video/mask-image";
 import {
@@ -14,6 +17,7 @@ import TimelineSelector from "./TimelineSelector";
 type Status = "idle" | "editing" | "processing" | "done";
 type Mode = "local" | "ai";
 type Tool = "brush" | "rect";
+type Stage = keyof Messages["tools"]["stages"];
 
 interface Point {
   x: number;
@@ -29,6 +33,7 @@ const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 export default function WatermarkToolPage() {
+  const t = useT("tools");
   const [file, setFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -44,7 +49,7 @@ export default function WatermarkToolPage() {
 
   const [status, setStatus] = useState<Status>("idle");
   const [progress, setProgress] = useState(0);
-  const [stage, setStage] = useState("");
+  const [stage, setStage] = useState<Stage | null>(null);
   const [logLine, setLogLine] = useState("");
   const [resultUrl, setResultUrl] = useState("");
   const [rawUrl, setRawUrl] = useState("");
@@ -71,11 +76,11 @@ export default function WatermarkToolPage() {
     (next: File | undefined) => {
       if (!next) return;
       if (!next.type.startsWith("video/")) {
-        toast.error("Selecione um arquivo de vídeo.");
+        toast.error(t("shared.selectVideo"));
         return;
       }
       if (next.size > MAX_SIZE_MB * 1024 * 1024) {
-        toast.error(`O vídeo precisa ter menos de ${MAX_SIZE_MB}MB.`);
+        toast.error(t("shared.videoTooLarge", { max: MAX_SIZE_MB }));
         return;
       }
       if (videoUrl) URL.revokeObjectURL(videoUrl);
@@ -95,7 +100,7 @@ export default function WatermarkToolPage() {
       setVideoUrl(URL.createObjectURL(next));
       setStatus("editing");
     },
-    [videoUrl, resultUrl],
+    [videoUrl, resultUrl, t],
   );
   function handleMetadata() {
     const video = videoRef.current;
@@ -113,7 +118,7 @@ export default function WatermarkToolPage() {
       redrawMask();
     }
     if (video.duration > 30) {
-      toast.warning("Vídeos acima de 30s podem demorar bastante para processar.");
+      toast.warning(t("watermark.longVideo"));
     }
   }
 
@@ -328,10 +333,10 @@ export default function WatermarkToolPage() {
       canvas.height,
     );
     if (rects.length === 0) {
-      throw new Error("Pinte sobre a marca d'água antes de processar.");
+      throw new VideoError("maskEmpty", "Paint over the watermark before processing.");
     }
 
-    setStage("Reconstruindo bordas…");
+    setStage("rebuildingEdges");
     return removeWatermark({
       file: source,
       rects,
@@ -349,20 +354,20 @@ export default function WatermarkToolPage() {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       const res = await fetch(`/api/video/watermark/${id}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Falha ao consultar o job.");
+      if (!res.ok) throw new Error(data.error ?? t("errors.jobStatusFailed"));
       if (data.ready) return;
       if (data.status === "failed" || data.status === "canceled") {
-        throw new Error(data.error ?? "A IA não conseguiu processar o vídeo.");
+        throw new Error(data.error ?? t("errors.aiFailed"));
       }
     }
-    throw new Error("Tempo esgotado esperando o resultado da IA.");
+    throw new Error(t("errors.aiTimeout"));
   }
 
   async function processWithAI(canvas: HTMLCanvasElement, source: File) {
-    setStage("Preparando máscara…");
+    setStage("preparingMask");
     const mask = await maskToPngBlob(canvas, 0);
 
-    setStage("Preparando vídeo…");
+    setStage("preparingVideo");
     const compressed = await compressForUpload({
       file: source,
       width: canvas.width,
@@ -372,7 +377,7 @@ export default function WatermarkToolPage() {
       onLog: setLogLine,
     });
 
-    setStage("Enviando para a IA…");
+    setStage("uploading");
     setProgress(0);
     const form = new FormData();
     form.append("video", compressed.file);
@@ -382,14 +387,14 @@ export default function WatermarkToolPage() {
 
     const res = await fetch("/api/video/watermark", { method: "POST", body: form });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Falha ao enviar o vídeo.");
+    if (!res.ok) throw new Error(data.error ?? t("errors.uploadFailed"));
 
-    setStage("Reconstruindo o fundo (pode levar 1-2 min)…");
+    setStage("rebuildingBackground");
     await waitForPrediction(data.id);
 
-    setStage("Baixando resultado…");
+    setStage("downloading");
     const inpainted = await fetch(`/api/video/watermark/${data.id}/download`);
-    if (!inpainted.ok) throw new Error("Falha ao baixar o resultado.");
+    if (!inpainted.ok) throw new Error(t("errors.downloadFailed"));
 
     // Guardado para o usuário comparar a saída crua com a composição.
     const inpaintedBlob = await inpainted.blob();
@@ -398,7 +403,7 @@ export default function WatermarkToolPage() {
       return URL.createObjectURL(inpaintedBlob);
     });
 
-    setStage("Montando vídeo final…");
+    setStage("composing");
     return composeFinal({
       original: source,
       inpainted: inpaintedBlob,
@@ -421,7 +426,7 @@ export default function WatermarkToolPage() {
     setStatus("processing");
     setProgress(0);
     setLogLine("");
-    setStage("Carregando motor de vídeo…");
+    setStage("loadingEngine");
 
     try {
       const blob =
@@ -432,15 +437,13 @@ export default function WatermarkToolPage() {
       if (resultUrl) URL.revokeObjectURL(resultUrl);
       setResultUrl(URL.createObjectURL(blob));
       setStatus("done");
-      toast.success("Vídeo processado.");
+      toast.success(t("watermark.processed"));
     } catch (err) {
       console.error(err);
       setStatus("editing");
-      toast.error(
-        err instanceof Error ? err.message : "Falha ao processar o vídeo.",
-      );
+      toast.error(videoErrorMessage(t, err, t("errors.processFailed")));
     } finally {
-      setStage("");
+      setStage(null);
     }
   }
 
@@ -457,7 +460,7 @@ export default function WatermarkToolPage() {
     setSize({ w: 0, h: 0 });
     setStatus("idle");
     setProgress(0);
-    setStage("");
+    setStage(null);
     setLogLine("");
   }
 
@@ -473,12 +476,9 @@ export default function WatermarkToolPage() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-gray-100">
-          Remover marca d&apos;água
+          {t("watermark.title")}
         </h1>
-        <p className="text-gray-500 text-sm mt-0.5">
-          Envie um vídeo curto, pinte sobre a marca d&apos;água e baixe o
-          resultado em 720p. Todo o processamento acontece no seu navegador.
-        </p>
+        <p className="text-gray-500 text-sm mt-0.5">{t("watermark.subtitle")}</p>
       </div>
 
       <div className="flex gap-3 p-4 bg-amber-500/[0.07] border border-amber-500/20 rounded-xl">
@@ -496,9 +496,7 @@ export default function WatermarkToolPage() {
           />
         </svg>
         <p className="text-sm text-amber-300/80 leading-relaxed">
-          Use apenas em vídeos que você produziu ou tem autorização para editar.
-          Remover marcas d&apos;água de conteúdo de terceiros viola direitos
-          autorais e os termos das plataformas.
+          {t("watermark.disclaimer")}
         </p>
       </div>
 
@@ -540,11 +538,9 @@ export default function WatermarkToolPage() {
             />
           </svg>
           <div className="text-center">
-            <p className="text-sm text-gray-300">
-              Arraste um vídeo ou clique para selecionar
-            </p>
+            <p className="text-sm text-gray-300">{t("shared.dropzone")}</p>
             <p className="text-xs text-gray-600 mt-1">
-              MP4, MOV ou WebM · ideal de 1 a 20 segundos · até {MAX_SIZE_MB}MB
+              {t("watermark.dropzoneHint", { max: MAX_SIZE_MB })}
             </p>
           </div>
         </label>
@@ -565,7 +561,7 @@ export default function WatermarkToolPage() {
               disabled={status === "processing"}
               className="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 cursor-pointer"
             >
-              Trocar vídeo
+              {t("shared.changeVideo")}
             </button>
           </div>
 
@@ -625,7 +621,7 @@ export default function WatermarkToolPage() {
                       <button
                         onClick={togglePlay}
                         disabled={status === "processing"}
-                        aria-label={playing ? "Pausar" : "Reproduzir trecho"}
+                        aria-label={playing ? t("shared.pause") : t("shared.playClip")}
                         className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg bg-white/6 hover:bg-white/10 text-gray-200 disabled:opacity-40 cursor-pointer"
                       >
                         {playing ? (
@@ -660,8 +656,8 @@ export default function WatermarkToolPage() {
                     <div className="flex rounded-lg border border-white/6 overflow-hidden">
                       {(
                         [
-                          { id: "brush" as const, label: "Pincel" },
-                          { id: "rect" as const, label: "Retângulo" },
+                          { id: "brush" as const, label: t("watermark.brush") },
+                          { id: "rect" as const, label: t("watermark.rect") },
                         ]
                       ).map((option) => (
                         <button
@@ -681,7 +677,7 @@ export default function WatermarkToolPage() {
 
                     {tool === "brush" && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">Tamanho</span>
+                        <span className="text-xs text-gray-500">{t("watermark.size")}</span>
                         <input
                           type="range"
                           min={8}
@@ -696,7 +692,7 @@ export default function WatermarkToolPage() {
                     )}
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Margem</span>
+                      <span className="text-xs text-gray-500">{t("watermark.margin")}</span>
                       <input
                         type="range"
                         min={0}
@@ -716,10 +712,10 @@ export default function WatermarkToolPage() {
                         setErasing(false);
                       }}
                       disabled={status === "processing"}
-                      title="Retângulo com margem larga, que cobre o contorno das letras"
+                      title={t("watermark.captionPresetTitle")}
                       className="px-3 py-1.5 rounded-lg text-xs bg-white/5 border border-white/6 text-gray-400 hover:text-gray-200 disabled:opacity-40 cursor-pointer"
                     >
-                      Preset legenda
+                      {t("watermark.captionPreset")}
                     </button>
 
                     <button
@@ -731,30 +727,30 @@ export default function WatermarkToolPage() {
                           : "bg-white/5 border-white/6 text-gray-400 hover:text-gray-200"
                       }`}
                     >
-                      Borracha
+                      {t("watermark.eraser")}
                     </button>
                     <button
                       onClick={undo}
                       disabled={status === "processing" || history.undo === 0}
-                      title="Desfazer (Ctrl+Z)"
+                      title={t("watermark.undoTitle")}
                       className="px-3 py-1.5 rounded-lg text-xs bg-white/5 border border-white/6 text-gray-400 hover:text-gray-200 disabled:opacity-30 cursor-pointer"
                     >
-                      Desfazer
+                      {t("shared.undo")}
                     </button>
                     <button
                       onClick={redo}
                       disabled={status === "processing" || history.redo === 0}
-                      title="Refazer (Ctrl+Shift+Z)"
+                      title={t("watermark.redoTitle")}
                       className="px-3 py-1.5 rounded-lg text-xs bg-white/5 border border-white/6 text-gray-400 hover:text-gray-200 disabled:opacity-30 cursor-pointer"
                     >
-                      Refazer
+                      {t("watermark.redo")}
                     </button>
                     <button
                       onClick={clearMask}
                       disabled={status === "processing"}
                       className="px-3 py-1.5 rounded-lg text-xs bg-white/5 border border-white/6 text-gray-400 hover:text-gray-200 cursor-pointer"
                     >
-                      Limpar máscara
+                      {t("watermark.clearMask")}
                     </button>
                   </div>
                 </div>
@@ -764,13 +760,13 @@ export default function WatermarkToolPage() {
                     [
                       {
                         id: "ai" as const,
-                        title: "IA — natural",
-                        hint: "Reconstrói o fundo com os frames vizinhos e aplica só dentro da máscara. ~1-2 min, custa centavos.",
+                        title: t("watermark.modes.ai.title"),
+                        hint: t("watermark.modes.ai.hint"),
                       },
                       {
                         id: "local" as const,
-                        title: "Rápido — no navegador",
-                        hint: "Interpola a borda. Só funciona bem em fundo liso; borra se tiver movimento.",
+                        title: t("watermark.modes.local.title"),
+                        hint: t("watermark.modes.local.hint"),
                       },
                     ]
                   ).map((option) => (
@@ -804,14 +800,14 @@ export default function WatermarkToolPage() {
                   className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white cursor-pointer"
                 >
                   {status === "processing"
-                    ? "Processando…"
-                    : "Remover marca d'água"}
+                    ? t("shared.processing")
+                    : t("watermark.submit")}
                 </button>
 
                 {status === "processing" && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-gray-400">
-                      <span>{stage}</span>
+                      <span>{stage ? t(`stages.${stage}`) : ""}</span>
                       {progress > 0 && <span>{progress}%</span>}
                     </div>
                     <div className="h-1.5 rounded-full bg-white/6 overflow-hidden">
@@ -836,12 +832,12 @@ export default function WatermarkToolPage() {
               <>
                 {rawUrl && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">Comparar:</span>
+                    <span className="text-xs text-gray-500">{t("shared.compare")}</span>
                     <div className="flex rounded-lg border border-white/6 overflow-hidden">
                       {(
                         [
-                          { id: "final" as const, label: "Final" },
-                          { id: "raw" as const, label: "Saída da IA" },
+                          { id: "final" as const, label: t("watermark.viewFinal") },
+                          { id: "raw" as const, label: t("watermark.viewRaw") },
                         ]
                       ).map((option) => (
                         <button
@@ -858,8 +854,7 @@ export default function WatermarkToolPage() {
                       ))}
                     </div>
                     <span className="text-[11px] text-gray-600">
-                      Se o fantasma só aparece em “Final”, a máscara está certa e o
-                      problema é a composição.
+                      {t("watermark.ghostHint")}
                     </span>
                   </div>
                 )}
@@ -869,7 +864,7 @@ export default function WatermarkToolPage() {
                     download={`sem-marca-${file.name.replace(/\.[^.]+$/, "")}.mp4`}
                     className="flex-1 min-w-45 text-center py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white"
                   >
-                    Baixar vídeo
+                    {t("shared.downloadVideo")}
                   </a>
                   <button
                     onClick={() => {
@@ -878,7 +873,7 @@ export default function WatermarkToolPage() {
                     }}
                     className="px-4 py-2.5 rounded-lg bg-white/5 border border-white/6 text-sm text-gray-300 hover:text-gray-100 cursor-pointer"
                   >
-                    Ajustar máscara
+                    {t("watermark.adjustMask")}
                   </button>
                 </div>
               </>

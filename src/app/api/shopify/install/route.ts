@@ -2,18 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
+import { getT } from "@/lib/i18n/server";
 
 export async function GET(req: NextRequest) {
+  const tc = await getT("common");
+  const t = await getT("stores");
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const { searchParams } = req.nextUrl;
   const accountId = searchParams.get("accountId");
 
   if (!accountId) {
     return NextResponse.json(
-      { error: "accountId é obrigatório" },
+      { error: t("api.accountIdRequired") },
       { status: 400 },
     );
   }
@@ -22,7 +25,7 @@ export async function GET(req: NextRequest) {
   const doc = await db.collection("accounts").doc(accountId).get();
   if (!doc.exists) {
     return NextResponse.json(
-      { error: "Conta não encontrada" },
+      { error: t("api.accountNotFound") },
       { status: 404 },
     );
   }

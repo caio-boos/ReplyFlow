@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useStoreContext } from "../store-context";
+import { useFormat, useT } from "@/lib/i18n/client";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -52,19 +53,18 @@ type Period = "7" | "30" | "90" | "all";
 
 // ─── Formatters ─────────────────────────────────────────────────────────────
 
-function fmtCurrency(value: number, currency = "BRL") {
-  if (value === 0) return currency === "BRL" ? "R$ 0" : "$0";
-  const locale = currency === "BRL" ? "pt-BR" : "en-US";
+function fmtCurrency(value: number, currency: string, intl: string) {
   try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat(intl, { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
   } catch {
     return `${currency} ${value.toFixed(0)}`;
   }
 }
 
-function fmtDate(dateStr: string) {
-  const [, m, d] = dateStr.split("-");
-  return `${d}/${m}`;
+/** "YYYY-MM-DD" → short day/month in the active locale. */
+function fmtDate(dateStr: string, intl: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Intl.DateTimeFormat(intl, { day: "2-digit", month: "2-digit" }).format(new Date(y, m - 1, d));
 }
 
 // ─── Skeleton ───────────────────────────────────────────────────────────────
@@ -90,10 +90,12 @@ function DashAreaChart({
   yFormatter?: (v: number) => string;
   yAxisWidth?: number;
 }) {
+  const t = useT("workspace");
+  const f = useFormat();
   if (!data.length) {
     return (
       <div className="flex items-center justify-center text-gray-700 text-xs" style={{ height }}>
-        Sem dados no período
+        {t("dashboard.noData")}
       </div>
     );
   }
@@ -136,7 +138,7 @@ function DashAreaChart({
           labelStyle={{ color: "#9ca3af", marginBottom: 4 }}
           itemStyle={{ padding: "2px 0" }}
           formatter={(value) => [
-            yFormatter ? yFormatter(value as number) : (value as number).toLocaleString("pt-BR"),
+            yFormatter ? yFormatter(value as number) : f.number(value as number),
           ]}
         />
         {lines.map((l, i) => (
@@ -271,12 +273,7 @@ function ChartCard({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
-  { value: "7",   label: "7 dias" },
-  { value: "30",  label: "30 dias" },
-  { value: "90",  label: "90 dias" },
-  { value: "all", label: "Todo o período" },
-];
+const PERIOD_OPTIONS: Period[] = ["7", "30", "90", "all"];
 
 const IconSend = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -313,11 +310,16 @@ const COMMON_CURRENCIES = ["USD", "EUR", "JPY", "BRL", "GBP", "CAD", "AUD", "CHF
 
 export default function DashboardPage() {
   const { selectedAccountId } = useStoreContext();
+  const t = useT("workspace");
+  const tc = useT("common");
+  const f = useFormat();
   const [period, setPeriod] = useState<Period>("30");
   const [tab, setTab] = useState<"atendimentos" | "financeiro">("atendimentos");
   const [displayCurrency, setDisplayCurrency] = useState<string>("USD");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const money = (value: number) => fmtCurrency(value, displayCurrency, f.intl);
+  const day = (dateStr: string) => fmtDate(dateStr, f.intl);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -352,19 +354,19 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-100">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Visão consolidada dos seus atendimentos e resultados financeiros</p>
+          <p className="text-sm text-gray-500 mt-0.5">{t("dashboard.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center bg-gray-900/60 border border-white/6 rounded-xl p-1">
             {PERIOD_OPTIONS.map((o) => (
               <button
-                key={o.value}
-                onClick={() => setPeriod(o.value)}
+                key={o}
+                onClick={() => setPeriod(o)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  period === o.value ? "bg-indigo-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-200"
+                  period === o ? "bg-indigo-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-200"
                 }`}
               >
-                {o.label}
+                {o === "all" ? t("dashboard.periods.all") : t("dashboard.periods.days", { count: Number(o) })}
               </button>
             ))}
           </div>
@@ -382,7 +384,7 @@ export default function DashboardPage() {
             onClick={fetchData}
             disabled={loading}
             className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-900/60 border border-white/6 text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-40"
-            title="Atualizar"
+            title={tc("actions.refresh")}
           >
             <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -394,17 +396,17 @@ export default function DashboardPage() {
       {/* ── Tabs ── */}
       <div className="flex items-center gap-1 border-b border-white/8">
         {([
-          { value: "atendimentos" as const, label: "Atendimentos" },
-          { value: "financeiro" as const, label: "Financeiro" },
-        ]).map((t) => (
+          { value: "atendimentos" as const, label: t("dashboard.tabs.support") },
+          { value: "financeiro" as const, label: t("dashboard.tabs.financial") },
+        ]).map((item) => (
           <button
-            key={t.value}
-            onClick={() => setTab(t.value)}
+            key={item.value}
+            onClick={() => setTab(item.value)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t.value ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-500 hover:text-gray-300"
+              tab === item.value ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-500 hover:text-gray-300"
             }`}
           >
-            {t.label}
+            {item.label}
           </button>
         ))}
       </div>
@@ -416,32 +418,32 @@ export default function DashboardPage() {
           {/* Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
-              label="Emails Respondidos"
-              value={loading ? "—" : (at?.sent ?? 0).toLocaleString("pt-BR")}
-              sub={loading ? undefined : `${at?.autoRate ?? 0}% automático · ${at?.total ?? 0} recebidos`}
+              label={t("dashboard.support.answered.label")}
+              value={loading ? "—" : f.number(at?.sent ?? 0)}
+              sub={loading ? undefined : t("dashboard.support.answered.sub", { rate: at?.autoRate ?? 0, total: at?.total ?? 0 })}
               sparkData={sparkSent}
               accent="indigo" loading={loading}
               icon={<IconSend />}
             />
             <MetricCard
-              label="Disputas Gerenciadas"
+              label={t("dashboard.support.disputes.label")}
               value={loading ? "—" : (at?.chargebacks ?? 0).toString()}
-              sub={loading ? undefined : `${at?.refunds ?? 0} reembolso${(at?.refunds ?? 0) !== 1 ? "s" : ""} negociado${(at?.refunds ?? 0) !== 1 ? "s" : ""}`}
+              sub={loading ? undefined : t("dashboard.support.disputes.sub", { count: at?.refunds ?? 0 })}
               sparkData={sparkReceived.map((v, i) => Math.min(v, sparkSent[i] ?? 0))}
               accent="emerald" loading={loading}
               icon={<IconShield />}
             />
             <MetricCard
-              label={`Economia Gerada (${displayCurrency})`}
-              value={loading ? "—" : fmtCurrency(toDisplay(at?.economiaGerada ?? 0), displayCurrency)}
-              sub="Valor em risco gerenciado pela IA"
+              label={t("dashboard.support.savings.label", { currency: displayCurrency })}
+              value={loading ? "—" : money(toDisplay(at?.economiaGerada ?? 0))}
+              sub={t("dashboard.support.savings.sub")}
               accent="amber" loading={loading}
               icon={<IconCoin />}
             />
             <MetricCard
-              label="Spam Bloqueado"
+              label={t("dashboard.support.spam.label")}
               value={loading ? "—" : (at?.cancelled ?? 0).toString()}
-              sub={loading ? undefined : `${at?.failed ?? 0} falha${(at?.failed ?? 0) !== 1 ? "s" : ""} de envio`}
+              sub={loading ? undefined : t("dashboard.support.spam.sub", { count: at?.failed ?? 0 })}
               accent="violet" loading={loading}
               icon={<IconBlock />}
             />
@@ -451,17 +453,20 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
               <ChartCard
-                title="Evolução Temporal"
-                sub="E-mails recebidos e respondidos por dia"
-                legend={[{ label: "Recebidos", color: "#6366f1" }, { label: "Respondidos", color: "#10b981" }]}
+                title={t("dashboard.support.timeline.title")}
+                sub={t("dashboard.support.timeline.sub")}
+                legend={[
+                  { label: t("dashboard.support.timeline.received"), color: "#6366f1" },
+                  { label: t("dashboard.support.timeline.answered"), color: "#10b981" },
+                ]}
               >
                 {loading ? <Sk h="h-44" /> : (
                   <DashAreaChart
                     chartId="atd"
-                    data={at?.byDay.map((d) => ({ date: fmtDate(d.date), Recebidos: d.recebidos, Respondidos: d.enviados })) ?? []}
+                    data={at?.byDay.map((d) => ({ date: day(d.date), received: d.recebidos, answered: d.enviados })) ?? []}
                     lines={[
-                      { key: "Recebidos",   name: "Recebidos",   color: "#6366f1" },
-                      { key: "Respondidos", name: "Respondidos", color: "#10b981" },
+                      { key: "received", name: t("dashboard.support.timeline.received"), color: "#6366f1" },
+                      { key: "answered", name: t("dashboard.support.timeline.answered"), color: "#10b981" },
                     ]}
                     height={180}
                   />
@@ -469,16 +474,16 @@ export default function DashboardPage() {
               </ChartCard>
             </div>
 
-            <ChartCard title="Situação dos E-mails" sub="Distribuição por status no período">
+            <ChartCard title={t("dashboard.support.status.title")} sub={t("dashboard.support.status.sub")}>
               {loading ? (
                 <div className="space-y-3 mt-2">{[1,2,3,4].map(i => <Sk key={i} h="h-8" />)}</div>
               ) : (
                 <div className="space-y-3 mt-2">
                   {[
-                    { label: "Respondidos", value: at?.sent ?? 0,      color: "bg-emerald-500", text: "text-emerald-400" },
-                    { label: "Pendentes",   value: at?.pending ?? 0,   color: "bg-yellow-500",  text: "text-yellow-400" },
-                    { label: "Falharam",    value: at?.failed ?? 0,    color: "bg-red-500",     text: "text-red-400"    },
-                    { label: "Cancelados",  value: at?.cancelled ?? 0, color: "bg-gray-600",    text: "text-gray-400"   },
+                    { label: t("dashboard.support.status.answered"),  value: at?.sent ?? 0,      color: "bg-emerald-500", text: "text-emerald-400" },
+                    { label: t("dashboard.support.status.pending"),   value: at?.pending ?? 0,   color: "bg-yellow-500",  text: "text-yellow-400" },
+                    { label: t("dashboard.support.status.failed"),    value: at?.failed ?? 0,    color: "bg-red-500",     text: "text-red-400"    },
+                    { label: t("dashboard.support.status.cancelled"), value: at?.cancelled ?? 0, color: "bg-gray-600",    text: "text-gray-400"   },
                   ].map((item) => {
                     const pct = (at?.total ?? 0) > 0 ? Math.round((item.value / (at?.total ?? 1)) * 100) : 0;
                     return (
@@ -486,7 +491,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-gray-400">{item.label}</span>
                           <span className={`text-xs font-semibold ${item.text}`}>
-                            {item.value.toLocaleString("pt-BR")}
+                            {f.number(item.value)}
                             <span className="text-gray-600 font-normal ml-1">({pct}%)</span>
                           </span>
                         </div>
@@ -499,14 +504,16 @@ export default function DashboardPage() {
                   {(at?.chargebacks ?? 0) > 0 && (
                     <div className="pt-3 border-t border-white/5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Disputas detectadas</span>
+                        <span className="text-xs text-gray-500">{t("dashboard.support.status.disputesDetected")}</span>
                         <span className="text-xs font-semibold text-red-400">
-                          {at!.chargebacks} disputa{at!.chargebacks !== 1 ? "s" : ""}
+                          {t("dashboard.support.status.disputesCount", { count: at!.chargebacks })}
                         </span>
                       </div>
                       {(at?.total ?? 0) > 0 && (
                         <p className="text-[10px] text-gray-700 mt-0.5">
-                          {((at!.chargebacks / at!.total) * 100).toFixed(1)}% dos e-mails recebidos
+                          {t("dashboard.support.status.disputesShare", {
+                            percent: f.number((at!.chargebacks / at!.total) * 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                          })}
                         </p>
                       )}
                     </div>
@@ -520,13 +527,17 @@ export default function DashboardPage() {
           {(data?.perAccount.length ?? 0) > 1 && (
             <div className="bg-gray-900/60 border border-white/6 rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-white/5">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Por conta</h3>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("dashboard.support.perAccount.title")}</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr>
-                      {["Conta", "Respondidos", "Disputas"].map((h, i) => (
+                      {[
+                        t("dashboard.support.perAccount.account"),
+                        t("dashboard.support.perAccount.answered"),
+                        t("dashboard.support.perAccount.disputes"),
+                      ].map((h, i) => (
                         <th key={h} className={`px-4 py-2.5 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
                       ))}
                     </tr>
@@ -554,14 +565,20 @@ export default function DashboardPage() {
           {!loading && (at?.chargebackItems.length ?? 0) > 0 && (
             <div className="bg-gray-900/60 border border-white/6 rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Disputas de Pagamento</h3>
-                <span className="text-xs text-gray-600">{at!.chargebackItems.length} caso{at!.chargebackItems.length !== 1 ? "s" : ""}</span>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("dashboard.support.chargebacks.title")}</h3>
+                <span className="text-xs text-gray-600">{t("dashboard.support.chargebacks.cases", { count: at!.chargebackItems.length })}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr>
-                      {["Cliente", "Assunto", "Pedido", "Data", ""].map((h, i) => (
+                      {[
+                        t("dashboard.support.chargebacks.customer"),
+                        t("dashboard.support.chargebacks.subject"),
+                        t("dashboard.support.chargebacks.order"),
+                        t("dashboard.support.chargebacks.date"),
+                        "",
+                      ].map((h, i) => (
                         <th key={i} className={`px-4 py-2.5 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : i === 4 ? "text-center" : "text-right"}`}>{h}</th>
                       ))}
                     </tr>
@@ -576,18 +593,18 @@ export default function DashboardPage() {
                         <td className="px-4 py-3 text-sm text-gray-400 max-w-50 truncate">{item.subject}</td>
                         <td className="px-4 py-3 text-right">
                           <span className="text-sm text-emerald-400">
-                            {item.orderValueUSD > 0 ? fmtCurrency(toDisplay(item.orderValueUSD), displayCurrency) : "—"}
+                            {item.orderValueUSD > 0 ? money(toDisplay(item.orderValueUSD)) : "—"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500 text-right whitespace-nowrap">
-                          {item.sentAt ? fmtDate(item.sentAt) : "—"}
+                          {item.sentAt ? day(item.sentAt) : "—"}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <Link
                             href={`/conversas?id=${item.customerId || encodeURIComponent(item.from)}`}
                             className="px-2.5 py-1 rounded-lg text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
                           >
-                            Ver conversa →
+                            {t("dashboard.support.chargebacks.viewConversation")}
                           </Link>
                         </td>
                       </tr>
@@ -609,8 +626,8 @@ export default function DashboardPage() {
               <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
                 <IconShield />
               </div>
-              <p className="text-sm font-semibold text-gray-300 mb-1">Nenhuma loja Shopify conectada</p>
-              <p className="text-xs text-gray-600 max-w-xs mx-auto">Conecte uma loja em Configurações para ver quanto dinheiro a ReplyFlow ajudou a não perder através da redução de reembolsos.</p>
+              <p className="text-sm font-semibold text-gray-300 mb-1">{t("dashboard.financial.noShopify.title")}</p>
+              <p className="text-xs text-gray-600 max-w-xs mx-auto">{t("dashboard.financial.noShopify.hint")}</p>
             </div>
           )}
 
@@ -622,33 +639,34 @@ export default function DashboardPage() {
                   <svg className="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
                 <p className="text-xs text-indigo-300/70 leading-relaxed">
-                  Pedidos com reembolso solicitado → Intervenção da ReplyFlow → Reembolso negociado → <strong className="text-indigo-300">Dinheiro preservado</strong>.
-                  Reembolso parcial significa que a ReplyFlow evitou a perda total.
+                  {t.rich("dashboard.financial.concept", {
+                    strong: (chunks) => <strong className="text-indigo-300">{chunks}</strong>,
+                  })}
                 </p>
               </div>
 
               {/* Top 3 metrics */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <MetricCard
-                  label={`Valor Poupado (${displayCurrency})`}
-                  value={loading ? "—" : fmtCurrency(toDisplay(pd?.valorPoupado ?? 0), displayCurrency)}
-                  sub={loading ? undefined : `${pd?.percentualPoupado ?? 0}% do valor total analisado preservado`}
+                  label={t("dashboard.financial.saved.label", { currency: displayCurrency })}
+                  value={loading ? "—" : money(toDisplay(pd?.valorPoupado ?? 0))}
+                  sub={loading ? undefined : t("dashboard.financial.saved.sub", { percent: pd?.percentualPoupado ?? 0 })}
                   sparkData={sparkPoupado}
                   sparkColor="#10b981"
                   accent="emerald" loading={loading}
                   icon={<IconShield />}
                 />
                 <MetricCard
-                  label={`Valor Analisado (${displayCurrency})`}
-                  value={loading ? "—" : fmtCurrency(toDisplay(pd?.valorAnalisado ?? 0), displayCurrency)}
-                  sub={loading ? undefined : `${pd?.total ?? 0} pedido${(pd?.total ?? 0) !== 1 ? "s" : ""} com reembolso`}
+                  label={t("dashboard.financial.analyzed.label", { currency: displayCurrency })}
+                  value={loading ? "—" : money(toDisplay(pd?.valorAnalisado ?? 0))}
+                  sub={loading ? undefined : t("dashboard.financial.analyzed.sub", { count: pd?.total ?? 0 })}
                   accent="amber" loading={loading}
                   icon={<IconCoin />}
                 />
                 <MetricCard
-                  label={`Total Reembolsado (${displayCurrency})`}
-                  value={loading ? "—" : fmtCurrency(toDisplay(pd?.valorReembolsado ?? 0), displayCurrency)}
-                  sub={loading ? undefined : `${pd?.reembolsosParciais ?? 0} parcial · ${pd?.reembolsosTotais ?? 0} total`}
+                  label={t("dashboard.financial.refunded.label", { currency: displayCurrency })}
+                  value={loading ? "—" : money(toDisplay(pd?.valorReembolsado ?? 0))}
+                  sub={loading ? undefined : t("dashboard.financial.refunded.sub", { partial: pd?.reembolsosParciais ?? 0, full: pd?.reembolsosTotais ?? 0 })}
                   accent="red" loading={loading}
                   icon={<IconBar />}
                 />
@@ -657,12 +675,12 @@ export default function DashboardPage() {
               {/* Saving breakdown */}
               {!loading && (pd?.valorAnalisado ?? 0) > 0 && (
                 <div className="bg-gray-900/60 border border-white/6 rounded-2xl p-5">
-                  <h3 className="text-sm font-semibold text-gray-200 mb-4">Resumo Financeiro</h3>
+                  <h3 className="text-sm font-semibold text-gray-200 mb-4">{t("dashboard.financial.summary.title")}</h3>
                   <div className="space-y-3">
                     {[
-                      { label: "Total em pedidos analisados",         value: fmtCurrency(toDisplay(pd!.valorAnalisado), displayCurrency),  color: "text-gray-300",    bar: "bg-gray-500",    raw: pd!.valorAnalisado },
-                      { label: "Total efetivamente reembolsado",       value: fmtCurrency(toDisplay(pd!.valorReembolsado), displayCurrency), color: "text-red-400",   bar: "bg-red-500",     raw: pd!.valorReembolsado },
-                      { label: "Total poupado pela ReplyFlow",          value: fmtCurrency(toDisplay(pd!.valorPoupado), displayCurrency),   color: "text-emerald-400", bar: "bg-emerald-500", raw: pd!.valorPoupado },
+                      { label: t("dashboard.financial.summary.analyzed"), value: money(toDisplay(pd!.valorAnalisado)),   color: "text-gray-300",    bar: "bg-gray-500",    raw: pd!.valorAnalisado },
+                      { label: t("dashboard.financial.summary.refunded"), value: money(toDisplay(pd!.valorReembolsado)), color: "text-red-400",     bar: "bg-red-500",     raw: pd!.valorReembolsado },
+                      { label: t("dashboard.financial.summary.saved"),    value: money(toDisplay(pd!.valorPoupado)),     color: "text-emerald-400", bar: "bg-emerald-500", raw: pd!.valorPoupado },
                     ].map((row) => {
                       const barPct = pd!.valorAnalisado > 0 ? Math.round((row.raw / pd!.valorAnalisado) * 100) : 0;
                       return (
@@ -678,7 +696,7 @@ export default function DashboardPage() {
                       );
                     })}
                     <div className="pt-3 border-t border-white/5 flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Percentual poupado</span>
+                      <span className="text-xs text-gray-500">{t("dashboard.financial.summary.percent")}</span>
                       <span className="text-sm font-bold text-emerald-400">{pd!.percentualPoupado}%</span>
                     </div>
                   </div>
@@ -687,17 +705,17 @@ export default function DashboardPage() {
 
               {/* Evolution chart */}
               <ChartCard
-                title="Valor Poupado por Dia"
-                sub="Dinheiro preservado pela ReplyFlow ao longo do tempo"
-                legend={[{ label: `Valor poupado (${displayCurrency})`, color: "#10b981" }]}
+                title={t("dashboard.financial.savedChart.title")}
+                sub={t("dashboard.financial.savedChart.sub")}
+                legend={[{ label: t("dashboard.financial.savedChart.legend", { currency: displayCurrency }), color: "#10b981" }]}
               >
                 {loading ? <Sk h="h-44" /> : (
                   <DashAreaChart
                     chartId="fin"
-                    data={pd?.byDay.map((d) => ({ date: fmtDate(d.date), Poupado: toDisplay(d.valorPoupado) })) ?? []}
-                    lines={[{ key: "Poupado", name: `Poupado (${displayCurrency})`, color: "#10b981" }]}
+                    data={pd?.byDay.map((d) => ({ date: day(d.date), saved: toDisplay(d.valorPoupado) })) ?? []}
+                    lines={[{ key: "saved", name: t("dashboard.financial.savedChart.series", { currency: displayCurrency }), color: "#10b981" }]}
                     height={180}
-                    yFormatter={(v) => fmtCurrency(v, displayCurrency)}
+                    yFormatter={money}
                     yAxisWidth={72}
                   />
                 )}
@@ -705,13 +723,20 @@ export default function DashboardPage() {
 
               {/* Per-account breakdown */}
               {(pd?.porConta.length ?? 0) > 0 && (
-                <ChartCard title="Preservação por Loja" sub="Quanto a ReplyFlow evitou de perder em cada conta Shopify">
+                <ChartCard title={t("dashboard.financial.perStore.title")} sub={t("dashboard.financial.perStore.sub")}>
                   {loading ? <Sk h="h-32" /> : (
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead>
                           <tr>
-                            {["Loja", "Pedidos", "Valor analisado", "Reembolsado", "Poupado", "% poupado"].map((h, i) => (
+                            {[
+                              t("dashboard.financial.perStore.store"),
+                              t("dashboard.financial.perStore.orders"),
+                              t("dashboard.financial.perStore.analyzed"),
+                              t("dashboard.financial.perStore.refunded"),
+                              t("dashboard.financial.perStore.saved"),
+                              t("dashboard.financial.perStore.savedPct"),
+                            ].map((h, i) => (
                               <th key={h} className={`px-3 py-2 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
                             ))}
                           </tr>
@@ -722,16 +747,16 @@ export default function DashboardPage() {
                               <td className="px-3 py-3 text-sm text-gray-200">{acc.label}</td>
                               <td className="px-3 py-3 text-sm text-gray-400 text-right">{acc.total}</td>
                               <td className="px-3 py-3 text-right">
-                                <span className="text-sm text-gray-300">{fmtCurrency(toDisplay(acc.valorAnalisado), displayCurrency)}</span>
+                                <span className="text-sm text-gray-300">{money(toDisplay(acc.valorAnalisado))}</span>
                               </td>
                               <td className="px-3 py-3 text-right">
                                 <span className={`text-sm ${acc.valorReembolsado > 0 ? "text-red-400" : "text-gray-600"}`}>
-                                  {acc.valorReembolsado > 0 ? fmtCurrency(toDisplay(acc.valorReembolsado), displayCurrency) : "—"}
+                                  {acc.valorReembolsado > 0 ? money(toDisplay(acc.valorReembolsado)) : "—"}
                                 </span>
                               </td>
                               <td className="px-3 py-3 text-right">
                                 <span className={`text-sm font-semibold ${acc.valorPoupado > 0 ? "text-emerald-300" : "text-gray-600"}`}>
-                                  {acc.valorPoupado > 0 ? fmtCurrency(toDisplay(acc.valorPoupado), displayCurrency) : "—"}
+                                  {acc.valorPoupado > 0 ? money(toDisplay(acc.valorPoupado)) : "—"}
                                 </span>
                               </td>
                               <td className="px-3 py-3 text-right">
@@ -753,16 +778,24 @@ export default function DashboardPage() {
                 <div className="bg-gray-900/60 border border-white/6 rounded-2xl overflow-hidden">
                   <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-200">Pedidos com Devolução</h3>
-                      <p className="text-xs text-gray-600 mt-0.5">Pedidos reembolsados via Shopify no período</p>
+                      <h3 className="text-sm font-semibold text-gray-200">{t("dashboard.financial.refundedOrders.title")}</h3>
+                      <p className="text-xs text-gray-600 mt-0.5">{t("dashboard.financial.refundedOrders.sub")}</p>
                     </div>
-                    <span className="text-xs text-gray-600">{fin!.refundedOrders.length} pedido{fin!.refundedOrders.length !== 1 ? "s" : ""}</span>
+                    <span className="text-xs text-gray-600">{t("dashboard.financial.refundedOrders.count", { count: fin!.refundedOrders.length })}</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr>
-                          {["Pedido", "Data", "Moeda", "Valor", "Devolvido", "Poupado", "Tipo"].map((h, i) => (
+                          {[
+                            t("dashboard.financial.refundedOrders.order"),
+                            t("dashboard.financial.refundedOrders.date"),
+                            t("dashboard.financial.refundedOrders.currency"),
+                            t("dashboard.financial.refundedOrders.value"),
+                            t("dashboard.financial.refundedOrders.refunded"),
+                            t("dashboard.financial.refundedOrders.saved"),
+                            t("dashboard.financial.refundedOrders.type"),
+                          ].map((h, i) => (
                             <th key={h} className={`px-4 py-2.5 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
                           ))}
                         </tr>
@@ -777,22 +810,22 @@ export default function DashboardPage() {
                                 {order.accountLabel && <p className="text-xs text-gray-600">{order.accountLabel}</p>}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500 text-right whitespace-nowrap">
-                                {order.createdAt ? fmtDate(order.createdAt) : "—"}
+                                {order.createdAt ? day(order.createdAt) : "—"}
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded">{order.currency}</span>
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-300 text-right">
-                                {fmtCurrency(toDisplay(order.totalPriceUSD), displayCurrency)}
+                                {money(toDisplay(order.totalPriceUSD))}
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <span className="text-sm text-red-400">
-                                  {fmtCurrency(toDisplay(order.totalRefundedUSD), displayCurrency)}
+                                  {money(toDisplay(order.totalRefundedUSD))}
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <span className={`text-sm font-semibold ${poupado > 0.01 ? "text-emerald-400" : "text-gray-600"}`}>
-                                  {poupado > 0.01 ? fmtCurrency(toDisplay(poupado), displayCurrency) : "—"}
+                                  {poupado > 0.01 ? money(toDisplay(poupado)) : "—"}
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-right">
@@ -801,7 +834,9 @@ export default function DashboardPage() {
                                     ? "bg-red-500/10 text-red-400"
                                     : "bg-yellow-500/10 text-yellow-400"
                                 }`}>
-                                  {order.financialStatus === "refunded" ? "Total" : "Parcial"}
+                                  {order.financialStatus === "refunded"
+                                    ? t("dashboard.financial.refundedOrders.full")
+                                    : t("dashboard.financial.refundedOrders.partial")}
                                 </span>
                               </td>
                             </tr>

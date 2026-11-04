@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getT } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
@@ -7,9 +8,14 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const tc = await getT("common");
+  const t = await getT("inbox");
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const { id } = await params;
   const db = getAdminDb();
@@ -19,11 +25,14 @@ export async function POST(
   // Fetch the target email and verify ownership
   const emailDoc = await db.collection("emails").doc(id).get();
   if (!emailDoc.exists)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: t("errors.emailNotFound") },
+      { status: 404 },
+    );
 
   const emailData = emailDoc.data()!;
   if (!ownedIds.includes(emailData.accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
   }
 
   const customerId = emailData.customerId as string | undefined;

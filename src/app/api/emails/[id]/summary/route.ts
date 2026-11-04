@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getLocale, getT } from "@/lib/i18n/server";
+import { LOCALE_META } from "@/lib/i18n/config";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
@@ -15,22 +17,30 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const tc = await getT("common");
+  const t = await getT("inbox");
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const { id } = await params;
   const db = getAdminDb();
 
   const emailDoc = await db.collection("emails").doc(id).get();
   if (!emailDoc.exists)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: t("errors.emailNotFound") },
+      { status: 404 },
+    );
 
   const emailData = emailDoc.data()!;
 
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(emailData.accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: tc("states.forbidden") }, { status: 403 });
   }
 
   const customerId = emailData.customerId;
@@ -79,11 +89,14 @@ export async function POST(
     (a, b) => (a.receivedAt?.seconds ?? 0) - (b.receivedAt?.seconds ?? 0),
   );
 
+  const locale = await getLocale();
+  const summaryLanguage = LOCALE_META[locale].aiName;
+
   const emailsBlock = allEmails
     .map((e, i) => {
       const date = e.receivedAt
-        ? new Date(e.receivedAt.seconds * 1000).toLocaleString("pt-BR")
-        : "data desconhecida";
+        ? new Date(e.receivedAt.seconds * 1000).toLocaleString(LOCALE_META[locale].intl)
+        : "unknown date";
       return [
         `--- Email ${i + 1} | ${date} | status: ${e.status} ---`,
         `From: ${e.fromName} <${e.from}>`,
@@ -96,29 +109,29 @@ export async function POST(
     })
     .join("\n\n");
 
-  const prompt = `You are analyzing a customer support conversation thread. Based on ALL the emails below, generate a concise summary IN BRAZILIAN PORTUGUESE.
+  const prompt = `You are analyzing a customer support conversation thread. Based on ALL the emails below, generate a concise summary IN ${summaryLanguage.toUpperCase()}.
 
 IMPORTANT — Some emails arrive via Shopify's support relay (the "From" address might be a Shopify email like "no-reply@shopify.com" or similar). When this happens, the REAL customer's name and email are inside the email body. Make sure to identify the actual customer from the body content, not just the "From" field.
 
 Emails:
 ${emailsBlock}
 
-Generate a structured summary with the following sections (in Brazilian Portuguese, keep it concise):
+Generate a structured summary with the following sections. Write everything — including the section headings — in ${summaryLanguage}, and keep it concise:
 
-**Cliente**
+**Customer**
 Name, email, and any other identifying info found in the emails (check the body if the from address looks like a relay).
 
-**Problema relatado**
+**Reported problem**
 What issue(s) the customer reported across all their messages. Be specific.
 
-**Histórico de atendimento**
+**Support history**
 A brief timeline of what happened: what the customer said, what was replied, what actions were taken.
 
-**Situação atual**
+**Current status**
 Current status: resolved, pending, escalated, refund requested, etc.
 
-**Pontos de atenção**
-Any red flags, commitments made, or things that need follow-up (chargebacks, refunds promised, open questions, etc.). If none, write "Nenhum."
+**Points of attention**
+Any red flags, commitments made, or things that need follow-up (chargebacks, refunds promised, open questions, etc.). If none, write "None" (translated into ${summaryLanguage}).
 
 Reply only with the summary. Do not add any preamble.`;
 

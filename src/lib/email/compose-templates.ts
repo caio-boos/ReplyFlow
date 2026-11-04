@@ -4,7 +4,8 @@
  *
  * O conteúdo (assunto/corpo) é escolhido pelo idioma da loja
  * (`account.replyLanguage`); quando não há tradução, usa inglês.
- * Nome e descrição ficam em português pois são apenas da interface.
+ * Nome e descrição são da interface e ficam nas traduções
+ * (`compose.templates.<i18nKey>.name|description`).
  *
  * Placeholders disponíveis:
  *  {{nome}}          – nome completo do cliente
@@ -18,15 +19,19 @@
  *  {{total}}         – valor total do pedido
  */
 
+import type { Messages } from "@/lib/i18n/types";
+
 export interface TemplateContent {
   subject: string;
   body: string;
 }
 
+export type ComposeTemplateKey = keyof Messages["compose"]["templates"];
+
 export interface ComposeTemplate {
   id: string;
-  name: string;
-  description: string;
+  /** Chave das traduções de nome/descrição exibidos na interface. */
+  i18nKey: ComposeTemplateKey;
   /** Conteúdo por idioma ("en" é obrigatório e usado como fallback). */
   content: Record<string, TemplateContent> & { en: TemplateContent };
 }
@@ -34,8 +39,7 @@ export interface ComposeTemplate {
 export const COMPOSE_TEMPLATES: ComposeTemplate[] = [
   {
     id: "endereco-urgente",
-    name: "Fornecer endereço com urgência",
-    description: "Pede ao cliente o endereço completo para liberar o envio.",
+    i18nKey: "enderecoUrgente",
     content: {
       en: {
         subject: "⚠️ Order {{pedido}} — We urgently need your address",
@@ -240,8 +244,7 @@ Team {{loja}}`,
   },
   {
     id: "confirmar-endereco",
-    name: "Confirmar endereço de entrega",
-    description: "Pede a confirmação do endereço registrado no pedido.",
+    i18nKey: "confirmarEndereco",
     content: {
       en: {
         subject: "Order {{pedido}} — Please confirm your shipping address",
@@ -364,8 +367,7 @@ Team {{loja}}`,
   },
   {
     id: "enviar-rastreio",
-    name: "Enviar código de rastreio",
-    description: "Informa o código e o link de rastreamento do pedido.",
+    i18nKey: "enviarRastreio",
     content: {
       en: {
         subject: "Order {{pedido}} shipped — track your package 📦",
@@ -497,8 +499,7 @@ Team {{loja}}`,
   },
   {
     id: "atraso-entrega",
-    name: "Pedido atrasado — desculpas",
-    description: "Pede desculpas pelo atraso e tranquiliza o cliente.",
+    i18nKey: "atrasoEntrega",
     content: {
       en: {
         subject: "About your order {{pedido}} — delivery update",
@@ -648,8 +649,7 @@ Team {{loja}}`,
   },
   {
     id: "pagamento-pendente",
-    name: "Pagamento pendente",
-    description: "Avisa que o pagamento do pedido ainda não foi confirmado.",
+    i18nKey: "pagamentoPendente",
     content: {
       en: {
         subject: "Order {{pedido}} — payment pending",
@@ -772,8 +772,7 @@ Team {{loja}}`,
   },
   {
     id: "pos-venda",
-    name: "Pós-venda — tudo certo com o pedido?",
-    description: "Pergunta ao cliente se o pedido chegou bem.",
+    i18nKey: "posVenda",
     content: {
       en: {
         subject: "{{primeiro_nome}}, is everything OK with order {{pedido}}?",

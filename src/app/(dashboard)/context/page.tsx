@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 interface Account {
   id: string;
@@ -9,6 +10,8 @@ interface Account {
 }
 
 export default function ContextPage() {
+  const t = useT("settings");
+  const tc = useT("common");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [text, setText] = useState("");
@@ -58,17 +61,16 @@ export default function ContextPage() {
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-gray-100">Contexto da IA</h1>
+        <h1 className="text-xl font-semibold text-gray-100">{t("context.title")}</h1>
         <p className="text-gray-500 text-sm mt-0.5">
-          Cada conta de e-mail possui seu próprio contexto. A IA usará o
-          contexto da conta que recebeu a mensagem para gerar a resposta.
+          {t("context.description")}
         </p>
       </div>
 
       {/* Account selector */}
       {accounts.length > 0 && (
         <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-400 shrink-0">Conta:</label>
+          <label className="text-sm text-gray-400 shrink-0">{t("context.account")}</label>
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -99,12 +101,9 @@ export default function ContextPage() {
           />
         </svg>
         <p className="text-sm text-indigo-300/80 leading-relaxed">
-          <span className="font-medium text-indigo-300">
-            Dica para reduzir chargebacks:
-          </span>{" "}
-          Mencione seu prazo de entrega, política de reembolso e canais
-          alternativos de contato. A IA usará essas informações para oferecer
-          soluções antes que o cliente acione o banco.
+          {t.rich("context.tip", {
+            strong: (c) => <span className="font-medium text-indigo-300">{c}</span>,
+          })}
         </p>
       </div>
 
@@ -131,7 +130,7 @@ export default function ContextPage() {
               : "system_prompt.txt"}
           </div>
           <span className="text-xs text-gray-600 tabular-nums">
-            {text.length.toLocaleString("pt-BR")} caracteres
+            {t("context.characters", { count: text.length })}
           </span>
         </div>
 
@@ -157,7 +156,7 @@ export default function ContextPage() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-            Carregando...
+            {tc("states.loading")}
           </div>
         ) : (
           <textarea
@@ -165,7 +164,7 @@ export default function ContextPage() {
             onChange={(e) => setText(e.target.value)}
             rows={22}
             className="w-full bg-transparent px-4 py-4 text-sm text-gray-300 placeholder-gray-600 focus:outline-none resize-none font-mono leading-relaxed"
-            placeholder="Descreva sua loja, produtos, política de trocas, prazo de entrega, como responder reclamações de chargeback..."
+            placeholder={t("context.placeholder")}
           />
         )}
 
@@ -186,7 +185,7 @@ export default function ContextPage() {
                   d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              Salvo com sucesso
+              {t("context.saved")}
             </span>
           )}
           <button
@@ -215,7 +214,7 @@ export default function ContextPage() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                   />
                 </svg>
-                Salvando...
+                {tc("actions.saving")}
               </>
             ) : (
               <>
@@ -232,7 +231,7 @@ export default function ContextPage() {
                     d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
                   />
                 </svg>
-                Salvar contexto
+                {t("context.save")}
               </>
             )}
           </button>

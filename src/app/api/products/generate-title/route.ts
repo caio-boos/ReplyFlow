@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { computeCostUsd } from "@/lib/ai/openai";
 import OpenAI from "openai";
+import { getT } from "@/lib/i18n/server";
 
 let _client: OpenAI | null = null;
 function getClient() {
@@ -16,13 +17,14 @@ export interface TitleOption {
 }
 
 export async function POST(req: NextRequest) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const body = await req.json();
   const productDescription: string = body?.productDescription ?? "";
   if (!productDescription.trim()) {
-    return NextResponse.json({ error: "Missing productDescription" }, { status: 400 });
+    return NextResponse.json({ error: t("api.productDescriptionRequired") }, { status: 400 });
   }
 
   const prompt = `You are an expert in old money fashion copywriting. Your task is to generate a premium product name for a men's clothing item. The name must follow these strict rules:
@@ -71,6 +73,6 @@ Respond ONLY in this JSON format (no extra text):
     return NextResponse.json({ options: data.options ?? [], usage, costUsd });
   } catch (err) {
     console.error("generate-title error:", err);
-    return NextResponse.json({ error: "Failed to generate titles" }, { status: 500 });
+    return NextResponse.json({ error: t("api.titlesFailed") }, { status: 500 });
   }
 }

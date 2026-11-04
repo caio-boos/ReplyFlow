@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useFormat, useT } from "@/lib/i18n/client";
+import type { TranslationKey } from "@/lib/i18n/translator";
 
 const AVATAR_GRADIENTS = [
   "from-indigo-500 to-violet-600",
@@ -72,12 +74,12 @@ interface CustomerDetail {
   emails_list: EmailEntry[];
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Pendente",
-  sent: "Enviado",
-  failed: "Falhou",
-  cancelled: "Cancelado",
-  processing: "Processando",
+const STATUS_LABEL: Record<string, TranslationKey<"workspace">> = {
+  pending: "emailStatus.pending",
+  sent: "emailStatus.sent",
+  failed: "emailStatus.failed",
+  cancelled: "emailStatus.cancelled",
+  processing: "emailStatus.processing",
 };
 
 const STATUS_CONFIG: Record<
@@ -117,6 +119,7 @@ const STATUS_CONFIG: Record<
 };
 
 function TranslatableText({ text }: { text: string }) {
+  const t = useT("workspace");
   const [translated, setTranslated] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showTranslated, setShowTranslated] = useState(false);
@@ -152,10 +155,10 @@ function TranslatableText({ text }: { text: string }) {
         className="mt-2 text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-50 transition-colors"
       >
         {loading
-          ? "Traduzindo..."
+          ? t("customers.detail.translating")
           : showTranslated
-            ? "Ver original"
-            : "Traduzir para português"}
+            ? t("customers.detail.showOriginal")
+            : t("customers.detail.translate")}
       </button>
     </div>
   );
@@ -163,6 +166,9 @@ function TranslatableText({ text }: { text: string }) {
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const t = useT("workspace");
+  const tc = useT("common");
+  const f = useFormat();
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [accountFilter, setAccountFilter] = useState("all");
   const [accountFilterReady, setAccountFilterReady] = useState(false);
@@ -278,15 +284,17 @@ export default function CustomerDetailPage() {
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
           />
         </svg>
-        Carregando...
+        {tc("states.loading")}
       </div>
     );
   if (!customer)
     return (
-      <div className="p-6 text-red-400 text-sm">Cliente não encontrado</div>
+      <div className="p-6 text-red-400 text-sm">
+        {t("customers.detail.notFound")}
+      </div>
     );
 
-  const displayName = customer.name || "(sem nome)";
+  const displayName = customer.name || t("customers.unnamed");
   const initials = getInitials(displayName);
   const gradient = avatarGradient(customer.id);
 
@@ -311,7 +319,7 @@ export default function CustomerDetailPage() {
               d="M15.75 19.5L8.25 12l7.5-7.5"
             />
           </svg>
-          Clientes
+          {t("customers.title")}
         </Link>
         <span className="text-gray-700">/</span>
         <span className="text-gray-400 truncate max-w-xs">{displayName}</span>
@@ -346,7 +354,9 @@ export default function CustomerDetailPage() {
                 {customer.emails_list.length}
               </p>
               <p className="text-xs text-gray-600 mt-0.5">
-                e-mail{customer.emails_list.length !== 1 ? "s" : ""}
+                {t("customers.emailsUnit", {
+                  count: customer.emails_list.length,
+                })}
               </p>
             </div>
             <button
@@ -372,7 +382,9 @@ export default function CustomerDetailPage() {
                   d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
                 />
               </svg>
-              {customer.blocked ? "Bloqueado" : "Bloquear"}
+              {customer.blocked
+                ? t("customers.detail.blocked")
+                : t("customers.detail.block")}
             </button>
           </div>
         </div>
@@ -381,7 +393,7 @@ export default function CustomerDetailPage() {
         {customer.orderNumbers.length > 0 && (
           <div className="px-5 py-3 border-t border-white/5 bg-black/10 flex items-center gap-3 flex-wrap">
             <span className="text-xs text-gray-600 uppercase tracking-wider">
-              Pedidos
+              {t("customers.detail.orders")}
             </span>
             {customer.orderNumbers.map((o) => (
               <span
@@ -412,7 +424,7 @@ export default function CustomerDetailPage() {
                 />
               </svg>
               <p className="text-xs font-medium text-amber-400 uppercase tracking-wider">
-                Possíveis clientes duplicados
+                {t("customers.detail.duplicates")}
               </p>
             </div>
             <div className="space-y-2">
@@ -436,7 +448,7 @@ export default function CustomerDetailPage() {
       {accountOptions.length > 0 && (
         <div className="bg-gray-900/50 border border-white/6 rounded-xl p-4">
           <p className="text-xs text-gray-600 uppercase tracking-wider mb-3">
-            Visualizar por conta
+            {t("customers.detail.viewByAccount")}
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -447,7 +459,7 @@ export default function CustomerDetailPage() {
                   : "bg-gray-800/60 text-gray-500 border-white/6 hover:text-gray-300 hover:bg-gray-800"
               }`}
             >
-              Todas as contas
+              {t("customers.detail.allAccounts")}
             </button>
             {accountOptions.map((option) => (
               <button
@@ -469,9 +481,11 @@ export default function CustomerDetailPage() {
       {/* Timeline */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-200">Conversa</h2>
+          <h2 className="text-base font-semibold text-gray-200">
+            {t("customers.detail.conversation")}
+          </h2>
           <span className="text-xs text-gray-600">
-            {visibleEmails.length} e-mail{visibleEmails.length !== 1 ? "s" : ""}
+            {t("customers.detail.emailCount", { count: visibleEmails.length })}
           </span>
         </div>
 
@@ -490,7 +504,9 @@ export default function CustomerDetailPage() {
                 d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
               />
             </svg>
-            <p className="text-sm text-gray-500">Nenhum e-mail encontrado</p>
+            <p className="text-sm text-gray-500">
+              {t("customers.detail.noEmails")}
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -517,11 +533,18 @@ export default function CustomerDetailPage() {
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${sc.dot}`}
                         />
-                        {STATUS_LABEL[email.status] ?? email.status}
+                        {STATUS_LABEL[email.status]
+                          ? t(STATUS_LABEL[email.status])
+                          : email.status}
                       </span>
                       <span className="text-xs text-gray-600">
-                        {tsToDate(email.receivedAt)?.toLocaleString("pt-BR") ??
-                          "—"}
+                        {f.date(tsToDate(email.receivedAt), {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
                   </div>
@@ -557,7 +580,7 @@ export default function CustomerDetailPage() {
                               <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                             </svg>
                             <p className="text-xs text-indigo-400 font-medium">
-                              Resposta automática
+                              {t("customers.detail.autoReply")}
                             </p>
                           </div>
                           <pre className="text-sm text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">
@@ -565,7 +588,7 @@ export default function CustomerDetailPage() {
                           </pre>
                         </div>
                         <div className="shrink-0 w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-xs text-indigo-300 font-semibold">
-                          IA
+                          {t("customers.detail.aiBadge")}
                         </div>
                       </div>
                     )}

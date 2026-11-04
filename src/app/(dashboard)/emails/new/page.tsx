@@ -12,6 +12,7 @@ import {
 } from "@/lib/email/compose-templates";
 import type { ShopifyOrderDetails } from "@/lib/shopify/client";
 import { shopifyStoreId } from "../../store-context";
+import { useT } from "@/lib/i18n/client";
 
 interface Account {
   id: string;
@@ -77,6 +78,8 @@ interface OrderLookupResult {
 
 export default function NewEmailPage() {
   const router = useRouter();
+  const t = useT("compose");
+  const tc = useT("common");
 
   const [mode, setMode] = useState<"individual" | "bulk">("individual");
 
@@ -96,7 +99,7 @@ export default function NewEmailPage() {
     null,
   );
   const [templateId, setTemplateId] = useState("");
-  const [appliedTemplateName, setAppliedTemplateName] = useState<string | null>(
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(
     null,
   );
   const [createAnnotation, setCreateAnnotation] = useState(true);
@@ -139,7 +142,7 @@ export default function NewEmailPage() {
       (file) =>
         new Promise<ManualAttachment | string>((resolve) => {
           if (file.size > MAX_FILE_BYTES) {
-            resolve(`"${file.name}" excede o limite de 15 MB por arquivo.`);
+            resolve(t("newEmail.errors.fileTooLarge", { name: file.name }));
             return;
           }
           const reader = new FileReader();
@@ -166,16 +169,14 @@ export default function NewEmailPage() {
         const next = [...prev, ...valid];
         const totalBytes = totalAttachmentBytes(next);
         if (totalBytes > MAX_TOTAL_BYTES) {
-          setAttachmentError(
-            "Total dos anexos ultrapassa 20 MB (limite dos provedores de e-mail).",
-          );
+          setAttachmentError(t("newEmail.errors.totalTooLarge"));
           return prev;
         }
         if (errors.length > 0) setAttachmentError(errors.join(" "));
         return next;
       });
     });
-  }, []);
+  }, [t]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
@@ -219,11 +220,11 @@ export default function NewEmailPage() {
         body: JSON.stringify({ draft: body, subject, accountId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao aperfeiçoar");
+      if (!res.ok) throw new Error(data.error ?? t("newEmail.errors.enhanceFailed"));
       setBody(data.enhanced);
     } catch (err) {
       setEnhanceError(
-        err instanceof Error ? err.message : "Erro ao aperfeiçoar",
+        err instanceof Error ? err.message : t("newEmail.errors.enhanceFailed"),
       );
     } finally {
       setEnhancing(false);
@@ -247,11 +248,11 @@ export default function NewEmailPage() {
         credentials: "include",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao buscar pedido");
+      if (!res.ok) throw new Error(data.error ?? t("newEmail.errors.lookupFailed"));
       setLookupResult(data as OrderLookupResult);
     } catch (err) {
       setLookupError(
-        err instanceof Error ? err.message : "Erro ao buscar pedido",
+        err instanceof Error ? err.message : t("newEmail.errors.lookupFailed"),
       );
     } finally {
       setLookupLoading(false);
@@ -285,7 +286,7 @@ export default function NewEmailPage() {
 
   function handleApplyTemplate() {
     if (!lookupResult || !templateId) return;
-    const template = COMPOSE_TEMPLATES.find((t) => t.id === templateId);
+    const template = COMPOSE_TEMPLATES.find((tpl) => tpl.id === templateId);
     if (!template) return;
     const account = accounts.find((a) => a.id === accountId);
     const content = getTemplateContent(template, account?.replyLanguage);
@@ -294,25 +295,38 @@ export default function NewEmailPage() {
       setTo(lookupResult.order.customer.email);
     setSubject(fillTemplate(content.subject, vars));
     setBody(fillTemplate(content.body, vars));
-    setAppliedTemplateName(template.name);
+    setAppliedTemplateId(template.id);
+  }
+
+  function templateName(id: string | null): string | null {
+    const template = COMPOSE_TEMPLATES.find((tpl) => tpl.id === id);
+    return template ? t(`templates.${template.i18nKey}.name`) : null;
   }
 
   async function maybeCreateAnnotation(emailId: string | null) {
     if (!createAnnotation || !lookupResult) return;
     const { order } = lookupResult;
-    const titleBase = appliedTemplateName ?? "E-mail enviado";
+    const titleBase =
+      templateName(appliedTemplateId) ?? t("newEmail.annotation.defaultTitle");
     try {
       const res = await fetch("/api/annotations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId,
-          title: `${titleBase} — Pedido ${order.name}`,
+          title: t("newEmail.annotation.title", {
+            base: titleBase,
+            order: order.name,
+          }),
           text: [
-            order.customer?.name ? `Cliente: ${order.customer.name}` : null,
-            order.customer?.email ? `E-mail: ${order.customer.email}` : null,
-            `Assunto: ${subject.trim()}`,
-            "Aguardando retorno do cliente.",
+            order.customer?.name
+              ? t("newEmail.annotation.customer", { name: order.customer.name })
+              : null,
+            order.customer?.email
+              ? t("newEmail.annotation.email", { email: order.customer.email })
+              : null,
+            t("newEmail.annotation.subject", { subject: subject.trim() }),
+            t("newEmail.annotation.awaiting"),
           ]
             .filter(Boolean)
             .join("\n"),
@@ -331,10 +345,9 @@ export default function NewEmailPage() {
   async function handleSend() {
     if (!accountId || !to.trim() || !subject.trim() || !body.trim()) return;
     const confirmed = await openConfirm({
-      title: "Enviar e-mail?",
-      description:
-        "Confirme o envio deste e-mail para o destinatário informado.",
-      confirmLabel: "Enviar",
+      title: t("newEmail.confirm.title"),
+      description: t("newEmail.confirm.description"),
+      confirmLabel: tc("actions.send"),
     });
     if (!confirmed) return;
 
@@ -358,13 +371,15 @@ export default function NewEmailPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
+      if (!res.ok) throw new Error(data.error ?? t("newEmail.errors.sendFailed"));
       await maybeCreateAnnotation(
         typeof data.emailId === "string" ? data.emailId : null,
       );
       setSent(true);
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Erro ao enviar");
+      setSendError(
+        err instanceof Error ? err.message : t("newEmail.errors.sendFailed"),
+      );
     } finally {
       setSending(false);
     }
@@ -399,21 +414,23 @@ export default function NewEmailPage() {
           </div>
           <div className="space-y-1">
             <p className="text-base font-semibold text-gray-100">
-              E-mail enviado com sucesso
+              {t("newEmail.success.title")}
             </p>
             <p className="text-sm text-gray-500">
-              Sua mensagem foi entregue ao destinatário.
+              {t("newEmail.success.description")}
             </p>
             {annotationCreated && (
               <p className="text-xs text-amber-400/90">
-                Uma anotação de acompanhamento foi criada em{" "}
-                <button
-                  onClick={() => router.push("/anotacoes")}
-                  className="underline hover:text-amber-300"
-                >
-                  Anotações
-                </button>
-                .
+                {t.rich("newEmail.success.annotationCreated", {
+                  link: (chunks) => (
+                    <button
+                      onClick={() => router.push("/anotacoes")}
+                      className="underline hover:text-amber-300"
+                    >
+                      {chunks}
+                    </button>
+                  ),
+                })}
               </p>
             )}
           </div>
@@ -429,18 +446,18 @@ export default function NewEmailPage() {
                 setLookupResult(null);
                 setLookupError(null);
                 setTemplateId("");
-                setAppliedTemplateName(null);
+                setAppliedTemplateId(null);
                 setAnnotationCreated(false);
               }}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/8 rounded-lg text-sm text-gray-300 transition-colors"
             >
-              Escrever outro
+              {t("newEmail.success.writeAnother")}
             </button>
             <button
               onClick={() => router.push("/dashboard")}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium text-white transition-colors"
             >
-              Ir ao Dashboard
+              {t("newEmail.success.goToDashboard")}
             </button>
           </div>
         </div>
@@ -472,7 +489,7 @@ export default function NewEmailPage() {
           Dashboard
         </button>
         <span className="text-gray-700">/</span>
-        <span className="text-gray-400">Novo E-mail</span>
+        <span className="text-gray-400">{t("newEmail.breadcrumb")}</span>
       </nav>
 
       {/* Title */}
@@ -494,12 +511,12 @@ export default function NewEmailPage() {
         </div>
         <div>
           <h1 className="text-lg font-semibold text-gray-100">
-            Compor Novo E-mail
+            {t("newEmail.title")}
           </h1>
           <p className="text-xs text-gray-500">
             {mode === "individual"
-              ? "Envie um e-mail a qualquer destinatário sem precisar de um contato anterior."
-              : "Dispare uma campanha para quem comprou um produto específico na sua loja Shopify."}
+              ? t("newEmail.subtitleIndividual")
+              : t("newEmail.subtitleBulk")}
           </p>
         </div>
       </div>
@@ -508,8 +525,8 @@ export default function NewEmailPage() {
       <div className="inline-flex p-0.5 bg-gray-900/60 border border-white/6 rounded-lg">
         {(
           [
-            ["individual", "Envio individual"],
-            ["bulk", "Campanha em lote"],
+            ["individual", t("newEmail.modes.individual")],
+            ["bulk", t("newEmail.modes.bulk")],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -541,10 +558,10 @@ export default function NewEmailPage() {
           />
           <div>
             <p className="text-sm font-medium text-gray-200 leading-tight">
-              Templates prontos
+              {t("newEmail.shopify.title")}
             </p>
             <p className="text-xs text-gray-500 leading-tight">
-              Busque um pedido na Shopify e preencha o e-mail automaticamente.
+              {t("newEmail.shopify.description")}
             </p>
           </div>
         </div>
@@ -553,7 +570,7 @@ export default function NewEmailPage() {
           {/* Lookup */}
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Pedido ou e-mail do cliente
+              {t("newEmail.shopify.lookupLabel")}
             </label>
             <div className="flex gap-2">
               <input
@@ -566,7 +583,7 @@ export default function NewEmailPage() {
                     handleLookup();
                   }
                 }}
-                placeholder="#2361 ou cliente@email.com"
+                placeholder={t("newEmail.shopify.lookupPlaceholder")}
                 className="flex-1 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
               />
               <button
@@ -592,19 +609,20 @@ export default function NewEmailPage() {
                     />
                   </svg>
                 )}
-                {lookupLoading ? "Buscando..." : "Buscar na Shopify"}
+                {lookupLoading
+                  ? t("newEmail.shopify.searching")
+                  : t("newEmail.shopify.search")}
               </button>
             </div>
             {!accountId && (
               <p className="text-xs text-gray-600">
-                Selecione a loja no campo &quot;Enviar de&quot; abaixo para
-                buscar o pedido.
+                {t("newEmail.shopify.selectStoreHint")}
               </p>
             )}
             {accountId &&
               !accounts.find((a) => a.id === accountId)?.shopifyConnected && (
                 <p className="text-xs text-amber-400">
-                  A conta selecionada não tem a Shopify conectada.
+                  {t("newEmail.shopify.notConnected")}
                 </p>
               )}
           </div>
@@ -620,16 +638,18 @@ export default function NewEmailPage() {
             <div className="bg-gray-800/40 border border-white/5 rounded-lg px-4 py-3 space-y-1 text-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border bg-violet-500/10 text-violet-400 border-violet-500/20 font-medium">
-                  Pedido {lookupResult.order.name}
+                  {t("newEmail.order.badge", { name: lookupResult.order.name })}
                 </span>
                 <span className="text-gray-500">
-                  {lookupResult.order.fulfillmentStatus ?? "não enviado"} ·{" "}
+                  {lookupResult.order.fulfillmentStatus ??
+                    t("newEmail.order.unfulfilled")}{" "}
+                  ·{" "}
                   {lookupResult.order.financialStatus}
                 </span>
               </div>
               {lookupResult.order.customer?.name && (
                 <p className="text-gray-400">
-                  Cliente:{" "}
+                  {t("newEmail.order.customer")}{" "}
                   <span className="text-gray-200">
                     {lookupResult.order.customer.name}
                   </span>
@@ -643,20 +663,25 @@ export default function NewEmailPage() {
               )}
               {lookupResult.order.lineItems.length > 0 && (
                 <p className="text-gray-500">
-                  Itens:{" "}
-                  {lookupResult.order.lineItems
-                    .map((i) => `${i.quantity}x ${i.title}`)
-                    .join(", ")}
+                  {t("newEmail.order.items", {
+                    items: lookupResult.order.lineItems
+                      .map((i) => `${i.quantity}x ${i.title}`)
+                      .join(", "),
+                  })}
                 </p>
               )}
               {lookupResult.order.shippingAddress && (
                 <p className="text-gray-500 whitespace-pre-line">
-                  Endereço: {lookupResult.order.shippingAddress}
+                  {t("newEmail.order.address", {
+                    address: lookupResult.order.shippingAddress,
+                  })}
                 </p>
               )}
               {lookupResult.order.trackingNumber && (
                 <p className="text-gray-500">
-                  Rastreio: {lookupResult.order.trackingNumber}
+                  {t("newEmail.order.tracking", {
+                    tracking: lookupResult.order.trackingNumber,
+                  })}
                 </p>
               )}
             </div>
@@ -669,7 +694,7 @@ export default function NewEmailPage() {
               .toLowerCase()
               .split("-")[0];
             const selectedTemplate = COMPOSE_TEMPLATES.find(
-              (t) => t.id === templateId,
+              (tpl) => tpl.id === templateId,
             );
             const effectiveLang = selectedTemplate
               ? selectedTemplate.content[accountLang]
@@ -682,10 +707,10 @@ export default function NewEmailPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs text-gray-500 uppercase tracking-wider">
-                  Template
+                  {t("newEmail.template.label")}
                 </label>
                 <span className="text-xs text-gray-600">
-                  Idioma da loja:{" "}
+                  {t("newEmail.template.storeLanguage")}{" "}
                   <span className="text-gray-400">{langLabel}</span>
                 </span>
               </div>
@@ -696,11 +721,11 @@ export default function NewEmailPage() {
                   className="flex-1 bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 >
                   <option value="" disabled>
-                    Selecione um template...
+                    {t("newEmail.template.selectPlaceholder")}
                   </option>
-                  {COMPOSE_TEMPLATES.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
+                  {COMPOSE_TEMPLATES.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>
+                      {t(`templates.${tpl.i18nKey}.name`)}
                     </option>
                   ))}
                 </select>
@@ -710,21 +735,19 @@ export default function NewEmailPage() {
                   disabled={!templateId}
                   className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-white transition-colors shrink-0"
                 >
-                  Preencher e-mail
+                  {t("newEmail.template.apply")}
                 </button>
               </div>
-              {templateId && (
+              {selectedTemplate && (
                 <p className="text-xs text-gray-600">
-                  {
-                    COMPOSE_TEMPLATES.find((t) => t.id === templateId)
-                      ?.description
-                  }
+                  {t(`templates.${selectedTemplate.i18nKey}.description`)}
                 </p>
               )}
-              {appliedTemplateName && (
+              {appliedTemplateId && (
                 <p className="text-xs text-emerald-400">
-                  Template &quot;{appliedTemplateName}&quot; aplicado —
-                  revise o e-mail abaixo antes de enviar.
+                  {t("newEmail.template.applied", {
+                    name: templateName(appliedTemplateId) ?? "",
+                  })}
                 </p>
               )}
             </div>
@@ -741,8 +764,11 @@ export default function NewEmailPage() {
                 className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-amber-500/40"
               />
               <span className="text-xs text-gray-400">
-                Criar anotação de acompanhamento ao enviar (fica em{" "}
-                <span className="text-amber-400">Anotações</span>)
+                {t.rich("newEmail.template.createAnnotation", {
+                  notes: (chunks) => (
+                    <span className="text-amber-400">{chunks}</span>
+                  ),
+                })}
               </span>
             </label>
           )}
@@ -755,16 +781,16 @@ export default function NewEmailPage() {
           {/* Account selector */}
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Enviar de
+              {t("newEmail.form.from")}
             </label>
             {accountsLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-600 py-2">
                 <SpinnerIcon className="w-3.5 h-3.5" />
-                Carregando contas...
+                {t("shared.loadingAccounts")}
               </div>
             ) : accounts.length === 0 ? (
               <p className="text-sm text-red-400">
-                Nenhuma conta configurada. Adicione uma conta primeiro.
+                {t("newEmail.form.noAccounts")}
               </p>
             ) : (
               <select
@@ -774,7 +800,7 @@ export default function NewEmailPage() {
               >
                 {accounts.length > 1 && (
                   <option value="" disabled>
-                    Selecione uma conta...
+                    {t("newEmail.form.selectAccount")}
                   </option>
                 )}
                 {accounts.map((a) => {
@@ -795,13 +821,13 @@ export default function NewEmailPage() {
           {/* To */}
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Para
+              {t("newEmail.form.to")}
             </label>
             <input
               type="email"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              placeholder="destinatario@email.com"
+              placeholder={t("newEmail.form.toPlaceholder")}
               className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             />
           </div>
@@ -809,13 +835,13 @@ export default function NewEmailPage() {
           {/* Subject */}
           <div className="space-y-1.5">
             <label className="text-xs text-gray-500 uppercase tracking-wider">
-              Assunto
+              {t("shared.subject")}
             </label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Assunto do e-mail"
+              placeholder={t("newEmail.form.subjectPlaceholder")}
               className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             />
           </div>
@@ -824,7 +850,7 @@ export default function NewEmailPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-500 uppercase tracking-wider">
-                Mensagem
+                {t("newEmail.form.message")}
               </label>
               <button
                 type="button"
@@ -849,7 +875,7 @@ export default function NewEmailPage() {
                     />
                   </svg>
                 )}
-                {enhancing ? "Aperfeiçoando..." : "Aperfeiçoar com IA"}
+                {enhancing ? t("shared.enhancing") : t("shared.enhance")}
               </button>
             </div>
 
@@ -863,7 +889,7 @@ export default function NewEmailPage() {
               value={body}
               onChange={(e) => setBody(e.target.value)}
               onPaste={handlePaste}
-              placeholder="Digite sua mensagem aqui... Você pode colar imagens diretamente neste campo."
+              placeholder={t("newEmail.form.bodyPlaceholder")}
               rows={10}
               className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 resize-y focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors font-mono leading-relaxed"
             />
@@ -873,7 +899,7 @@ export default function NewEmailPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-500 uppercase tracking-wider">
-                Anexos
+                {t("newEmail.form.attachments")}
               </label>
               <button
                 type="button"
@@ -893,7 +919,7 @@ export default function NewEmailPage() {
                     d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"
                   />
                 </svg>
-                Adicionar arquivo
+                {t("newEmail.form.addFile")}
               </button>
               <input
                 ref={fileInputRef}
@@ -910,9 +936,9 @@ export default function NewEmailPage() {
               onDragOver={(e) => e.preventDefault()}
               className="border border-dashed border-white/10 rounded-lg px-4 py-4 text-center text-xs text-gray-600 hover:border-white/20 hover:text-gray-500 transition-colors cursor-default"
             >
-              Arraste arquivos aqui ou cole imagens no campo de texto acima
+              {t("newEmail.form.dropZone")}
               <span className="block mt-0.5 text-gray-700">
-                Máx. 15 MB por arquivo · 20 MB total
+                {t("newEmail.form.limits")}
               </span>
             </div>
 
@@ -947,10 +973,11 @@ export default function NewEmailPage() {
                         {att.filename}
                       </span>
                       <span className="text-xs text-gray-600 shrink-0">
-                        {(Math.ceil((att.data.length * 3) / 4) / 1024).toFixed(
-                          0,
-                        )}{" "}
-                        KB
+                        {t("newEmail.form.fileSize", {
+                          size: Math.round(
+                            Math.ceil((att.data.length * 3) / 4) / 1024,
+                          ),
+                        })}
                       </span>
                     </div>
                     <button
@@ -994,7 +1021,7 @@ export default function NewEmailPage() {
               onClick={() => router.push("/dashboard")}
               className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
             >
-              Cancelar
+              {tc("actions.cancel")}
             </button>
             <button
               type="button"
@@ -1019,7 +1046,7 @@ export default function NewEmailPage() {
                   />
                 </svg>
               )}
-              {sending ? "Enviando..." : "Enviar E-mail"}
+              {sending ? tc("actions.sending") : t("newEmail.form.send")}
             </button>
           </div>
         </div>

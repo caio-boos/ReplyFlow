@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getT } from "@/lib/i18n/server";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const tc = await getT("common");
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
@@ -15,7 +17,7 @@ export async function PATCH(
   const snap = await docRef.get();
 
   if (!snap.exists || snap.data()?.userId !== session.uid) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: tc("states.notFound") }, { status: 404 });
   }
 
   const body = await req.json();
@@ -33,8 +35,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const tc = await getT("common");
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const { id } = await params;
   const db = getAdminDb();
@@ -42,7 +45,7 @@ export async function DELETE(
   const snap = await docRef.get();
 
   if (!snap.exists || snap.data()?.userId !== session.uid) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: tc("states.notFound") }, { status: 404 });
   }
 
   const customDomain = snap.data()?.customDomain as string | null;

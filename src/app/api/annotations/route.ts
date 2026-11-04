@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
 import { FieldValue } from "firebase-admin/firestore";
+import { getT } from "@/lib/i18n/server";
 
 function serializeTimestamp(value: unknown) {
   if (!value || typeof value !== "object") return null;
@@ -13,7 +14,7 @@ function serializeTimestamp(value: unknown) {
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: (await getT("common"))("states.unauthorized") }, { status: 401 });
 
   const db = getAdminDb();
   const { searchParams } = new URL(req.url);
@@ -75,14 +76,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: (await getT("common"))("states.unauthorized") }, { status: 401 });
 
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: (await getT("workspace"))("api.invalidBody") },
       { status: 400 },
     );
   }
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
 
   if (!accountId || !title) {
     return NextResponse.json(
-      { error: "accountId e title são obrigatórios" },
+      { error: (await getT("workspace"))("api.noteFieldsRequired") },
       { status: 400 },
     );
   }
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
   const db = getAdminDb();
   const ownedIds = await getOwnedAccountIds(db, session.uid);
   if (!ownedIds.includes(accountId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: (await getT("common"))("states.forbidden") }, { status: 403 });
   }
 
   const optional = (key: string) =>

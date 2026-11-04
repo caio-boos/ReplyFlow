@@ -14,6 +14,7 @@ import {
   getShopifyOrdersByEmail,
   formatOrderForAI,
 } from "@/lib/shopify/client";
+import { entitlementMemo, incrementAiReplyUsage } from "@/lib/billing/store";
 
 // Allow up to 5 minutes on Vercel Pro (cron processes 5/run × every minute = handles any volume)
 export const maxDuration = 300;
@@ -85,6 +86,11 @@ export async function POST(req: NextRequest) {
     now.toMillis() + DEFER_MINUTES * 60 * 1000,
   );
 
+  // Workspaces sem assinatura válida: o e-mail fica guardado e é respondido
+  // assim que a assinatura for regularizada.
+  const billingDeferUntil = Timestamp.fromMillis(now.toMillis() + 6 * 60 * 60 * 1000);
+  const entitlementFor = entitlementMemo();
+
   const DEFAULT_CONTEXT =
     "Você é um assistente de atendimento ao cliente de uma loja de e-commerce.";
 
@@ -121,6 +127,15 @@ export async function POST(req: NextRequest) {
         await emailRef.update({
           status: "pending",
           scheduledReplyAt: deferUntil,
+        });
+        continue;
+      }
+
+      const entitlement = await entitlementFor(accountData.userId as string | undefined);
+      if (entitlement && !entitlement.automation) {
+        await emailRef.update({
+          status: "pending",
+          scheduledReplyAt: billingDeferUntil,
         });
         continue;
       }
@@ -259,6 +274,7 @@ export async function POST(req: NextRequest) {
         smtpResponse: sendResult.smtpResponse,
         error: null,
       });
+      if (accountData.userId) await incrementAiReplyUsage(accountData.userId as string);
 
       // Extract flags and create tasks (non-blocking)
       try {

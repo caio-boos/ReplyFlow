@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { stripQuotedText } from "@/lib/email/quoted-text";
+import { useT, useFormat } from "@/lib/i18n/client";
 
 interface FirestoreTimestamp {
   seconds?: number;
@@ -53,6 +54,8 @@ const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
+  const t = useT("inbox");
+  const tc = useT("common");
   const [current, setCurrent] = useState(0);
   const [lightbox, setLightbox] = useState(false);
 
@@ -82,7 +85,7 @@ function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-xs text-gray-600 uppercase tracking-wider">
-          Imagens anexadas
+          {t("carousel.attachedImages")}
         </p>
         <p className="text-xs text-gray-600">
           {current + 1} / {attachments.length}
@@ -104,7 +107,7 @@ function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
             <button
               onClick={prev}
               className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-opacity opacity-0 group-hover:opacity-100"
-              aria-label="Anterior"
+              aria-label={tc("actions.previous")}
             >
               <svg
                 className="w-4 h-4"
@@ -123,7 +126,7 @@ function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
             <button
               onClick={next}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-opacity opacity-0 group-hover:opacity-100"
-              aria-label="Próxima"
+              aria-label={tc("actions.next")}
             >
               <svg
                 className="w-4 h-4"
@@ -182,7 +185,7 @@ function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
           <button
             className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             onClick={() => setLightbox(false)}
-            aria-label="Fechar"
+            aria-label={tc("actions.close")}
           >
             <svg
               className="w-5 h-5"
@@ -207,7 +210,7 @@ function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
                   e.stopPropagation();
                   prev();
                 }}
-                aria-label="Anterior"
+                aria-label={tc("actions.previous")}
               >
                 <svg
                   className="w-5 h-5"
@@ -229,7 +232,7 @@ function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
                   e.stopPropagation();
                   next();
                 }}
-                aria-label="Próxima"
+                aria-label={tc("actions.next")}
               >
                 <svg
                   className="w-5 h-5"
@@ -260,8 +263,10 @@ function ImageCarousel({ attachments }: { attachments: Attachment[] }) {
             <p className="text-xs text-gray-400">{att.filename}</p>
             {attachments.length > 1 && (
               <p className="text-xs text-gray-600 mt-0.5">
-                {current + 1} / {attachments.length} · ← → para navegar · Esc
-                para fechar
+                {t("carousel.lightboxHint", {
+                  current: current + 1,
+                  total: attachments.length,
+                })}
               </p>
             )}
           </div>
@@ -286,38 +291,33 @@ const extractNewText = stripQuotedText;
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; bg: string; text: string; border: string; dot: string }
+  { bg: string; text: string; border: string; dot: string }
 > = {
   pending: {
-    label: "Pendente",
     bg: "bg-amber-500/10",
     text: "text-amber-400",
     border: "border-amber-500/20",
     dot: "bg-amber-400",
   },
   sent: {
-    label: "Enviado",
     bg: "bg-emerald-500/10",
     text: "text-emerald-400",
     border: "border-emerald-500/20",
     dot: "bg-emerald-400",
   },
   failed: {
-    label: "Falhou",
     bg: "bg-red-500/10",
     text: "text-red-400",
     border: "border-red-500/20",
     dot: "bg-red-400",
   },
   cancelled: {
-    label: "Cancelado",
     bg: "bg-gray-500/10",
     text: "text-gray-500",
     border: "border-gray-500/20",
     dot: "bg-gray-500",
   },
   processing: {
-    label: "Processando",
     bg: "bg-sky-500/10",
     text: "text-sky-400",
     border: "border-sky-500/20",
@@ -328,6 +328,24 @@ const STATUS_CONFIG: Record<
 export default function EmailDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useT("inbox");
+  const tc = useT("common");
+  const f = useFormat();
+  const statusLabel = (status: string) =>
+    t.dynamic(`status.${status}`, undefined, status);
+  const formatTs = (ts: FirestoreTimestamp | null | undefined) => {
+    const d = tsToDate(ts);
+    return d
+      ? f.date(d, {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      : "—";
+  };
   const [email, setEmail] = useState<EmailDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
@@ -361,7 +379,9 @@ export default function EmailDetailPage() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [backHref, setBackHref] = useState("/");
-  const [backLabel, setBackLabel] = useState("Dashboard");
+  const [backLabelKey, setBackLabelKey] = useState<"dashboard" | "tasks">(
+    "dashboard",
+  );
   const [backTaskId, setBackTaskId] = useState<string | null>(null);
   const [backIsTask, setBackIsTask] = useState(false);
 
@@ -371,7 +391,7 @@ export default function EmailDetailPage() {
       try {
         const { taskId } = JSON.parse(taskRaw);
         setBackHref("/tasks");
-        setBackLabel("Tarefas");
+        setBackLabelKey("tasks");
         setBackTaskId(taskId ?? null);
         setBackIsTask(true);
       } catch {}
@@ -382,7 +402,7 @@ export default function EmailDetailPage() {
       try {
         const { groupId } = JSON.parse(dashRaw);
         setBackHref("/");
-        setBackLabel("Dashboard");
+        setBackLabelKey("dashboard");
         setBackTaskId(groupId ?? null); // reuse field to carry the groupId
       } catch {}
     }
@@ -407,8 +427,8 @@ export default function EmailDetailPage() {
   async function handleSend(resend = false) {
     const confirmed = window.confirm(
       resend
-        ? "Tem certeza que deseja REENVIAR este e-mail? O cliente receberá a resposta novamente."
-        : "Tem certeza que deseja enviar este e-mail agora?",
+        ? t("email.confirmResend")
+        : t("email.confirmSend"),
     );
     if (!confirmed) return;
     setSending(true);
@@ -420,11 +440,11 @@ export default function EmailDetailPage() {
         body: JSON.stringify({ resend }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
+      if (!res.ok) throw new Error(data.error ?? t("errors.sendFailed"));
       const updated = await fetch(`/api/emails/${id}`).then((r) => r.json());
       setEmail(updated);
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Erro ao enviar");
+      setSendError(err instanceof Error ? err.message : t("errors.sendFailed"));
     } finally {
       setSending(false);
     }
@@ -507,12 +527,12 @@ export default function EmailDetailPage() {
     try {
       const res = await fetch(`/api/emails/${id}/summary`, { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao gerar resumo");
+      if (!res.ok) throw new Error(data.error ?? t("errors.summaryFailed"));
       setSummary(data.summary);
       setShowSummary(true);
     } catch (err) {
       setSummaryError(
-        err instanceof Error ? err.message : "Erro ao gerar resumo",
+        err instanceof Error ? err.message : t("errors.summaryFailed"),
       );
     } finally {
       setSummaryLoading(false);
@@ -530,11 +550,11 @@ export default function EmailDetailPage() {
         body: JSON.stringify({ draft }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao aperfeiçoar");
+      if (!res.ok) throw new Error(data.error ?? t("errors.enhanceFailed"));
       setDraft(data.enhanced);
     } catch (err) {
       setManualError(
-        err instanceof Error ? err.message : "Erro ao aperfeiçoar",
+        err instanceof Error ? err.message : t("errors.enhanceFailed"),
       );
     } finally {
       setEnhancing(false);
@@ -552,7 +572,7 @@ export default function EmailDetailPage() {
       (file) =>
         new Promise<ManualAttachment | string>((resolve) => {
           if (file.size > MAX_FILE_BYTES) {
-            resolve(`"${file.name}" excede o limite de 15 MB por arquivo.`);
+            resolve(t("errors.fileTooLargeLong", { name: file.name }));
             return;
           }
           const reader = new FileReader();
@@ -579,9 +599,7 @@ export default function EmailDetailPage() {
         const next = [...prev, ...valid];
         const totalBytes = totalAttachmentBytes(next);
         if (totalBytes > MAX_TOTAL_BYTES) {
-          setAttachmentError(
-            "Total dos anexos ultrapassa 20 MB (limite dos provedores de e-mail).",
-          );
+          setAttachmentError(t("errors.attachmentsTooLargeLong"));
           return prev;
         }
         if (errors.length > 0) setAttachmentError(errors.join(" "));
@@ -605,9 +623,7 @@ export default function EmailDetailPage() {
 
   async function handleManualSend() {
     if (!draft.trim()) return;
-    const confirmed = window.confirm(
-      "Tem certeza que deseja enviar esta resposta?",
-    );
+    const confirmed = window.confirm(t("email.confirmManualSend"));
     if (!confirmed) return;
     setManualSending(true);
     setManualError(null);
@@ -622,7 +638,7 @@ export default function EmailDetailPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
+      if (!res.ok) throw new Error(data.error ?? t("errors.sendFailed"));
       setManualSuccess(true);
       setDraft("");
       setAttachments([]);
@@ -630,7 +646,7 @@ export default function EmailDetailPage() {
       const updated = await fetch(`/api/emails/${id}`).then((r) => r.json());
       setEmail(updated);
     } catch (err) {
-      setManualError(err instanceof Error ? err.message : "Erro ao enviar");
+      setManualError(err instanceof Error ? err.message : t("errors.sendFailed"));
     } finally {
       setManualSending(false);
     }
@@ -658,21 +674,21 @@ export default function EmailDetailPage() {
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
           />
         </svg>
-        Carregando...
+        {tc("states.loading")}
       </div>
     );
   }
   if (!email) {
     return (
-      <div className="p-6 text-red-400 text-sm">E-mail não encontrado</div>
+      <div className="p-6 text-red-400 text-sm">
+        {t("errors.emailNotFound")}
+      </div>
     );
   }
 
   const sc = STATUS_CONFIG[email.status] ?? STATUS_CONFIG.cancelled;
-  const receivedDate =
-    tsToDate(email.receivedAt)?.toLocaleString("pt-BR") ?? "—";
-  const scheduledDate =
-    tsToDate(email.scheduledReplyAt)?.toLocaleString("pt-BR") ?? "—";
+  const receivedDate = formatTs(email.receivedAt);
+  const scheduledDate = formatTs(email.scheduledReplyAt);
   const canResend =
     email.status === "sent" ||
     email.status === "failed" ||
@@ -712,7 +728,7 @@ export default function EmailDetailPage() {
               d="M15.75 19.5L8.25 12l7.5-7.5"
             />
           </svg>
-          {backLabel}
+          {t(`nav.${backLabelKey}`)}
         </button>
         <span className="text-gray-700">/</span>
         <span className="text-gray-400 truncate max-w-xs">{email.subject}</span>
@@ -732,14 +748,14 @@ export default function EmailDetailPage() {
                   className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-md border ${sc.bg} ${sc.text} ${sc.border}`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                  {sc.label}
+                  {statusLabel(email.status)}
                 </span>
                 <span className="text-xs text-gray-600">·</span>
                 <span className="text-xs text-gray-500">{receivedDate}</span>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-gray-400">
-                  <span className="text-gray-600">De: </span>
+                  <span className="text-gray-600">{t("email.from")} </span>
                   {email.fromName ? (
                     <span className="text-gray-300">{email.fromName} </span>
                   ) : null}
@@ -748,7 +764,7 @@ export default function EmailDetailPage() {
                   </span>
                 </p>
                 <p className="text-xs text-gray-600">
-                  Conta:{" "}
+                  {t("email.account")}{" "}
                   <span className="text-gray-500 font-mono">
                     {email.accountEmail}
                   </span>
@@ -758,7 +774,7 @@ export default function EmailDetailPage() {
                     href={`/customers/${email.customerId}`}
                     className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                   >
-                    Ver perfil do cliente
+                    {t("email.viewCustomerProfile")}
                     <svg
                       className="w-3 h-3"
                       fill="none"
@@ -821,7 +837,7 @@ export default function EmailDetailPage() {
                         />
                       </svg>
                     )}
-                    {sending ? "Enviando..." : "Enviar agora"}
+                    {sending ? tc("actions.sending") : t("email.sendNow")}
                   </button>
                   <button
                     onClick={handleCancel}
@@ -863,7 +879,7 @@ export default function EmailDetailPage() {
                         />
                       </svg>
                     )}
-                    {cancelling ? "Cancelando..." : "Cancelar envio"}
+                    {cancelling ? t("email.cancelling") : t("email.cancelSend")}
                   </button>
                 </>
               )}
@@ -908,7 +924,7 @@ export default function EmailDetailPage() {
                       />
                     </svg>
                   )}
-                  {sending ? "Reenviando..." : "Reenviar"}
+                  {sending ? t("email.resending") : t("email.resend")}
                 </button>
               )}
             </div>
@@ -936,8 +952,15 @@ export default function EmailDetailPage() {
                     d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Resposta automática agendada para{" "}
-                <span className="font-medium">{scheduledDate}</span>
+                <span>
+                  {t.rich(
+                    "email.scheduledFor",
+                    {
+                      b: (c) => <span className="font-medium">{c}</span>,
+                    },
+                    { date: scheduledDate },
+                  )}
+                </span>
               </div>
             )}
             {email.sentAt && (
@@ -955,9 +978,14 @@ export default function EmailDetailPage() {
                     d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Resposta enviada em{" "}
-                <span className="font-medium">
-                  {tsToDate(email.sentAt)?.toLocaleString("pt-BR") ?? "—"}
+                <span>
+                  {t.rich(
+                    "email.sentAt",
+                    {
+                      b: (c) => <span className="font-medium">{c}</span>,
+                    },
+                    { date: formatTs(email.sentAt) },
+                  )}
                 </span>
               </div>
             )}
@@ -994,7 +1022,7 @@ export default function EmailDetailPage() {
                     d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
                   />
                 </svg>
-                Erro ao enviar: {sendError}
+                {t("email.sendErrorDetail", { error: sendError })}
               </div>
             )}
           </div>
@@ -1020,7 +1048,7 @@ export default function EmailDetailPage() {
               />
             </svg>
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              E-mail do cliente
+              {t("email.customerEmail")}
             </h2>
             <div className="ml-auto flex items-center gap-2">
               <button
@@ -1064,12 +1092,12 @@ export default function EmailDetailPage() {
                   </svg>
                 )}
                 {translating
-                  ? "Traduzindo..."
+                  ? t("email.translating")
                   : translated && showTranslation
-                    ? "Ocultar tradução"
+                    ? t("email.hideTranslation")
                     : translated
-                      ? "Mostrar tradução"
-                      : "Traduzir"}
+                      ? t("email.showTranslation")
+                      : t("email.translate")}
               </button>
               {!!email.attachments?.length && (
                 <span className="flex items-center gap-1 text-xs text-gray-500">
@@ -1086,8 +1114,7 @@ export default function EmailDetailPage() {
                       d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"
                     />
                   </svg>
-                  {email.attachments.length} imagem
-                  {email.attachments.length !== 1 ? "ns" : ""}
+                  {t("email.imageCount", { count: email.attachments.length })}
                 </span>
               )}
             </div>
@@ -1115,7 +1142,7 @@ export default function EmailDetailPage() {
                       d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
                     />
                   </svg>
-                  Tradução automática
+                  {t("email.autoTranslation")}
                 </p>
                 <p className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
                   {translated}
@@ -1139,7 +1166,7 @@ export default function EmailDetailPage() {
               <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
             </svg>
             <h2 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
-              Resposta gerada pela IA
+              {t("email.aiReply")}
             </h2>
           </div>
           <div className="p-4">
@@ -1153,8 +1180,8 @@ export default function EmailDetailPage() {
             ) : (
               <p className="text-sm text-gray-600 italic">
                 {email.status === "pending"
-                  ? "A resposta será gerada automaticamente antes do envio."
-                  : "Nenhuma resposta gerada."}
+                  ? t("email.replyWillBeGenerated")
+                  : t("email.noReply")}
               </p>
             )}
           </div>
@@ -1183,11 +1210,11 @@ export default function EmailDetailPage() {
                 />
               </svg>
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Histórico do cliente
+                {t("email.customerHistory")}
               </h2>
               {history && (
                 <span className="text-xs text-gray-600">
-                  ({history.length} mensagem{history.length !== 1 ? "s" : ""})
+                  {t("email.messageCount", { count: history.length })}
                 </span>
               )}
             </div>
@@ -1228,7 +1255,7 @@ export default function EmailDetailPage() {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                     />
                   </svg>
-                  Carregando histórico...
+                  {t("email.loadingHistory")}
                 </div>
               ) : history?.length ? (
                 <div className="px-4 py-4 space-y-6 max-h-150 overflow-y-auto">
@@ -1244,9 +1271,7 @@ export default function EmailDetailPage() {
                       const isCurrent = item.id === id;
                       const sc2 =
                         STATUS_CONFIG[item.status] ?? STATUS_CONFIG.cancelled;
-                      const date =
-                        tsToDate(item.receivedAt)?.toLocaleString("pt-BR") ??
-                        "—";
+                      const date = formatTs(item.receivedAt);
                       const displayName = item.fromName || item.from;
                       const initial = displayName.charAt(0).toUpperCase();
                       const customerText = item.bodyText
@@ -1270,7 +1295,7 @@ export default function EmailDetailPage() {
                             </span>
                             {isCurrent && (
                               <span className="text-xs text-indigo-400 font-medium">
-                                atual
+                                {t("email.current")}
                               </span>
                             )}
                             <Link
@@ -1326,7 +1351,7 @@ export default function EmailDetailPage() {
                                               d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
                                             />
                                           </svg>
-                                          Tradução
+                                          {t("email.translation")}
                                         </p>
                                         <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
                                           {historyTranslations[item.id]}
@@ -1380,13 +1405,13 @@ export default function EmailDetailPage() {
                                     </svg>
                                   )}
                                   {historyTranslating[item.id]
-                                    ? "Traduzindo..."
+                                    ? t("email.translating")
                                     : historyTranslations[item.id] &&
                                         historyShowTranslation[item.id]
-                                      ? "Ocultar tradução"
+                                      ? t("email.hideTranslation")
                                       : historyTranslations[item.id]
-                                        ? "Mostrar tradução"
-                                        : "Traduzir"}
+                                        ? t("email.showTranslation")
+                                        : t("email.translate")}
                                 </button>
                               </div>
                             </div>
@@ -1400,10 +1425,10 @@ export default function EmailDetailPage() {
                                   <span
                                     className={`text-xs px-1.5 py-0.5 rounded border ${sc2.bg} ${sc2.text} ${sc2.border}`}
                                   >
-                                    {sc2.label}
+                                    {statusLabel(item.status)}
                                   </span>
                                   <p className="text-xs text-gray-600 pr-1">
-                                    IA
+                                    {t("email.ai")}
                                   </p>
                                 </div>
                                 <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl rounded-br-sm px-3 py-2.5">
@@ -1427,7 +1452,7 @@ export default function EmailDetailPage() {
                               <span
                                 className={`text-xs px-2 py-0.5 rounded border ${sc2.bg} ${sc2.text} ${sc2.border}`}
                               >
-                                {sc2.label}
+                                {statusLabel(item.status)}
                               </span>
                             </div>
                           )}
@@ -1437,7 +1462,7 @@ export default function EmailDetailPage() {
                 </div>
               ) : (
                 <p className="px-4 py-6 text-sm text-gray-600 text-center">
-                  Nenhum histórico encontrado.
+                  {t("email.noHistory")}
                 </p>
               )}
             </div>
@@ -1463,7 +1488,7 @@ export default function EmailDetailPage() {
               />
             </svg>
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Resumo do cliente
+              {t("email.customerSummary")}
             </h2>
           </div>
           <button
@@ -1507,12 +1532,12 @@ export default function EmailDetailPage() {
               </svg>
             )}
             {summaryLoading
-              ? "Gerando..."
+              ? t("email.generating")
               : summary && showSummary
-                ? "Ocultar"
+                ? t("email.hide")
                 : summary
-                  ? "Mostrar"
-                  : "Gerar resumo com IA"}
+                  ? t("email.show")
+                  : t("email.generateSummary")}
           </button>
         </div>
 
@@ -1584,7 +1609,7 @@ export default function EmailDetailPage() {
                   d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
                 />
               </svg>
-              Regenerar
+              {t("email.regenerate")}
             </button>
           </div>
         )}
@@ -1607,7 +1632,7 @@ export default function EmailDetailPage() {
             />
           </svg>
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Responder manualmente
+            {t("email.replyManually")}
           </h2>
         </div>
 
@@ -1620,7 +1645,7 @@ export default function EmailDetailPage() {
               setManualError(null);
             }}
             onPaste={handlePaste}
-            placeholder="Escreva sua resposta aqui... A IA pode aperfeiçoar seu rascunho mantendo seu raciocínio. Cole imagens (Ctrl+V) para anexar."
+            placeholder={t("email.replyPlaceholder")}
             rows={6}
             className="w-full bg-gray-800/60 border border-white/8 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 resize-y focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-colors leading-relaxed"
           />
@@ -1682,7 +1707,7 @@ export default function EmailDetailPage() {
                         )
                       }
                       className="ml-1 shrink-0 text-gray-600 hover:text-red-400 transition-colors"
-                      aria-label="Remover anexo"
+                      aria-label={t("email.removeAttachment")}
                     >
                       <svg
                         className="w-3.5 h-3.5"
@@ -1756,7 +1781,7 @@ export default function EmailDetailPage() {
                   d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              Resposta enviada com sucesso!
+              {t("email.replySent")}
             </p>
           )}
 
@@ -1766,7 +1791,7 @@ export default function EmailDetailPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 border border-white/8 rounded-lg text-xs font-medium text-gray-400 transition-colors"
-              title="Anexar arquivo (imagem, PDF, etc.)"
+              title={t("email.attachTitle")}
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -1781,7 +1806,7 @@ export default function EmailDetailPage() {
                   d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"
                 />
               </svg>
-              Anexar
+              {t("email.attach")}
               {attachments.length > 0 && (
                 <span className="ml-0.5 bg-indigo-500/30 text-indigo-300 rounded-full px-1.5 py-px text-[10px] font-semibold">
                   {attachments.length}
@@ -1823,7 +1848,7 @@ export default function EmailDetailPage() {
                   <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                 </svg>
               )}
-              {enhancing ? "Aperfeiçoando..." : "Aperfeiçoar com IA"}
+              {enhancing ? t("email.enhancing") : t("email.enhanceWithAi")}
             </button>
 
             <button
@@ -1866,7 +1891,7 @@ export default function EmailDetailPage() {
                   />
                 </svg>
               )}
-              {manualSending ? "Enviando..." : "Enviar"}
+              {manualSending ? tc("actions.sending") : tc("actions.send")}
             </button>
           </div>
         </div>

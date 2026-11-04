@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { computeCostUsd } from "@/lib/ai/openai";
 import OpenAI from "openai";
+import { getT } from "@/lib/i18n/server";
 
 let _client: OpenAI | null = null;
 function getClient() {
@@ -10,8 +11,9 @@ function getClient() {
 }
 
 export async function POST(req: NextRequest) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const body = await req.json();
   const productName: string = body?.productName ?? "";
@@ -19,7 +21,7 @@ export async function POST(req: NextRequest) {
   const pieces: string = body?.pieces ?? "1";
 
   if (!productName.trim() || !productDescription.trim()) {
-    return NextResponse.json({ error: "Missing productName or productDescription" }, { status: 400 });
+    return NextResponse.json({ error: t("api.productFieldsRequired") }, { status: 400 });
   }
 
   const piecesLabel = pieces === "2" ? "2 pieces (set)" : "1 piece";
@@ -96,6 +98,6 @@ Return ONLY the HTML content — no markdown code blocks, no extra explanation, 
     return NextResponse.json({ html: cleanHtml, usage, costUsd });
   } catch (err) {
     console.error("generate-description error:", err);
-    return NextResponse.json({ error: "Failed to generate description" }, { status: 500 });
+    return NextResponse.json({ error: t("api.descriptionFailed") }, { status: 500 });
   }
 }

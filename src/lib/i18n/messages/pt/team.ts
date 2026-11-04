@@ -1,0 +1,77 @@
+import type { Messages } from "../en";
+
+const team: Messages["team"] = {
+  title: "Membros da equipe",
+  subtitle: "Convide pessoas, escolha as lojas e defina exatamente o que cada uma pode acessar.",
+  invite: "Convidar membro",
+  noStores: "Cadastre ao menos uma loja com SMTP configurado antes de convidar membros.",
+  empty: {
+    title: "Nenhum membro ainda.",
+    hint: "Convide alguém para colaborar nas suas lojas.",
+  },
+  status: {
+    active: "Ativo",
+    pending: "Convite enviado",
+  },
+  summary: "{count, plural, one {# loja} other {# lojas}} · {areas}",
+  noAccess: "sem acesso",
+  actions: {
+    resend: "Reenviar",
+    permissions: "Permissões",
+    remove: "Remover",
+  },
+  form: {
+    inviteTitle: "Convidar membro",
+    editTitle: "Editar permissões",
+    inviteHint: "Enviaremos um e-mail com o link para criar a senha.",
+    editHint: "As alterações valem na próxima requisição do membro.",
+    email: "E-mail",
+    emailPlaceholder: "pessoa@empresa.com",
+    name: "Nome (opcional)",
+    stores: "Lojas",
+    storesHint: "O membro só enxerga dados das lojas selecionadas.",
+    sendInvite: "Enviar convite",
+  },
+  toasts: {
+    loadError: "Não foi possível carregar a equipe.",
+    saveError: "Não foi possível salvar.",
+    updated: "Permissões atualizadas.",
+    invited: "Convite enviado!",
+    resendError: "Falha ao reenviar o convite.",
+    resent: "Convite reenviado.",
+    removeError: "Falha ao remover o membro.",
+    removed: "Membro removido.",
+  },
+  confirmRemove: {
+    title: "Remover membro",
+    description: "{email} perderá o acesso imediatamente. Deseja continuar?",
+    confirm: "Remover",
+  },
+  api: {
+    invalidEmail: "E-mail inválido",
+    selfInvite: "Você não pode convidar a si mesmo",
+    selectArea: "Selecione ao menos uma área de acesso",
+    selectStore: "Selecione ao menos uma loja",
+    alreadyMember: "Este e-mail já faz parte da equipe",
+    smtpRequiredInvite: "Configure uma conta de e-mail (SMTP) antes de convidar membros.",
+    smtpRequiredResend: "Configure uma conta de e-mail (SMTP) antes de enviar convites.",
+    inviteSendFailed: "Não foi possível enviar o e-mail de convite. Verifique o SMTP.",
+    emailSendFailed: "Não foi possível enviar o e-mail. Verifique o SMTP.",
+    alreadyAccepted: "Este membro já aceitou o convite",
+  },
+  email: {
+    subject: "Convite para acessar {workspace} no ReplyFlow",
+    textIntro: "Você foi convidado para fazer parte da equipe de {workspace} no ReplyFlow.",
+    textAreas: "Áreas liberadas: {areas}",
+    textCta: "Acesse o link abaixo para criar sua senha e ativar o acesso:",
+    textExpiry: "O link expira em 7 dias.",
+    heading: "Você foi convidado para a equipe",
+    intro: "Você recebeu um convite para colaborar em <strong>{workspace}</strong> no ReplyFlow. Clique no botão abaixo para criar sua senha e ativar o acesso.",
+    areasLabel: "Áreas liberadas:",
+    button: "Aceitar convite",
+    copyLink: "Ou copie e cole no navegador:",
+    expiry: "Este convite expira em 7 dias. Se você não esperava este e-mail, ignore-o.",
+  },
+};
+
+export default team;

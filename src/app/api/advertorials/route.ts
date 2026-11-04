@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { getT } from "@/lib/i18n/server";
 
 const RESERVED_SLUGS = new Set([
   "dashboard", "accounts", "conversas", "customers", "context",
@@ -9,8 +10,9 @@ const RESERVED_SLUGS = new Set([
 ]);
 
 export async function GET() {
+  const tc = await getT("common");
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const db = getAdminDb();
   const snap = await db
@@ -35,8 +37,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const [t, tc] = await Promise.all([getT("marketing"), getT("common")]);
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
 
   const body = await req.json();
   const title = body.title?.trim();
@@ -44,18 +47,18 @@ export async function POST(req: NextRequest) {
   const html = body.html?.trim();
 
   if (!title || !slug || !html) {
-    return NextResponse.json({ error: "title, slug e html são obrigatórios" }, { status: 400 });
+    return NextResponse.json({ error: t("api.advertorialFieldsRequired") }, { status: 400 });
   }
 
   if (!/^[a-z0-9-]+$/.test(slug)) {
     return NextResponse.json(
-      { error: "Slug deve conter apenas letras minúsculas, números e hífens" },
+      { error: t("api.slugInvalid") },
       { status: 400 }
     );
   }
 
   if (RESERVED_SLUGS.has(slug)) {
-    return NextResponse.json({ error: "Este slug é reservado pelo sistema" }, { status: 400 });
+    return NextResponse.json({ error: t("api.slugReserved") }, { status: 400 });
   }
 
   const db = getAdminDb();
@@ -67,7 +70,7 @@ export async function POST(req: NextRequest) {
     .get();
 
   if (!existing.empty) {
-    return NextResponse.json({ error: "Slug já está em uso" }, { status: 409 });
+    return NextResponse.json({ error: t("api.slugTaken") }, { status: 409 });
   }
 
   const now = new Date();

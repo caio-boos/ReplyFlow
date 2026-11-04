@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { getT } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) {
+    const tc = await getT("common");
+    return NextResponse.json({ error: tc("states.unauthorized") }, { status: 401 });
+  }
 
   const { action, force } = await req.json();
   if (action !== "fetch-emails" && action !== "process-replies" && action !== "abandoned-checkouts" && action !== "check-recovery") {
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    const t = await getT("settings");
+    return NextResponse.json({ error: t("admin.invalidAction") }, { status: 400 });
   }
 
   const base = req.nextUrl.origin;

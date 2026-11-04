@@ -5,11 +5,16 @@ import { loadShopifyAccount, describeShopifyError } from "@/lib/shopify/account"
 import { getProductBuyers } from "@/lib/shopify/client";
 import { parseAudienceInput, MAX_CAMPAIGN_RECIPIENTS } from "@/lib/shopify/audience";
 import { FieldValue } from "firebase-admin/firestore";
+import { getT } from "@/lib/i18n/server";
 
 export async function GET() {
   const session = await getSession();
+  const tc = await getT("common");
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const db = getAdminDb();
   const snap = await db
@@ -34,23 +39,28 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
+  const t = await getT("compose");
+  const tc = await getT("common");
   if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: tc("states.unauthorized") },
+      { status: 401 },
+    );
 
   const body = await req.json().catch(() => null);
   if (!body)
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json({ error: t("api.invalidBody") }, { status: 400 });
 
   const input = parseAudienceInput(body);
   if ("error" in input)
-    return NextResponse.json({ error: input.error }, { status: 400 });
+    return NextResponse.json({ error: t(`api.audience.${input.error}`) }, { status: 400 });
 
   const subject = String(body.subject ?? "").trim();
   const emailBody = String(body.body ?? "").trim();
   const productTitle = String(body.productTitle ?? "").trim();
   if (!subject || !emailBody)
     return NextResponse.json(
-      { error: "Assunto e mensagem são obrigatórios" },
+      { error: t("api.subjectBodyRequired") },
       { status: 400 },
     );
 
@@ -83,14 +93,17 @@ export async function POST(req: NextRequest) {
 
   if (audience.length === 0)
     return NextResponse.json(
-      { error: "Nenhum cliente elegível encontrado para esse produto e período" },
+      { error: t("api.noEligibleCustomers") },
       { status: 400 },
     );
 
   if (audience.length > MAX_CAMPAIGN_RECIPIENTS)
     return NextResponse.json(
       {
-        error: `A seleção retornou ${audience.length} clientes. Reduza o período (limite de ${MAX_CAMPAIGN_RECIPIENTS} por campanha).`,
+        error: t("api.tooManyRecipients", {
+          count: audience.length,
+          limit: MAX_CAMPAIGN_RECIPIENTS,
+        }),
       },
       { status: 400 },
     );

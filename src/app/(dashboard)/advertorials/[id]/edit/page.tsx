@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/client";
 
 function Spinner({ className = "w-4 h-4" }: { className?: string }) {
   return (
@@ -35,6 +36,8 @@ export default function EditAdvertorialPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const t = useT("marketing");
+  const tc = useT("common");
 
   const [title, setTitle] = useState("");
   const [html, setHtml] = useState("");
@@ -56,7 +59,8 @@ export default function EditAdvertorialPage({
       const adv = listData.advertorials?.find((a: { id: string; title: string }) => a.id === id);
       if (adv) setTitle(adv.title);
       setLoading(false);
-    }).catch(() => { toast.error("Erro ao carregar advertorial"); setLoading(false); });
+    }).catch(() => { toast.error(t("advertorials.edit.loadError")); setLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Re-extract placeholders whenever HTML changes
@@ -83,7 +87,7 @@ export default function EditAdvertorialPage({
     }
     setHtml(updated);
     setImgUrls({});
-    toast.success("Imagens aplicadas no HTML!");
+    toast.success(t("advertorials.edit.images.applied"));
   }
 
   async function handleSave() {
@@ -95,9 +99,9 @@ export default function EditAdvertorialPage({
         body: JSON.stringify({ title, html }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error ?? "Erro ao salvar"); }
-      else { toast.success("Salvo!"); router.push("/advertorials"); }
-    } catch { toast.error("Erro de conexão"); }
+      if (!res.ok) { toast.error(data.error ?? t("advertorials.edit.saveError")); }
+      else { toast.success(tc("states.saved")); router.push("/advertorials"); }
+    } catch { toast.error(tc("states.networkError")); }
     setSaving(false);
   }
 
@@ -115,10 +119,10 @@ export default function EditAdvertorialPage({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Advertoriais
+            {t("advertorials.title")}
           </Link>
           <span className="text-gray-700">/</span>
-          <span className="text-sm text-gray-300 font-medium truncate max-w-50">{title || "Editar"}</span>
+          <span className="text-sm text-gray-300 font-medium truncate max-w-50">{title || tc("actions.edit")}</span>
         </div>
         <button
           onClick={handleSave}
@@ -126,20 +130,20 @@ export default function EditAdvertorialPage({
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors"
         >
           {saving && <Spinner />}
-          Salvar alterações
+          {t("advertorials.edit.save")}
         </button>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-32 text-gray-600">
-          <Spinner className="w-5 h-5 mr-2" /> Carregando…
+          <Spinner className="w-5 h-5 mr-2" /> {tc("states.loading")}
         </div>
       ) : (
         <div className="max-w-5xl mx-auto px-6 pt-8 space-y-6">
 
           {/* Title */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Título</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">{t("advertorials.form.titleLabel")}</label>
             <input
               type="text"
               value={title}
@@ -157,10 +161,10 @@ export default function EditAdvertorialPage({
                     <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                     </svg>
-                    Imagens ({placeholders.length} placeholder{placeholders.length !== 1 ? "s" : ""})
+                    {t("advertorials.edit.images.title", { count: placeholders.length })}
                   </h2>
                   <p className="text-xs text-gray-600 mt-0.5">
-                    Cole a URL de cada imagem e clique em "Aplicar imagens"
+                    {t("advertorials.edit.images.hint")}
                   </p>
                 </div>
                 <button
@@ -171,7 +175,9 @@ export default function EditAdvertorialPage({
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  Aplicar {filledCount > 0 ? `(${filledCount})` : "imagens"}
+                  {filledCount > 0
+                    ? t("advertorials.edit.images.applyCount", { count: filledCount })
+                    : t("advertorials.edit.images.apply")}
                 </button>
               </div>
               <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -205,8 +211,8 @@ export default function EditAdvertorialPage({
           {/* HTML Editor */}
           <section className="bg-gray-900/60 border border-white/6 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
-              <label className="text-xs font-medium text-gray-500">HTML</label>
-              <span className="text-xs text-gray-700">{html.length.toLocaleString()} chars</span>
+              <label className="text-xs font-medium text-gray-500">{t("advertorials.edit.html")}</label>
+              <span className="text-xs text-gray-700">{t("advertorials.form.chars", { count: html.length })}</span>
             </div>
             <textarea
               value={html}

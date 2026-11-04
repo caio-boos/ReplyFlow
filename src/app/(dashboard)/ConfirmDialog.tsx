@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useT } from "@/lib/i18n/client";
 
 interface ConfirmOptions {
   title: string;
@@ -22,6 +23,7 @@ type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
 const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+  const tc = useT("common");
   const [state, setState] = useState<
     (ConfirmOptions & { resolve: (v: boolean) => void }) | null
   >(null);
@@ -91,7 +93,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 onClick={() => settle(false)}
                 className="px-3.5 py-2 text-xs font-medium text-gray-400 hover:text-gray-200 bg-gray-800/60 hover:bg-gray-800 border border-white/8 rounded-xl transition-all"
               >
-                {state.cancelLabel ?? "Cancelar"}
+                {state.cancelLabel ?? tc("actions.cancel")}
               </button>
               <button
                 ref={confirmBtnRef}
@@ -102,7 +104,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                     : "bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-500/30 shadow-sm shadow-indigo-600/20"
                 }`}
               >
-                {state.confirmLabel ?? "Confirmar"}
+                {state.confirmLabel ?? tc("actions.confirm")}
               </button>
             </div>
           </div>
