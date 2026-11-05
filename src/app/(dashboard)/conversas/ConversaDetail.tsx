@@ -1204,9 +1204,9 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                       }`}
                     >
                       {text && (
-                        <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+                        <div className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
                           {text}
-                        </pre>
+                        </div>
                       )}
                       {(item.attachments?.length ?? 0) > 0 && (
                         <div className={text ? "mt-2.5" : ""}>
@@ -1239,9 +1239,9 @@ export default function ConversaDetail({ emailId, onBack, backLabel, onRefresh }
                           {statusLabel(item.status)}
                         </span>
                       </div>
-                      <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+                      <div className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
                         {item.aiResponse}
-                      </pre>
+                      </div>
                     </div>
                     <div className="w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5">
                       <svg

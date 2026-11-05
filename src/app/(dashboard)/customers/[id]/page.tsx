@@ -146,9 +146,9 @@ function TranslatableText({ text }: { text: string }) {
 
   return (
     <div>
-      <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+      <div className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
         {showTranslated && translated ? translated : text}
-      </pre>
+      </div>
       <button
         onClick={translate}
         disabled={loading}
@@ -583,9 +583,9 @@ export default function CustomerDetailPage() {
                               {t("customers.detail.autoReply")}
                             </p>
                           </div>
-                          <pre className="text-sm text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">
+                          <div className="text-sm text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">
                             {email.aiResponse}
-                          </pre>
+                          </div>
                         </div>
                         <div className="shrink-0 w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-xs text-indigo-300 font-semibold">
                           {t("customers.detail.aiBadge")}

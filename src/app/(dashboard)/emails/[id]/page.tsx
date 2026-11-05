@@ -1120,12 +1120,12 @@ export default function EmailDetailPage() {
             </div>
           </div>
           <div className="p-4 space-y-4">
-            <pre
+            <div
               className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed"
               suppressHydrationWarning
             >
               {email.bodyText}
-            </pre>
+            </div>
             {showTranslation && translated && (
               <div className="pt-3 border-t border-white/10 space-y-1.5">
                 <p className="text-xs text-blue-400/70 uppercase tracking-wider flex items-center gap-1">
@@ -1171,12 +1171,12 @@ export default function EmailDetailPage() {
           </div>
           <div className="p-4">
             {email.aiResponse ? (
-              <pre
+              <div
                 className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed"
                 suppressHydrationWarning
               >
                 {email.aiResponse}
-              </pre>
+              </div>
             ) : (
               <p className="text-sm text-gray-600 italic">
                 {email.status === "pending"
