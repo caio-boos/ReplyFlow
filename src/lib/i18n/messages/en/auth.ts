@@ -1,4 +1,8 @@
 const auth = {
+  meta: {
+    login: "Log in — ReplyFlow",
+    register: "Create your account — ReplyFlow",
+  },
   shared: {
     rights: "© {year} ReplyFlow. All rights reserved.",
     emailLabel: "Email",

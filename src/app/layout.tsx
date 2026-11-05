@@ -5,12 +5,15 @@ import { LOCALE_META } from "@/lib/i18n/config";
 import { I18nProvider } from "@/lib/i18n/client";
 import { getLocale, getMessages, getT } from "@/lib/i18n/server";
 import { PUBLIC_NAMESPACES } from "@/lib/i18n/types";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT("landing");
   return {
+    metadataBase: new URL(SITE_URL),
+    applicationName: SITE_NAME,
     title: t("meta.title"),
     description: t("meta.description"),
   };

@@ -1,7 +1,8 @@
 const landing = {
   meta: {
-    title: "ReplyFlow",
-    description: "AI-powered email auto-reply for e-commerce",
+    title: "ReplyFlow — AI Email Auto-Reply for Shopify Stores",
+    description:
+      "ReplyFlow answers refund requests, delivery complaints and dispute threats in under 90 seconds with AI. Prevent chargebacks and recover abandoned carts on Shopify.",
   },
   nav: {
     features: "Features",

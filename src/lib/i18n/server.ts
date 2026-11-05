@@ -12,7 +12,7 @@ import type { Messages, Namespace } from "./types";
 
 const DICTIONARIES: Record<Locale, Messages> = { en, pt, es, fr };
 
-/** Idioma da requisição atual (cookie `rf_locale`; padrão inglês). */
+/** Idioma da requisição atual (cookie `rf_locale`; padrão português). */
 export const getLocale = cache(async (): Promise<Locale> => {
   const store = await cookies();
   return resolveLocale(store.get(LOCALE_COOKIE)?.value);

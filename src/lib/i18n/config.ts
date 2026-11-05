@@ -3,7 +3,7 @@
 export const LOCALES = ["en", "pt", "es", "fr"] as const;
 export type Locale = (typeof LOCALES)[number];
 
-export const DEFAULT_LOCALE: Locale = "en";
+export const DEFAULT_LOCALE: Locale = "pt";
 export const LOCALE_COOKIE = "rf_locale";
 export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 

@@ -2,8 +2,9 @@ import type { Messages } from "../en";
 
 const landing: Messages["landing"] = {
   meta: {
-    title: "ReplyFlow",
-    description: "Réponses automatiques aux e-mails par IA pour l'e-commerce",
+    title: "ReplyFlow — Réponses e-mail automatiques par IA pour boutiques Shopify",
+    description:
+      "Répondez aux demandes de remboursement, réclamations de livraison et menaces de litige en moins de 90 secondes grâce à l'IA. Évitez les chargebacks.",
   },
   nav: {
     features: "Fonctionnalités",

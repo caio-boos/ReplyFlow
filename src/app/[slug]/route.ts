@@ -57,6 +57,9 @@ body,html{opacity:1!important;visibility:visible!important;}
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "public, max-age=300, stale-while-revalidate=60",
+      // No domínio principal, advertoriais são cópias de páginas de lojas:
+      // evitar que contem como conteúdo duplicado do ReplyFlow.
+      ...(isCustomDomain ? {} : { "X-Robots-Tag": "noindex, nofollow" }),
     },
   });
 }

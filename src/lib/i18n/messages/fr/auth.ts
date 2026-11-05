@@ -1,6 +1,10 @@
 import type { Messages } from "../en";
 
 const auth: Messages["auth"] = {
+  meta: {
+    login: "Se connecter — ReplyFlow",
+    register: "Créer un compte — ReplyFlow",
+  },
   shared: {
     rights: "© {year} ReplyFlow. Tous droits réservés.",
     emailLabel: "E-mail",
