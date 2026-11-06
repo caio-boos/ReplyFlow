@@ -333,6 +333,13 @@ const compose: Messages["compose"] = {
       hours: "Duración (horas)",
       deadline: "Termina el",
       timezone: "Zona horaria",
+      regions: {
+        americas: "Américas",
+        europe: "Europa",
+        asia: "Asia y Oriente Medio",
+        africa: "África",
+        oceania: "Oceanía",
+      },
       label: "Texto encima del contador",
       labelPlaceholder: "Ej.: La oferta termina en",
       boxBackground: "Fondo de los números",

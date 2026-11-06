@@ -331,6 +331,13 @@ const compose = {
       hours: "Duration (hours)",
       deadline: "Ends at",
       timezone: "Time zone",
+      regions: {
+        americas: "Americas",
+        europe: "Europe",
+        asia: "Asia & Middle East",
+        africa: "Africa",
+        oceania: "Oceania",
+      },
       label: "Text above the counter",
       labelPlaceholder: "e.g. This offer ends in",
       boxBackground: "Digit background",

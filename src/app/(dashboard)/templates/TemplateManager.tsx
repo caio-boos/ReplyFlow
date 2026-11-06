@@ -54,22 +54,109 @@ const REMARKETING_DEFAULT: RemarketingTemplateConfig = {
 };
 
 /** Fusos oferecidos no cronômetro (o fuso do navegador é acrescentado). */
-const TIMEZONE_OPTIONS = [
-  "America/Sao_Paulo",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Mexico_City",
-  "America/Bogota",
-  "America/Argentina/Buenos_Aires",
-  "Europe/Lisbon",
-  "Europe/London",
-  "Europe/Madrid",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "UTC",
+const TIMEZONE_GROUPS: Array<{
+  region: "americas" | "europe" | "asia" | "africa" | "oceania";
+  zones: string[];
+}> = [
+  {
+    region: "americas",
+    zones: [
+      "America/Sao_Paulo",
+      "America/Argentina/Buenos_Aires",
+      "America/Santiago",
+      "America/Bogota",
+      "America/Lima",
+      "America/Mexico_City",
+      "America/New_York",
+      "America/Toronto",
+      "America/Chicago",
+      "America/Denver",
+      "America/Los_Angeles",
+      "America/Vancouver",
+      "America/Anchorage",
+      "Pacific/Honolulu",
+    ],
+  },
+  {
+    region: "europe",
+    zones: [
+      "Europe/Lisbon",
+      "Europe/London",
+      "Europe/Dublin",
+      "Europe/Madrid",
+      "Europe/Paris",
+      "Europe/Brussels",
+      "Europe/Amsterdam",
+      "Europe/Berlin",
+      "Europe/Zurich",
+      "Europe/Rome",
+      "Europe/Vienna",
+      "Europe/Stockholm",
+      "Europe/Warsaw",
+      "Europe/Athens",
+      "Europe/Istanbul",
+      "Europe/Moscow",
+    ],
+  },
+  {
+    region: "asia",
+    zones: [
+      "Asia/Jerusalem",
+      "Asia/Dubai",
+      "Asia/Karachi",
+      "Asia/Kolkata",
+      "Asia/Dhaka",
+      "Asia/Bangkok",
+      "Asia/Jakarta",
+      "Asia/Shanghai",
+      "Asia/Hong_Kong",
+      "Asia/Taipei",
+      "Asia/Singapore",
+      "Asia/Manila",
+      "Asia/Seoul",
+      "Asia/Tokyo",
+    ],
+  },
+  {
+    region: "africa",
+    zones: [
+      "Africa/Casablanca",
+      "Africa/Lagos",
+      "Africa/Cairo",
+      "Africa/Nairobi",
+      "Africa/Johannesburg",
+    ],
+  },
+  {
+    region: "oceania",
+    zones: [
+      "Australia/Perth",
+      "Australia/Brisbane",
+      "Australia/Sydney",
+      "Pacific/Auckland",
+    ],
+  },
 ];
+
+const KNOWN_TIMEZONES = new Set([
+  "UTC",
+  ...TIMEZONE_GROUPS.flatMap((group) => group.zones),
+]);
+
+/** Deslocamento atual do fuso (ex.: "UTC+09:00") para ajudar na escolha. */
+function timezoneOffsetLabel(timeZone: string): string {
+  try {
+    const label = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "longOffset",
+    })
+      .formatToParts(new Date())
+      .find((part) => part.type === "timeZoneName")?.value;
+    return label === "GMT" ? "UTC+00:00" : (label?.replace("GMT", "UTC") ?? "");
+  } catch {
+    return "";
+  }
+}
 
 function browserTimeZone(): string {
   try {
@@ -911,9 +998,9 @@ export default function TemplateManager({
   };
 
   const currentTimezone = mc.countdownTimezone || browserTimeZone();
-  const timezoneOptions = TIMEZONE_OPTIONS.includes(currentTimezone)
-    ? TIMEZONE_OPTIONS
-    : [currentTimezone, ...TIMEZONE_OPTIONS];
+  const extraTimezone = KNOWN_TIMEZONES.has(currentTimezone)
+    ? null
+    : currentTimezone;
 
   if (!accountId || accountId === "all") {
     return (
@@ -1393,10 +1480,27 @@ export default function TemplateManager({
                               }
                               className={FIELD_CLASS}
                             >
-                              {timezoneOptions.map((tz) => (
-                                <option key={tz} value={tz}>
-                                  {tz}
+                              {extraTimezone && (
+                                <option value={extraTimezone}>
+                                  {extraTimezone} (
+                                  {timezoneOffsetLabel(extraTimezone)})
                                 </option>
+                              )}
+                              <option value="UTC">UTC (UTC+00:00)</option>
+                              {TIMEZONE_GROUPS.map((group) => (
+                                <optgroup
+                                  key={group.region}
+                                  label={t.dynamic(
+                                    `library.countdown.regions.${group.region}`,
+                                  )}
+                                >
+                                  {group.zones.map((tz) => (
+                                    <option key={tz} value={tz}>
+                                      {tz.replace(/_/g, " ")} (
+                                      {timezoneOffsetLabel(tz)})
+                                    </option>
+                                  ))}
+                                </optgroup>
                               ))}
                             </select>
                           </div>
