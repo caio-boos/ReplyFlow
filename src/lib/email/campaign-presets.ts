@@ -1,14 +1,15 @@
-import type { CampaignPresetId, RemarketingTemplateConfig } from "@/lib/types";
+import type { RemarketingTemplateConfig } from "@/lib/types";
+import type { CampaignCopyId } from "./campaign-copy";
 
 /**
  * Presets sazonais do email de remarketing.
  *
  * Cada preset define apenas a parte visual + a regra do cronômetro. Os textos
- * (nome, faixa, saudação, corpo, botão, assunto) vêm do i18n em
- * `compose.library.campaigns.<id>` para respeitarem o idioma do painel.
+ * do email vêm de `campaign-copy.ts`, no idioma escolhido pelo lojista, e o
+ * nome exibido na interface vem do i18n do painel.
  */
 export interface CampaignPreset {
-  id: CampaignPresetId;
+  id: CampaignCopyId;
   /** Amostra de cores exibida no seletor da UI. */
   swatch: [string, string, string];
   config: Partial<RemarketingTemplateConfig>;

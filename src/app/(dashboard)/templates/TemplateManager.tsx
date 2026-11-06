@@ -13,7 +13,14 @@ import {
   CAMPAIGN_PRESETS,
   type CampaignPreset,
 } from "@/lib/email/campaign-presets";
-import { useLocale, useT } from "@/lib/i18n/client";
+import {
+  CAMPAIGN_COPY_LANGUAGES,
+  getCampaignCopy,
+  resolveCampaignLanguage,
+  type CampaignCopyId,
+  type CampaignCopyLanguage,
+} from "@/lib/email/campaign-copy";
+import { useT } from "@/lib/i18n/client";
 import type { Messages } from "@/lib/i18n/types";
 
 /* ─── Defaults ─────────────────────────────────────────────────────────────── */
@@ -613,12 +620,18 @@ interface Props {
   type: TemplateType;
   accountId: string;
   logoUrl?: string | null;
+  /** Idioma de resposta da loja — padrão dos textos da campanha e do preview. */
+  replyLanguage?: string | null;
 }
 
-export default function TemplateManager({ type, accountId, logoUrl }: Props) {
+export default function TemplateManager({
+  type,
+  accountId,
+  logoUrl,
+  replyLanguage,
+}: Props) {
   const t = useT("compose");
   const tc = useT("common");
-  const locale = useLocale();
   const [templates, setTemplates] = useState<TemplateLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
@@ -631,6 +644,12 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [testEmail, setTestEmail] = useState("");
   const [sending, setSending] = useState(false);
+  const [copyLanguageOverride, setCopyLanguageOverride] =
+    useState<CampaignCopyLanguage | null>(null);
+
+  // O idioma do conteúdo segue a loja até o lojista escolher outro
+  const copyLanguage =
+    copyLanguageOverride ?? resolveCampaignLanguage(replyLanguage ?? undefined);
 
   const load = useCallback(async () => {
     if (!accountId || accountId === "all") {
@@ -831,30 +850,47 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
       : generateRemarketingPreview(
           editConfig as RemarketingTemplateConfig,
           previewText,
-          locale,
+          copyLanguage,
         );
 
   const rc = editConfig as ReplyTemplateConfig;
   const mc = editConfig as RemarketingTemplateConfig;
 
   const applyCampaign = (preset: CampaignPreset) => {
-    const base = `library.campaigns.${preset.id}`;
+    const copy = getCampaignCopy(preset.id, copyLanguage);
     setEditConfig({
       ...mc,
       ...preset.config,
       campaignId: preset.id,
-      headerBannerText: t.dynamic(`${base}.banner`),
-      customGreeting: t.dynamic(`${base}.greeting`),
-      customBody: t.dynamic(`${base}.body`),
-      customButtonText: t.dynamic(`${base}.button`),
-      customSubject: t.dynamic(`${base}.subject`),
-      countdownLabel: t.dynamic(`${base}.countdown`),
+      headerBannerText: copy.banner,
+      customGreeting: copy.greeting,
+      customBody: copy.body,
+      customButtonText: copy.button,
+      customSubject: copy.subject,
+      countdownLabel: copy.countdown,
       countdownTimezone: mc.countdownTimezone || browserTimeZone(),
       showProductImages: mc.showProductImages !== false,
     });
-    const campaignName = t.dynamic(`${base}.name`);
+    const campaignName = t.dynamic(`library.campaigns.${preset.id}.name`);
     if (editingId === "new") setEditName(campaignName);
     toast.success(t("library.campaigns.applied", { name: campaignName }));
+  };
+
+  /** Ao trocar o idioma, retraduz os textos da campanha já aplicada. */
+  const changeCopyLanguage = (language: CampaignCopyLanguage) => {
+    setCopyLanguageOverride(language);
+    const campaignId = mc.campaignId;
+    if (type !== "remarketing" || !campaignId || campaignId === "none") return;
+    const copy = getCampaignCopy(campaignId as CampaignCopyId, language);
+    setEditConfig({
+      ...mc,
+      headerBannerText: copy.banner,
+      customGreeting: copy.greeting,
+      customBody: copy.body,
+      customButtonText: copy.button,
+      customSubject: copy.subject,
+      countdownLabel: copy.countdown,
+    });
   };
 
   const clearCampaign = () => {
@@ -1416,6 +1452,29 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                       <p className="text-xs text-gray-600">
                         {t("library.texts.hint")}
                       </p>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                          {t("library.texts.language")}
+                        </label>
+                        <p className="text-xs text-gray-600 mb-1.5">
+                          {t("library.texts.languageHint")}
+                        </p>
+                        <select
+                          value={copyLanguage}
+                          onChange={(e) =>
+                            changeCopyLanguage(
+                              e.target.value as CampaignCopyLanguage,
+                            )
+                          }
+                          className={FIELD_CLASS}
+                        >
+                          {CAMPAIGN_COPY_LANGUAGES.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <TextField
                         label={t("library.texts.subject")}
                         value={mc.customSubject ?? ""}

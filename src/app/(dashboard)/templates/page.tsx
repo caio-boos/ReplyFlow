@@ -12,15 +12,20 @@ export default function TemplatesPage() {
   const t = useT("compose");
   const [activeTab, setActiveTab] = useState<Tab>("reply");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [replyLanguage, setReplyLanguage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedAccountId || selectedAccountId === "all") {
       setLogoUrl(null);
+      setReplyLanguage(null);
       return;
     }
     fetch(`/api/accounts/${selectedAccountId}`)
       .then((r) => r.json())
-      .then((d) => setLogoUrl(d.account?.logoUrl ?? null))
+      .then((d) => {
+        setLogoUrl(d.account?.logoUrl ?? null);
+        setReplyLanguage(d.account?.replyLanguage ?? null);
+      })
       .catch(() => {});
   }, [selectedAccountId]);
 
@@ -79,6 +84,7 @@ export default function TemplatesPage() {
               type={tab.id}
               accountId={selectedAccountId}
               logoUrl={logoUrl}
+              replyLanguage={replyLanguage}
             />
           ),
       )}
