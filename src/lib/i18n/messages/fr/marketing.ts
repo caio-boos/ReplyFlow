@@ -14,6 +14,12 @@ const marketing: Messages["marketing"] = {
       checkRecovery: "Vérifier les récupérations",
       fetchNow: "Rechercher les paniers",
     },
+    templateNotice: {
+      title: "Personnalisez l'e-mail de remarketing",
+      description:
+        "Créez des campagnes saisonnières (Black Friday, fête des mères, Noël...), avec compte à rebours et photo des produits du panier.",
+      cta: "Modifier les modèles",
+    },
     toasts: {
       done: "Terminé !",
       error: "Une erreur est survenue",

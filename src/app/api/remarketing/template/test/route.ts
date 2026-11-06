@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { getOwnedAccountIds } from "@/lib/auth/owned-accounts";
-import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
+import {
+  applyRemarketingPlaceholders,
+  formatDeadline,
+  renderRemarketingEmailHtml,
+  resolveCountdownDeadline,
+} from "@/lib/email/html-template";
 import { RemarketingTemplateConfig } from "@/lib/types";
 import { sendEmail } from "@/lib/email/smtp";
 import { decrypt } from "@/lib/crypto/encryption";
+import { getShopifyProducts } from "@/lib/shopify/client";
 import { getT } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
@@ -71,35 +77,87 @@ export async function POST(req: NextRequest) {
   // Descriptografar senha
   const password = decrypt(account.encryptedPassword);
 
+  // Usa produtos reais da loja no teste (com foto), quando a Shopify estiver conectada
+  let sampleItems = [
+    {
+      title: "Produto Exemplo 1",
+      quantity: 2,
+      price: 99.9,
+      currency: "R$",
+      imageUrl: undefined as string | undefined,
+    },
+    {
+      title: "Produto Exemplo 2",
+      quantity: 1,
+      price: 149.9,
+      currency: "R$",
+      imageUrl: undefined as string | undefined,
+    },
+  ];
+
+  if (account.shopifyDomain && account.encryptedShopifyToken) {
+    try {
+      const products = await getShopifyProducts(
+        account.shopifyDomain,
+        decrypt(account.encryptedShopifyToken),
+        { maxPages: 1 },
+      );
+      const withImage = products.filter((p) => p.imageUrl).slice(0, 2);
+      if (withImage.length > 0) {
+        sampleItems = withImage.map((product, index) => ({
+          title: product.title,
+          quantity: index === 0 ? 2 : 1,
+          price: index === 0 ? 99.9 : 149.9,
+          currency: "R$",
+          imageUrl: product.imageUrl ?? undefined,
+        }));
+      }
+    } catch {
+      // Sem permissão read_products ou loja indisponível — segue sem foto
+    }
+  }
+
+  const totalPrice = sampleItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+  const sentAt = new Date();
+
   // Dados de exemplo para o email de teste
   const testData = {
     customerName: "Cliente Teste",
-    storeName: account?.label || "Sua Loja",
-    items: [
-      {
-        title: "Produto Exemplo 1",
-        quantity: 2,
-        price: 99.9,
-        currency: "R$",
-        imageUrl: "https://via.placeholder.com/150",
-      },
-      {
-        title: "Produto Exemplo 2",
-        quantity: 1,
-        price: 149.9,
-        currency: "R$",
-        imageUrl: "https://via.placeholder.com/150",
-      },
-    ],
-    totalPrice: 349.7,
+    storeName: account?.fantasyName || account?.label || "Sua Loja",
+    items: sampleItems,
+    totalPrice,
     currency: "R$",
-    discountPercent: 10,
+    discountPercent:
+      typeof account.discountPercent === "number" ? account.discountPercent : 10,
     checkoutUrl: "https://exemplo.com/checkout",
-    language: "pt-BR",
+    language: (account.replyLanguage as string | undefined) ?? "pt-BR",
+    couponCode: (account.couponCode as string | undefined) ?? "CARRINHO20",
+    sentAt,
   };
 
   try {
     const emailHtml = renderRemarketingEmailHtml(testData, template);
+
+    const deadline = resolveCountdownDeadline(template, sentAt);
+    const customSubject = template?.customSubject?.trim();
+    const subject = customSubject
+      ? `[TESTE] ${applyRemarketingPlaceholders(customSubject, {
+          name: testData.customerName,
+          store: testData.storeName,
+          discount: testData.discountPercent,
+          coupon: testData.couponCode,
+          deadline: deadline
+            ? formatDeadline(
+                deadline,
+                testData.language,
+                template?.countdownTimezone,
+              )
+            : "",
+        })}`
+      : `[TESTE] Email de Remarketing - ${account.label}`;
 
     await sendEmail(
       {
@@ -110,7 +168,7 @@ export async function POST(req: NextRequest) {
       },
       {
         to: testEmail,
-        subject: `[TESTE] Email de Remarketing - ${account.label}`,
+        subject,
         text: "Este é um email de teste do sistema de remarketing.",
         html: emailHtml,
       },

@@ -62,10 +62,54 @@ export interface RemarketingTemplateConfig {
   footerTextColor: string;
 
   // Textos customizados (opcional - usa defaults se vazio)
+  // Placeholders: {{name}}, {{store}}, {{discount}}, {{coupon}}, {{deadline}}
   customGreeting?: string; // Ex: "Olá {{name}}, tudo bem?"
   customBody?: string; // Ex: "Vimos que você deixou algo no carrinho..."
   customButtonText?: string; // Ex: "Aproveitar desconto de {{discount}}%"
+  customSubject?: string; // Ex: "BLACK FRIDAY: {{discount}}% só até meia-noite"
+  customBannerText?: string; // Substitui o texto do banner de desconto
+  customFooterText?: string; // Substitui o texto do rodapé
+
+  // Campanha sazonal (Black Friday, Dia das Mães, ...)
+  campaignId?: CampaignPresetId | string;
+
+  // Faixa de campanha no topo do email
+  headerBannerEnabled?: boolean;
+  headerBannerText?: string; // Ex: "🖤 BLACK FRIDAY — até 70% OFF"
+  headerBannerBackgroundColor?: string;
+  headerBannerTextColor?: string;
+
+  // Cronômetro de urgência (renderizado estático no momento do envio)
+  countdownEnabled?: boolean;
+  countdownMode?: CountdownMode;
+  countdownHours?: number; // usado quando countdownMode === "hours"
+  countdownDeadline?: string; // ISO — usado quando countdownMode === "fixedDate"
+  countdownTimezone?: string; // IANA, usado em "endOfDay"/"fixedDate"
+  countdownLabel?: string; // Ex: "A oferta termina em"
+  countdownBackgroundColor?: string;
+  countdownTextColor?: string;
+  countdownBoxColor?: string;
+  countdownBoxTextColor?: string;
+
+  // Produtos
+  showProductImages?: boolean; // default: true
 }
+
+/** Como o prazo do cronômetro é calculado no momento do envio. */
+export type CountdownMode = "endOfDay" | "hours" | "fixedDate";
+
+export type CampaignPresetId =
+  | "none"
+  | "blackFriday"
+  | "cyberMonday"
+  | "christmas"
+  | "newYear"
+  | "womensDay"
+  | "mothersDay"
+  | "fathersDay"
+  | "valentines"
+  | "childrensDay"
+  | "lastChance";
 
 export type TemplateType = "reply" | "remarketing";
 

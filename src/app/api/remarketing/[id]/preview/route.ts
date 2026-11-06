@@ -45,6 +45,12 @@ export async function GET(
     ? (templateDoc.data() as import("@/lib/types").RemarketingTemplateConfig)
     : undefined;
 
+  const sentAtRaw = d.sentAt as { toDate?: () => Date } | undefined;
+  const sentAt =
+    sentAtRaw && typeof sentAtRaw.toDate === "function"
+      ? sentAtRaw.toDate()
+      : undefined;
+
   const html = renderRemarketingEmailHtml(
     {
       customerName: d.customerName as string,
@@ -68,6 +74,8 @@ export async function GET(
       discountPercent: 20,
       checkoutUrl: d.abandonedCheckoutUrl as string,
       language,
+      couponCode: (d.couponCode as string | undefined) ?? undefined,
+      sentAt,
     },
     customTemplate,
   );

@@ -14,6 +14,12 @@ const marketing: Messages["marketing"] = {
       checkRecovery: "Verificar recuperações",
       fetchNow: "Buscar carrinhos agora",
     },
+    templateNotice: {
+      title: "Personalize o e-mail de remarketing",
+      description:
+        "Monte campanhas sazonais (Black Friday, Dia das Mães, Natal...), com cronômetro de urgência e foto dos produtos do carrinho.",
+      cta: "Editar templates",
+    },
     toasts: {
       done: "Concluído!",
       error: "Erro",

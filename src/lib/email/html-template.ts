@@ -51,6 +51,9 @@ export interface RemarketingEmailData {
   discountPercent: number;
   checkoutUrl: string;
   language?: string;
+  couponCode?: string;
+  /** Momento do envio — base de cálculo do cronômetro. Default: agora. */
+  sentAt?: Date;
 }
 
 const REMARKETING_TRANSLATIONS = {
@@ -196,6 +199,314 @@ function resolveLanguage(lang?: string): keyof typeof REMARKETING_TRANSLATIONS {
   return "pt-BR";
 }
 
+/* ─── Cronômetro de urgência ───────────────────────────────────────────────── */
+
+type CountdownKey = keyof typeof REMARKETING_TRANSLATIONS;
+
+const COUNTDOWN_TRANSLATIONS: Record<
+  CountdownKey,
+  {
+    intl: string;
+    label: string;
+    days: string;
+    hours: string;
+    minutes: string;
+    endsAt: (when: string) => string;
+    endsToday: string;
+  }
+> = {
+  "pt-BR": {
+    intl: "pt-BR",
+    label: "A oferta termina em",
+    days: "dias",
+    hours: "horas",
+    minutes: "min",
+    endsAt: (when) => `Válido até ${when}`,
+    endsToday: "Só até o fim do dia!",
+  },
+  en: {
+    intl: "en-US",
+    label: "This offer ends in",
+    days: "days",
+    hours: "hours",
+    minutes: "min",
+    endsAt: (when) => `Valid until ${when}`,
+    endsToday: "Today only!",
+  },
+  es: {
+    intl: "es-ES",
+    label: "La oferta termina en",
+    days: "días",
+    hours: "horas",
+    minutes: "min",
+    endsAt: (when) => `Válido hasta ${when}`,
+    endsToday: "¡Solo hasta el final del día!",
+  },
+  ja: {
+    intl: "ja-JP",
+    label: "オファー終了まで",
+    days: "日",
+    hours: "時間",
+    minutes: "分",
+    endsAt: (when) => `${when} まで有効`,
+    endsToday: "本日限り！",
+  },
+  fr: {
+    intl: "fr-FR",
+    label: "L'offre se termine dans",
+    days: "jours",
+    hours: "heures",
+    minutes: "min",
+    endsAt: (when) => `Valable jusqu'au ${when}`,
+    endsToday: "Jusqu'à la fin de la journée !",
+  },
+  de: {
+    intl: "de-DE",
+    label: "Das Angebot endet in",
+    days: "Tage",
+    hours: "Std.",
+    minutes: "Min.",
+    endsAt: (when) => `Gültig bis ${when}`,
+    endsToday: "Nur bis Tagesende!",
+  },
+  it: {
+    intl: "it-IT",
+    label: "L'offerta scade tra",
+    days: "giorni",
+    hours: "ore",
+    minutes: "min",
+    endsAt: (when) => `Valido fino al ${when}`,
+    endsToday: "Solo fino a fine giornata!",
+  },
+  nl: {
+    intl: "nl-NL",
+    label: "De aanbieding eindigt over",
+    days: "dagen",
+    hours: "uur",
+    minutes: "min",
+    endsAt: (when) => `Geldig tot ${when}`,
+    endsToday: "Alleen vandaag!",
+  },
+  zh: {
+    intl: "zh-CN",
+    label: "优惠倒计时",
+    days: "天",
+    hours: "小时",
+    minutes: "分",
+    endsAt: (when) => `有效期至 ${when}`,
+    endsToday: "仅限今天！",
+  },
+};
+
+function timeZoneParts(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== "literal") acc[part.type] = part.value;
+      return acc;
+    }, {});
+
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour) % 24,
+    minute: Number(parts.minute),
+    second: Number(parts.second),
+  };
+}
+
+/** Último instante do dia (23:59:59) do fuso informado, para a data do envio. */
+function endOfDayInTimeZone(date: Date, timeZone: string): Date {
+  const p = timeZoneParts(date, timeZone);
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  const offset = asUtc - Math.floor(date.getTime() / 1000) * 1000;
+  return new Date(Date.UTC(p.year, p.month - 1, p.day, 23, 59, 59) - offset);
+}
+
+function safeTimeZone(timeZone?: string): string {
+  if (!timeZone) return "UTC";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+    return timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
+/**
+ * Prazo final da oferta no momento do envio. Retorna `null` quando o
+ * cronômetro está desligado ou o prazo já passou.
+ */
+export function resolveCountdownDeadline(
+  config: RemarketingTemplateConfig | undefined,
+  sentAt: Date,
+): Date | null {
+  if (!config?.countdownEnabled) return null;
+
+  const mode = config.countdownMode ?? "endOfDay";
+
+  if (mode === "fixedDate") {
+    if (!config.countdownDeadline) return null;
+    const deadline = new Date(config.countdownDeadline);
+    if (Number.isNaN(deadline.getTime())) return null;
+    return deadline.getTime() > sentAt.getTime() ? deadline : null;
+  }
+
+  if (mode === "hours") {
+    const hours = Math.min(Math.max(config.countdownHours ?? 24, 1), 720);
+    return new Date(sentAt.getTime() + hours * 60 * 60 * 1000);
+  }
+
+  const deadline = endOfDayInTimeZone(
+    sentAt,
+    safeTimeZone(config.countdownTimezone),
+  );
+  return deadline.getTime() > sentAt.getTime() ? deadline : null;
+}
+
+function splitRemaining(ms: number) {
+  const totalMinutes = Math.max(0, Math.floor(ms / 60000));
+  return {
+    days: Math.floor(totalMinutes / 1440),
+    hours: Math.floor((totalMinutes % 1440) / 60),
+    minutes: totalMinutes % 60,
+  };
+}
+
+/** Prazo formatado no idioma/fuso da loja — usado no email e no texto puro. */
+export function formatDeadline(
+  deadline: Date,
+  language: string | undefined,
+  timeZone?: string,
+): string {
+  const lang = COUNTDOWN_TRANSLATIONS[resolveLanguage(language)];
+  try {
+    return new Intl.DateTimeFormat(lang.intl, {
+      timeZone: safeTimeZone(timeZone),
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(deadline);
+  } catch {
+    return deadline.toISOString();
+  }
+}
+
+function renderCountdownBlock(
+  config: RemarketingTemplateConfig,
+  deadline: Date,
+  sentAt: Date,
+  language: string | undefined,
+): string {
+  const lang = COUNTDOWN_TRANSLATIONS[resolveLanguage(language)];
+  const { days, hours, minutes } = splitRemaining(
+    deadline.getTime() - sentAt.getTime(),
+  );
+
+  const bg = config.countdownBackgroundColor ?? "#111827";
+  const text = config.countdownTextColor ?? "#fbbf24";
+  const boxBg = config.countdownBoxColor ?? "#1f2937";
+  const boxText = config.countdownBoxTextColor ?? "#ffffff";
+
+  const units: Array<{ value: number; label: string }> = [
+    { value: days, label: lang.days },
+    { value: hours, label: lang.hours },
+    { value: minutes, label: lang.minutes },
+  ];
+  // Esconde "dias" quando a oferta acaba hoje/amanhã para não exibir "00"
+  const visible = days > 0 ? units : units.slice(1);
+
+  const boxes = visible
+    .map(
+      (unit) => `
+        <td align="center" valign="top" style="padding:0 5px">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td align="center" style="background-color:${boxBg};border-radius:6px;padding:10px 14px">
+                <span style="font-size:24px;font-weight:700;color:${boxText};line-height:1;font-family:Arial,Helvetica,sans-serif">
+                  ${String(unit.value).padStart(2, "0")}
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding-top:5px">
+                <span style="font-size:10px;color:${text};text-transform:uppercase;letter-spacing:0.08em">${escapeHtml(unit.label)}</span>
+              </td>
+            </tr>
+          </table>
+        </td>`,
+    )
+    .join("");
+
+  const label = config.countdownLabel?.trim()
+    ? escapeHtml(config.countdownLabel.trim())
+    : escapeHtml(lang.label);
+
+  const endsAtText =
+    (config.countdownMode ?? "endOfDay") === "endOfDay" && days === 0
+      ? lang.endsToday
+      : lang.endsAt(
+          formatDeadline(deadline, language, config.countdownTimezone),
+        );
+
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px">
+      <tr>
+        <td align="center" style="background-color:${bg};border-radius:8px;padding:18px 16px">
+          <p style="margin:0 0 12px;font-size:12px;font-weight:700;color:${text};text-transform:uppercase;letter-spacing:0.08em">
+            ⏳ ${label}
+          </p>
+          <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0">
+            <tr>${boxes}</tr>
+          </table>
+          <p style="margin:12px 0 0;font-size:12px;color:${text};opacity:0.85">${escapeHtml(endsAtText)}</p>
+        </td>
+      </tr>
+    </table>`;
+}
+
+/** Substitui {{name}}, {{store}}, {{discount}}, {{coupon}} e {{deadline}}. */
+function applyPlaceholders(
+  raw: string,
+  vars: Record<string, string>,
+): string {
+  return raw.replace(
+    /\{\{\s*(name|store|discount|coupon|deadline)\s*\}\}/g,
+    (_, key: string) => vars[key] ?? "",
+  );
+}
+
+/** Versão para texto puro (assunto, corpo em texto) — não escapa HTML. */
+export function applyRemarketingPlaceholders(
+  raw: string,
+  vars: {
+    name?: string;
+    store?: string;
+    discount?: number | string;
+    coupon?: string;
+    deadline?: string;
+  },
+): string {
+  return applyPlaceholders(raw, {
+    name: vars.name ?? "",
+    store: vars.store ?? "",
+    discount: vars.discount !== undefined ? String(vars.discount) : "",
+    coupon: vars.coupon ?? "",
+    deadline: vars.deadline ?? "",
+  });
+}
+
 export function renderRemarketingEmailHtml(
   data: RemarketingEmailData,
   customTemplate?: RemarketingTemplateConfig,
@@ -237,13 +548,15 @@ export function renderRemarketingEmailHtml(
 
   const itemsHtml = data.items
     .map((item) => {
-      const imgCell = item.imageUrl
+      const showImage =
+        customTemplate?.showProductImages !== false && Boolean(item.imageUrl);
+      const imgCell = showImage
         ? `<td width="80" valign="top" style="padding-right:14px">
             <img src="${item.imageUrl}" width="72" height="72" alt="${escapeHtml(item.title)}"
               style="border-radius:6px;border:1px solid #e5e7eb;display:block;object-fit:cover" />
           </td>`
         : "";
-      const contentWidth = item.imageUrl ? "" : ` colspan="2"`;
+      const contentWidth = showImage ? "" : ` colspan="2"`;
       return `
         <tr>
           <td style="padding-bottom:14px">
@@ -269,6 +582,71 @@ export function renderRemarketingEmailHtml(
     minimumFractionDigits: 2,
   });
 
+  const sentAt = data.sentAt ?? new Date();
+  const deadline = resolveCountdownDeadline(customTemplate, sentAt);
+  const countdownHtml =
+    customTemplate && deadline
+      ? renderCountdownBlock(customTemplate, deadline, sentAt, data.language)
+      : "";
+
+  const vars: Record<string, string> = {
+    name: escapeHtml(data.customerName),
+    store: escapeHtml(data.storeName),
+    discount: String(data.discountPercent),
+    coupon: escapeHtml(data.couponCode ?? ""),
+    deadline: deadline
+      ? escapeHtml(
+          formatDeadline(
+            deadline,
+            data.language,
+            customTemplate?.countdownTimezone,
+          ),
+        )
+      : "",
+  };
+
+  const headerBannerHtml =
+    customTemplate?.headerBannerEnabled && customTemplate.headerBannerText?.trim()
+      ? `<tr>
+            <td align="center" style="background-color:${customTemplate.headerBannerBackgroundColor ?? colors.primary};padding:12px 20px">
+              <p style="margin:0;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${customTemplate.headerBannerTextColor ?? "#ffffff"}">
+                ${applyPlaceholders(customTemplate.headerBannerText.trim(), vars)}
+              </p>
+            </td>
+          </tr>`
+      : "";
+
+  const greetingHtml = customTemplate?.customGreeting?.trim()
+    ? applyPlaceholders(customTemplate.customGreeting.trim(), vars)
+    : t.greeting(vars.name);
+
+  const bodyHtml = customTemplate?.customBody?.trim()
+    ? applyPlaceholders(customTemplate.customBody.trim(), vars)
+    : t.body(data.storeName);
+
+  const buttonHtml = customTemplate?.customButtonText?.trim()
+    ? applyPlaceholders(customTemplate.customButtonText.trim(), vars)
+    : t.button(data.discountPercent);
+
+  const bannerHtml = customTemplate?.customBannerText?.trim()
+    ? applyPlaceholders(customTemplate.customBannerText.trim(), vars)
+    : t.discountBanner(data.discountPercent);
+
+  const footerHtml = customTemplate?.customFooterText?.trim()
+    ? applyPlaceholders(customTemplate.customFooterText.trim(), vars)
+    : t.footer(data.storeName);
+
+  // Com cronômetro, o prazo exato substitui o aviso genérico de 48h
+  const validNoteHtml = deadline
+    ? COUNTDOWN_TRANSLATIONS[resolveLanguage(data.language)].endsAt(
+        formatDeadline(
+          deadline,
+          data.language,
+          customTemplate?.countdownTimezone,
+        ),
+      )
+    : t.validNote;
+
   return `<!DOCTYPE html>
 <html lang="${resolveLanguage(data.language)}">
 <head>
@@ -292,15 +670,21 @@ export function renderRemarketingEmailHtml(
             <td style="height:4px;background-color:${colors.primary};font-size:0;line-height:0">&nbsp;</td>
           </tr>
 
+          <!-- Campaign banner -->
+          ${headerBannerHtml}
+
           <!-- Greeting + body -->
           <tr>
             <td style="padding:36px 48px 24px 48px">
               <p style="margin:0 0 16px;font-size:22px;font-weight:700;color:${colors.text};line-height:1.3">
-                ${customTemplate?.customGreeting ? customTemplate.customGreeting.replace("{{name}}", escapeHtml(data.customerName)) : t.greeting(escapeHtml(data.customerName))}
+                ${greetingHtml}
               </p>
               <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#374151">
-                ${customTemplate?.customBody ? customTemplate.customBody.replace("{{store}}", escapeHtml(data.storeName)) : t.body(data.storeName)}
+                ${bodyHtml}
               </p>
+
+              <!-- Countdown -->
+              ${countdownHtml}
 
               <!-- Cart title -->
               <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em">
@@ -332,9 +716,9 @@ export function renderRemarketingEmailHtml(
                 <tr>
                   <td style="background-color:${colors.bannerBg};border:1px solid ${colors.bannerBorder};border-radius:6px;padding:12px 16px;text-align:center">
                     <p style="margin:0;font-size:14px;color:${colors.bannerText}">
-                      ${t.discountBanner(data.discountPercent)}
+                      ${bannerHtml}
                     </p>
-                    <p style="margin:4px 0 0;font-size:12px;color:${colors.bannerText}">${t.validNote}</p>
+                    <p style="margin:4px 0 0;font-size:12px;color:${colors.bannerText}">${escapeHtml(validNoteHtml)}</p>
                   </td>
                 </tr>
               </table>
@@ -348,7 +732,7 @@ export function renderRemarketingEmailHtml(
                       style="display:inline-block;background-color:${colors.buttonBg};color:${colors.buttonText};font-size:15px;font-weight:600;
                              padding:14px 32px;border-radius:${colors.buttonRadius};text-decoration:none;letter-spacing:0.01em;
                              mso-padding-alt:14px 32px">
-                      ${customTemplate?.customButtonText ? customTemplate.customButtonText.replace("{{discount}}", data.discountPercent.toString()) : t.button(data.discountPercent)}
+                      ${buttonHtml}
                     </a>
                   </td>
                 </tr>
@@ -361,7 +745,7 @@ export function renderRemarketingEmailHtml(
           <tr>
             <td style="padding:16px 48px 24px 48px;border-top:1px solid ${colors.border};background-color:${colors.footerBg}">
               <p style="margin:0;font-size:12px;color:${colors.footerText};line-height:1.5">
-                ${t.footer(data.storeName)}
+                ${footerHtml}
               </p>
             </td>
           </tr>

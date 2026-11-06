@@ -180,6 +180,8 @@ export interface AbandonedCheckoutLineItem {
   quantity: number;
   price: number;
   imageUrl?: string;
+  productId?: number;
+  variantId?: number;
 }
 
 export interface AbandonedCheckout {
@@ -206,7 +208,7 @@ export async function getAbandonedCheckouts(
   const data = await shopifyFetch(domain, token, `checkouts.json?${params}`);
   const checkouts = (data?.checkouts as Record<string, unknown>[]) ?? [];
 
-  return checkouts
+  const parsed = checkouts
     .filter((c) => typeof c.email === "string" && (c.email as string).includes("@"))
     .map((c) => {
       const lineItems = ((c.line_items as Record<string, unknown>[]) ?? []).map(
@@ -222,6 +224,8 @@ export async function getAbandonedCheckouts(
             quantity: item.quantity as number,
             price: parseFloat((item.price as string) ?? "0"),
             imageUrl,
+            productId: (item.product_id as number | null) ?? undefined,
+            variantId: (item.variant_id as number | null) ?? undefined,
           };
         },
       );
@@ -248,6 +252,94 @@ export async function getAbandonedCheckouts(
       };
     })
     .filter((c) => c.totalPrice > 0);
+
+  await attachProductImages(domain, token, parsed);
+
+  return parsed;
+}
+
+/**
+ * `checkouts.json` não devolve as imagens dos itens, então buscamos as fotos
+ * em lote em `products.json` (imagem da variante quando houver, senão a
+ * imagem principal do produto). Falhas são ignoradas: o email simplesmente
+ * sai sem foto.
+ */
+async function attachProductImages(
+  domain: string,
+  token: string,
+  checkouts: AbandonedCheckout[],
+): Promise<void> {
+  const pendingIds = new Set<number>();
+  for (const checkout of checkouts) {
+    for (const item of checkout.lineItems) {
+      if (!item.imageUrl && item.productId) pendingIds.add(item.productId);
+    }
+  }
+  if (pendingIds.size === 0) return;
+
+  const images = new Map<
+    number,
+    { featured: string | null; byVariant: Map<number, string> }
+  >();
+  const ids = [...pendingIds];
+
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const params = new URLSearchParams({
+      ids: chunk.join(","),
+      limit: "250",
+      fields: "id,image,images,variants",
+    });
+
+    let data: Record<string, unknown> | null = null;
+    try {
+      data = await shopifyFetch(domain, token, `products.json?${params}`);
+    } catch {
+      return;
+    }
+    if (!data) return;
+
+    for (const product of (data.products as Record<string, unknown>[]) ?? []) {
+      const productImages =
+        (product.images as Record<string, unknown>[] | undefined) ?? [];
+      const byImageId = new Map<number, string>();
+      for (const image of productImages) {
+        const id = image.id as number | undefined;
+        const src = image.src as string | undefined;
+        if (id && src) byImageId.set(id, src);
+      }
+
+      const byVariant = new Map<number, string>();
+      for (const variant of (product.variants as Record<string, unknown>[] | undefined) ??
+        []) {
+        const variantId = variant.id as number | undefined;
+        const imageId = variant.image_id as number | null | undefined;
+        const src = imageId ? byImageId.get(imageId) : undefined;
+        if (variantId && src) byVariant.set(variantId, src);
+      }
+
+      const featuredImage = product.image as Record<string, unknown> | null;
+      images.set(product.id as number, {
+        featured:
+          (featuredImage?.src as string | undefined) ??
+          (productImages[0]?.src as string | undefined) ??
+          null,
+        byVariant,
+      });
+    }
+  }
+
+  for (const checkout of checkouts) {
+    for (const item of checkout.lineItems) {
+      if (item.imageUrl || !item.productId) continue;
+      const entry = images.get(item.productId);
+      if (!entry) continue;
+      item.imageUrl =
+        (item.variantId ? entry.byVariant.get(item.variantId) : undefined) ??
+        entry.featured ??
+        undefined;
+    }
+  }
 }
 
 /**

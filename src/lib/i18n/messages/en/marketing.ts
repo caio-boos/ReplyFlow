@@ -12,6 +12,12 @@ const marketing = {
       checkRecovery: "Check recoveries",
       fetchNow: "Fetch carts now",
     },
+    templateNotice: {
+      title: "Customize the remarketing email",
+      description:
+        "Build seasonal campaigns (Black Friday, Mother's Day, Christmas...), with an urgency countdown and the cart product photos.",
+      cta: "Edit templates",
+    },
     toasts: {
       done: "Done!",
       error: "Something went wrong",

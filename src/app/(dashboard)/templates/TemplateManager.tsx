@@ -8,7 +8,12 @@ import {
   ReplyTemplateConfig,
   RemarketingTemplateConfig,
 } from "@/lib/types";
-import { useT } from "@/lib/i18n/client";
+import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
+import {
+  CAMPAIGN_PRESETS,
+  type CampaignPreset,
+} from "@/lib/email/campaign-presets";
+import { useLocale, useT } from "@/lib/i18n/client";
 import type { Messages } from "@/lib/i18n/types";
 
 /* ─── Defaults ─────────────────────────────────────────────────────────────── */
@@ -37,7 +42,49 @@ const REMARKETING_DEFAULT: RemarketingTemplateConfig = {
   bannerTextColor: "#92400e",
   footerBackgroundColor: "#f9fafb",
   footerTextColor: "#9ca3af",
+  campaignId: "none",
+  showProductImages: true,
 };
+
+/** Fusos oferecidos no cronômetro (o fuso do navegador é acrescentado). */
+const TIMEZONE_OPTIONS = [
+  "America/Sao_Paulo",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Mexico_City",
+  "America/Bogota",
+  "America/Argentina/Buenos_Aires",
+  "Europe/Lisbon",
+  "Europe/London",
+  "Europe/Madrid",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "UTC",
+];
+
+function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+/** ISO → valor aceito por `<input type="datetime-local">` (hora local). */
+function toLocalInputValue(iso?: string): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** Foto fictícia do produto no preview (SVG inline, sem dependência externa). */
+const PREVIEW_PRODUCT_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144"><rect width="144" height="144" fill="#e5e7eb"/><path d="M34 98l26-32 20 24 14-16 18 24z" fill="#9ca3af"/><circle cx="52" cy="48" r="11" fill="#9ca3af"/></svg>`,
+)}`;
 
 const REMARKETING_PRESETS: {
   id: keyof Messages["compose"]["library"]["presets"];
@@ -166,6 +213,24 @@ function EmailThumbnail({
     >
       {/* Top accent */}
       <div className="h-1" style={{ backgroundColor: cfg.primaryColor }} />
+      {/* Campaign bar */}
+      {type === "remarketing" && cfg.headerBannerEnabled && (
+        <div
+          className="px-2 py-1"
+          style={{
+            backgroundColor:
+              cfg.headerBannerBackgroundColor ?? cfg.primaryColor,
+          }}
+        >
+          <div
+            className="h-1.5 rounded-sm w-2/3 mx-auto"
+            style={{
+              backgroundColor: cfg.headerBannerTextColor ?? "#ffffff",
+              opacity: 0.7,
+            }}
+          />
+        </div>
+      )}
       {/* Body */}
       <div
         className="px-2 py-2 space-y-1.5"
@@ -185,6 +250,22 @@ function EmailThumbnail({
           className="h-1.5 rounded-sm w-5/6"
           style={{ backgroundColor: cfg.textColor, opacity: 0.1 }}
         />
+        {type === "remarketing" && cfg.countdownEnabled && (
+          <div
+            className="rounded py-1 flex gap-1 justify-center"
+            style={{
+              backgroundColor: cfg.countdownBackgroundColor ?? "#111827",
+            }}
+          >
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-3 h-3 rounded-sm"
+                style={{ backgroundColor: cfg.countdownBoxColor ?? "#1f2937" }}
+              />
+            ))}
+          </div>
+        )}
         {type === "remarketing" && (
           <>
             {/* Product card */}
@@ -300,38 +381,32 @@ ${logo}
 function generateRemarketingPreview(
   config: RemarketingTemplateConfig,
   text: PreviewText,
+  language: string,
 ): string {
   const rm = text.remarketing;
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:${esc(config.backgroundColor)}">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:${esc(config.backgroundColor)};padding:20px 12px">
-<tr><td align="center">
-<table width="500" cellpadding="0" cellspacing="0" style="max-width:500px;width:100%;background:#fff;border-radius:6px;border:1px solid ${esc(config.borderColor)};overflow:hidden">
-<tr><td style="height:4px;background:${esc(config.primaryColor)};font-size:0">&nbsp;</td></tr>
-<tr><td style="padding:28px 40px 20px 40px">
-  <p style="margin:0 0 12px;font-size:20px;font-weight:700;color:${esc(config.textColor)}">${esc(rm.greeting)}</p>
-  <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#6b7280">${esc(rm.intro)}</p>
-  <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${esc(config.borderColor)};border-radius:8px;margin-bottom:16px">
-  <tr><td style="padding:12px 14px"><table cellpadding="0" cellspacing="0" width="100%"><tr>
-    <td width="48" style="padding-right:12px"><div style="width:48px;height:48px;background:#f3f4f6;border-radius:6px"></div></td>
-    <td><p style="margin:0 0 4px;font-size:13px;font-weight:600;color:${esc(config.textColor)}">${esc(rm.product)}</p><p style="margin:0;font-size:12px;color:#9ca3af">${esc(rm.quantity)}</p></td>
-  </tr></table></td></tr>
-  <tr><td style="padding:10px 14px;border-top:1px solid ${esc(config.borderColor)}"><table width="100%" cellpadding="0" cellspacing="0"><tr>
-    <td style="font-size:13px;font-weight:600;color:${esc(config.textColor)}">${esc(rm.total)}</td>
-    <td style="font-size:13px;font-weight:700;color:${esc(config.textColor)};text-align:right">${esc(rm.price)}</td>
-  </tr></table></td></tr></table>
-  <div style="padding:14px;border:1px solid ${esc(config.bannerBorderColor)};background:${esc(config.bannerBackgroundColor)};border-radius:8px;text-align:center;margin-bottom:16px">
-    <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:${esc(config.bannerTextColor)}">${esc(rm.discount)}</p>
-    <p style="margin:0;font-size:12px;color:${esc(config.bannerTextColor)};opacity:0.8">${esc(rm.validity)}</p>
-  </div>
-  <div style="background:${esc(config.buttonColor)};border-radius:${esc(config.buttonBorderRadius)};text-align:center;padding:14px">
-    <span style="font-size:14px;font-weight:600;color:${esc(config.buttonTextColor)}">${esc(rm.cta)}</span>
-  </div>
-</td></tr>
-<tr><td style="padding:12px 40px 16px;border-top:1px solid ${esc(config.borderColor)};background:${esc(config.footerBackgroundColor)}">
-  <p style="margin:0;font-size:12px;color:${esc(config.footerTextColor)}">${esc(rm.footer)}</p>
-</td></tr>
-</table></td></tr></table></body></html>`;
+  return renderRemarketingEmailHtml(
+    {
+      customerName: rm.customerName,
+      storeName: text.storeName,
+      items: [
+        {
+          title: rm.product,
+          quantity: 1,
+          price: 99.9,
+          currency: rm.currency,
+          imageUrl: PREVIEW_PRODUCT_IMAGE,
+        },
+      ],
+      totalPrice: 99.9,
+      currency: rm.currency,
+      discountPercent: 10,
+      checkoutUrl: "#",
+      language,
+      couponCode: "CUPOM10",
+      sentAt: new Date(),
+    },
+    config,
+  );
 }
 
 /* ─── Template Card ─────────────────────────────────────────────────────────── */
@@ -448,6 +523,90 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/* ─── Small form controls ───────────────────────────────────────────────────── */
+
+function Toggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-xs font-medium text-gray-400">{label}</p>
+        {description && (
+          <p className="text-xs text-gray-600 mt-0.5">{description}</p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${checked ? "bg-indigo-600" : "bg-gray-700"}`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${checked ? "translate-x-4" : ""}`}
+        />
+      </button>
+    </div>
+  );
+}
+
+const FIELD_CLASS =
+  "w-full bg-gray-800/60 border border-white/6 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all";
+
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  multiline,
+  type = "text",
+  min,
+  max,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+  type?: string;
+  min?: number;
+  max?: number;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+        {label}
+      </label>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          className={`${FIELD_CLASS} resize-y`}
+        />
+      ) : (
+        <input
+          type={type}
+          value={value}
+          min={min}
+          max={max}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={FIELD_CLASS}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ─── Main TemplateManager ──────────────────────────────────────────────────── */
 
 interface Props {
@@ -459,6 +618,7 @@ interface Props {
 export default function TemplateManager({ type, accountId, logoUrl }: Props) {
   const t = useT("compose");
   const tc = useT("common");
+  const locale = useLocale();
   const [templates, setTemplates] = useState<TemplateLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
@@ -496,7 +656,9 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
 
   const openNew = () => {
     setEditConfig(
-      type === "reply" ? { ...REPLY_DEFAULT } : { ...REMARKETING_DEFAULT },
+      type === "reply"
+        ? { ...REPLY_DEFAULT }
+        : { ...REMARKETING_DEFAULT, countdownTimezone: browserTimeZone() },
     );
     setEditName(t("library.defaultName"));
     setEditingId("new");
@@ -642,6 +804,8 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
       signature: t("preview.reply.signature"),
     },
     remarketing: {
+      customerName: t("preview.remarketing.customerName"),
+      currency: t("preview.remarketing.currency"),
       greeting: t("preview.remarketing.greeting"),
       intro: t("preview.remarketing.intro"),
       product: t("preview.remarketing.product"),
@@ -667,10 +831,53 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
       : generateRemarketingPreview(
           editConfig as RemarketingTemplateConfig,
           previewText,
+          locale,
         );
 
   const rc = editConfig as ReplyTemplateConfig;
   const mc = editConfig as RemarketingTemplateConfig;
+
+  const applyCampaign = (preset: CampaignPreset) => {
+    const base = `library.campaigns.${preset.id}`;
+    setEditConfig({
+      ...mc,
+      ...preset.config,
+      campaignId: preset.id,
+      headerBannerText: t.dynamic(`${base}.banner`),
+      customGreeting: t.dynamic(`${base}.greeting`),
+      customBody: t.dynamic(`${base}.body`),
+      customButtonText: t.dynamic(`${base}.button`),
+      customSubject: t.dynamic(`${base}.subject`),
+      countdownLabel: t.dynamic(`${base}.countdown`),
+      countdownTimezone: mc.countdownTimezone || browserTimeZone(),
+      showProductImages: mc.showProductImages !== false,
+    });
+    const campaignName = t.dynamic(`${base}.name`);
+    if (editingId === "new") setEditName(campaignName);
+    toast.success(t("library.campaigns.applied", { name: campaignName }));
+  };
+
+  const clearCampaign = () => {
+    setEditConfig({
+      ...mc,
+      campaignId: "none",
+      headerBannerEnabled: false,
+      headerBannerText: "",
+      countdownEnabled: false,
+      countdownLabel: "",
+      customGreeting: "",
+      customBody: "",
+      customButtonText: "",
+      customSubject: "",
+      customBannerText: "",
+    });
+    toast.info(t("library.campaigns.cleared"));
+  };
+
+  const currentTimezone = mc.countdownTimezone || browserTimeZone();
+  const timezoneOptions = TIMEZONE_OPTIONS.includes(currentTimezone)
+    ? TIMEZONE_OPTIONS
+    : [currentTimezone, ...TIMEZONE_OPTIONS];
 
   if (!accountId || accountId === "all") {
     return (
@@ -955,8 +1162,326 @@ export default function TemplateManager({ type, accountId, logoUrl }: Props) {
                 {/* Remarketing template controls */}
                 {type === "remarketing" && (
                   <>
-                    {/* Presets */}
+                    {/* Campanhas sazonais */}
                     <div className="space-y-2">
+                      <SectionLabel>
+                        {t("library.campaigns.sectionLabel")}
+                      </SectionLabel>
+                      <p className="text-xs text-gray-600">
+                        {t("library.campaigns.hint")}
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {CAMPAIGN_PRESETS.map((preset) => {
+                          const selected = mc.campaignId === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              onClick={() => applyCampaign(preset)}
+                              className={`flex items-center gap-2 p-2 rounded-lg border transition-all text-left ${
+                                selected
+                                  ? "border-indigo-500/60 bg-indigo-500/10"
+                                  : "border-white/6 hover:border-white/12 hover:bg-white/3"
+                              }`}
+                            >
+                              <div className="flex gap-1 shrink-0">
+                                {preset.swatch.map((c, i) => (
+                                  <div
+                                    key={i}
+                                    className="w-3 h-3 rounded-sm"
+                                    style={{ backgroundColor: c }}
+                                  />
+                                ))}
+                              </div>
+                              <p
+                                className={`text-xs truncate ${selected ? "text-indigo-300" : "text-gray-500"}`}
+                              >
+                                {t.dynamic(
+                                  `library.campaigns.${preset.id}.name`,
+                                )}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {mc.campaignId && mc.campaignId !== "none" && (
+                        <button
+                          onClick={clearCampaign}
+                          className="w-full px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 border border-white/6 hover:border-white/12 rounded-lg transition-all"
+                        >
+                          {t("library.campaigns.clear")}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Faixa de campanha */}
+                    <div className="space-y-3 pt-2 border-t border-white/5">
+                      <SectionLabel>
+                        {t("library.campaignBar.sectionLabel")}
+                      </SectionLabel>
+                      <Toggle
+                        label={t("library.campaignBar.enable")}
+                        checked={mc.headerBannerEnabled === true}
+                        onChange={(v) =>
+                          setEditConfig({ ...mc, headerBannerEnabled: v })
+                        }
+                      />
+                      {mc.headerBannerEnabled && (
+                        <>
+                          <TextField
+                            label={t("library.campaignBar.text")}
+                            value={mc.headerBannerText ?? ""}
+                            placeholder={t(
+                              "library.campaignBar.textPlaceholder",
+                            )}
+                            onChange={(v) =>
+                              setEditConfig({ ...mc, headerBannerText: v })
+                            }
+                          />
+                          <ColorInput
+                            label={t("library.fields.background")}
+                            value={
+                              mc.headerBannerBackgroundColor ?? mc.primaryColor
+                            }
+                            onChange={(v) =>
+                              setEditConfig({
+                                ...mc,
+                                headerBannerBackgroundColor: v,
+                              })
+                            }
+                          />
+                          <ColorInput
+                            label={t("library.fields.text")}
+                            value={mc.headerBannerTextColor ?? "#ffffff"}
+                            onChange={(v) =>
+                              setEditConfig({ ...mc, headerBannerTextColor: v })
+                            }
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Cronômetro */}
+                    <div className="space-y-3 pt-2 border-t border-white/5">
+                      <SectionLabel>
+                        {t("library.countdown.sectionLabel")}
+                      </SectionLabel>
+                      <Toggle
+                        label={t("library.countdown.enable")}
+                        description={t("library.countdown.hint")}
+                        checked={mc.countdownEnabled === true}
+                        onChange={(v) =>
+                          setEditConfig({
+                            ...mc,
+                            countdownEnabled: v,
+                            countdownMode: mc.countdownMode ?? "endOfDay",
+                            countdownTimezone:
+                              mc.countdownTimezone || browserTimeZone(),
+                          })
+                        }
+                      />
+                      {mc.countdownEnabled && (
+                        <>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                              {t("library.countdown.mode")}
+                            </label>
+                            <select
+                              value={mc.countdownMode ?? "endOfDay"}
+                              onChange={(e) =>
+                                setEditConfig({
+                                  ...mc,
+                                  countdownMode: e.target
+                                    .value as RemarketingTemplateConfig["countdownMode"],
+                                })
+                              }
+                              className={FIELD_CLASS}
+                            >
+                              <option value="endOfDay">
+                                {t("library.countdown.modeEndOfDay")}
+                              </option>
+                              <option value="hours">
+                                {t("library.countdown.modeHours")}
+                              </option>
+                              <option value="fixedDate">
+                                {t("library.countdown.modeFixedDate")}
+                              </option>
+                            </select>
+                          </div>
+
+                          {(mc.countdownMode ?? "endOfDay") === "hours" && (
+                            <TextField
+                              label={t("library.countdown.hours")}
+                              type="number"
+                              min={1}
+                              max={720}
+                              value={String(mc.countdownHours ?? 24)}
+                              onChange={(v) =>
+                                setEditConfig({
+                                  ...mc,
+                                  countdownHours: Math.min(
+                                    Math.max(Number(v) || 1, 1),
+                                    720,
+                                  ),
+                                })
+                              }
+                            />
+                          )}
+
+                          {mc.countdownMode === "fixedDate" && (
+                            <TextField
+                              label={t("library.countdown.deadline")}
+                              type="datetime-local"
+                              value={toLocalInputValue(mc.countdownDeadline)}
+                              onChange={(v) =>
+                                setEditConfig({
+                                  ...mc,
+                                  countdownDeadline: v
+                                    ? new Date(v).toISOString()
+                                    : "",
+                                })
+                              }
+                            />
+                          )}
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                              {t("library.countdown.timezone")}
+                            </label>
+                            <select
+                              value={mc.countdownTimezone || browserTimeZone()}
+                              onChange={(e) =>
+                                setEditConfig({
+                                  ...mc,
+                                  countdownTimezone: e.target.value,
+                                })
+                              }
+                              className={FIELD_CLASS}
+                            >
+                              {timezoneOptions.map((tz) => (
+                                <option key={tz} value={tz}>
+                                  {tz}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <TextField
+                            label={t("library.countdown.label")}
+                            value={mc.countdownLabel ?? ""}
+                            placeholder={t("library.countdown.labelPlaceholder")}
+                            onChange={(v) =>
+                              setEditConfig({ ...mc, countdownLabel: v })
+                            }
+                          />
+                          <ColorInput
+                            label={t("library.fields.background")}
+                            value={mc.countdownBackgroundColor ?? "#111827"}
+                            onChange={(v) =>
+                              setEditConfig({
+                                ...mc,
+                                countdownBackgroundColor: v,
+                              })
+                            }
+                          />
+                          <ColorInput
+                            label={t("library.fields.text")}
+                            value={mc.countdownTextColor ?? "#fbbf24"}
+                            onChange={(v) =>
+                              setEditConfig({ ...mc, countdownTextColor: v })
+                            }
+                          />
+                          <ColorInput
+                            label={t("library.countdown.boxBackground")}
+                            value={mc.countdownBoxColor ?? "#1f2937"}
+                            onChange={(v) =>
+                              setEditConfig({ ...mc, countdownBoxColor: v })
+                            }
+                          />
+                          <ColorInput
+                            label={t("library.countdown.boxText")}
+                            value={mc.countdownBoxTextColor ?? "#ffffff"}
+                            onChange={(v) =>
+                              setEditConfig({ ...mc, countdownBoxTextColor: v })
+                            }
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Textos */}
+                    <div className="space-y-3 pt-2 border-t border-white/5">
+                      <SectionLabel>
+                        {t("library.texts.sectionLabel")}
+                      </SectionLabel>
+                      <p className="text-xs text-gray-600">
+                        {t("library.texts.hint")}
+                      </p>
+                      <TextField
+                        label={t("library.texts.subject")}
+                        value={mc.customSubject ?? ""}
+                        placeholder={t("library.texts.subjectPlaceholder")}
+                        onChange={(v) =>
+                          setEditConfig({ ...mc, customSubject: v })
+                        }
+                      />
+                      <TextField
+                        label={t("library.texts.greeting")}
+                        value={mc.customGreeting ?? ""}
+                        placeholder={t("library.texts.greetingPlaceholder")}
+                        onChange={(v) =>
+                          setEditConfig({ ...mc, customGreeting: v })
+                        }
+                      />
+                      <TextField
+                        label={t("library.texts.body")}
+                        multiline
+                        value={mc.customBody ?? ""}
+                        placeholder={t("library.texts.bodyPlaceholder")}
+                        onChange={(v) => setEditConfig({ ...mc, customBody: v })}
+                      />
+                      <TextField
+                        label={t("library.texts.banner")}
+                        value={mc.customBannerText ?? ""}
+                        placeholder={t("library.texts.bannerPlaceholder")}
+                        onChange={(v) =>
+                          setEditConfig({ ...mc, customBannerText: v })
+                        }
+                      />
+                      <TextField
+                        label={t("library.texts.button")}
+                        value={mc.customButtonText ?? ""}
+                        placeholder={t("library.texts.buttonPlaceholder")}
+                        onChange={(v) =>
+                          setEditConfig({ ...mc, customButtonText: v })
+                        }
+                      />
+                      <TextField
+                        label={t("library.texts.footer")}
+                        value={mc.customFooterText ?? ""}
+                        placeholder={t("library.texts.footerPlaceholder")}
+                        onChange={(v) =>
+                          setEditConfig({ ...mc, customFooterText: v })
+                        }
+                      />
+                    </div>
+
+                    {/* Produtos */}
+                    <div className="space-y-3 pt-2 border-t border-white/5">
+                      <SectionLabel>
+                        {t("library.products.sectionLabel")}
+                      </SectionLabel>
+                      <Toggle
+                        label={t("library.products.showImages")}
+                        description={t("library.products.showImagesHint")}
+                        checked={mc.showProductImages !== false}
+                        onChange={(v) =>
+                          setEditConfig({ ...mc, showProductImages: v })
+                        }
+                      />
+                    </div>
+
+                    {/* Presets */}
+                    <div className="space-y-2 pt-2 border-t border-white/5">
                       <SectionLabel>{t("library.sections.presets")}</SectionLabel>
                       <div className="grid grid-cols-2 gap-1.5">
                         {REMARKETING_PRESETS.map((p) => (

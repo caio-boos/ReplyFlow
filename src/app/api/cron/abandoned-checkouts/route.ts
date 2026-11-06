@@ -3,9 +3,15 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
 import { getAbandonedCheckouts } from "@/lib/shopify/client";
 import { sendEmail } from "@/lib/email/smtp";
-import { renderRemarketingEmailHtml } from "@/lib/email/html-template";
+import {
+  applyRemarketingPlaceholders,
+  formatDeadline,
+  renderRemarketingEmailHtml,
+  resolveCountdownDeadline,
+} from "@/lib/email/html-template";
 import { FieldValue } from "firebase-admin/firestore";
 import { entitlementMemo } from "@/lib/billing/store";
+import type { RemarketingTemplateConfig } from "@/lib/types";
 
 const DEFAULT_COUPON_CODE = process.env.REMARKETING_COUPON_CODE ?? "CARRINHO20";
 const DEFAULT_DISCOUNT_PERCENT = 20;
@@ -246,8 +252,14 @@ async function run(req: NextRequest) {
         .doc(accountDoc.id)
         .get();
       const customTemplate = templateDoc.exists
-        ? (templateDoc.data() as import("@/lib/types").RemarketingTemplateConfig)
+        ? (templateDoc.data() as RemarketingTemplateConfig)
         : undefined;
+
+      const sentAt = new Date();
+      const deadline = resolveCountdownDeadline(customTemplate, sentAt);
+      const deadlineText = deadline
+        ? formatDeadline(deadline, language, customTemplate?.countdownTimezone)
+        : "";
 
       const emailHtml = renderRemarketingEmailHtml(
         {
@@ -259,11 +271,13 @@ async function run(req: NextRequest) {
           discountPercent,
           checkoutUrl,
           language,
+          couponCode,
+          sentAt,
         },
         customTemplate,
       );
 
-      const emailText = buildPlainText(
+      const basePlainText = buildPlainText(
         checkout.customerName,
         storeName,
         emailItems,
@@ -274,12 +288,27 @@ async function run(req: NextRequest) {
         language,
       );
 
-      const subject = buildSubject(discountPercent, language);
+      const emailText = deadlineText
+        ? `${basePlainText}\n\n⏳ ${deadlineText}`
+        : basePlainText;
+
+      const customSubject = customTemplate?.customSubject?.trim();
+      const subject = customSubject
+        ? applyRemarketingPlaceholders(customSubject, {
+            name: checkout.customerName,
+            store: storeName,
+            discount: discountPercent,
+            coupon: couponCode,
+            deadline: deadlineText,
+          })
+        : buildSubject(discountPercent, language);
 
       const remarketingRef = db.collection("remarketing").doc();
 
       const sanitizedLineItems = checkout.lineItems.map((item) => ({
-        ...item,
+        title: item.title,
+        quantity: item.quantity,
+        price: item.price,
         imageUrl: item.imageUrl ?? null,
       }));
 
