@@ -1,4 +1,6 @@
 const SHOPIFY_API_VERSION = "2024-10";
+/** GraphQL needs a current stable version — the Returns data isn't exposed by the REST API. */
+const SHOPIFY_GRAPHQL_API_VERSION = "2026-01";
 
 export interface ShopifyOrder {
   id: number;
@@ -8,6 +10,7 @@ export interface ShopifyOrder {
   createdAt: string;
   cancelledAt: string | null;
   totalPrice: number | null;
+  currency: string | null;
   trackingNumber: string | null;
   trackingUrl: string | null;
   trackingCompany: string | null;
@@ -48,6 +51,7 @@ function parseOrder(order: Record<string, unknown>): ShopifyOrder {
     createdAt: order.created_at as string,
     cancelledAt: (order.cancelled_at as string | null) ?? null,
     totalPrice: order.total_price ? parseFloat(order.total_price as string) : null,
+    currency: (order.currency as string | undefined) ?? null,
     trackingNumber: trackingInfo,
     trackingUrl,
     trackingCompany,
@@ -528,6 +532,8 @@ export interface RefundedOrder {
   currency: string;
   financialStatus: string;
   createdAt: string;
+  /** When the refund itself was issued (last refund) — falls back to the order dates. */
+  refundedAt: string;
 }
 
 export async function getRefundedOrders(
@@ -541,7 +547,8 @@ export async function getRefundedOrders(
 
   for (const status of ["refunded", "partially_refunded"] as const) {
     const params = new URLSearchParams({ status: "any", financial_status: status, limit: "250" });
-    if (sinceDate) params.set("created_at_min", sinceDate.toISOString());
+    // Filter on update date: a refund is often issued long after the order was placed
+    if (sinceDate) params.set("updated_at_min", sinceDate.toISOString());
 
     const data = await shopifyFetch(domain, token, `orders.json?${params}`);
     const orders = (data?.orders as Record<string, unknown>[]) ?? [];
@@ -554,6 +561,7 @@ export async function getRefundedOrders(
 
       const refunds = (order.refunds as Record<string, unknown>[]) ?? [];
       let totalRefunded = 0;
+      let refundedAt = "";
       for (const refund of refunds) {
         const transactions = (refund.transactions as Record<string, unknown>[]) ?? [];
         for (const txn of transactions) {
@@ -561,6 +569,8 @@ export async function getRefundedOrders(
             totalRefunded += parseFloat((txn.amount as string) ?? "0");
           }
         }
+        const processedAt = (refund.processed_at as string | undefined) ?? (refund.created_at as string | undefined) ?? "";
+        if (processedAt && processedAt > refundedAt) refundedAt = processedAt;
       }
       // Shopify void/auto-cancel: refunds[] is empty but current_total_price dropped to 0
       if (totalRefunded === 0 && order.financial_status === "refunded") {
@@ -575,8 +585,156 @@ export async function getRefundedOrders(
         currency: (order.currency as string) ?? "USD",
         financialStatus: (order.financial_status as string) ?? "refunded",
         createdAt: (order.created_at as string) ?? "",
+        refundedAt:
+          refundedAt ||
+          ((order.updated_at as string | undefined) ?? (order.created_at as string) ?? ""),
       });
     }
+  }
+
+  return result;
+}
+
+/** Minimal GraphQL Admin API call — used for data the REST API doesn't expose (returns). */
+async function shopifyGraphQL(
+  domain: string,
+  token: string,
+  query: string,
+  variables: Record<string, unknown> = {},
+  retries = 2,
+): Promise<Record<string, unknown> | null> {
+  const base = domain.includes("myshopify.com") ? domain : `${domain}.myshopify.com`;
+  const url = `https://${base}/admin/api/${SHOPIFY_GRAPHQL_API_VERSION}/graphql.json`;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "X-Shopify-Access-Token": token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+
+    if (res.status === 429) {
+      if (attempt === retries) return null;
+      const retryAfter = parseFloat(res.headers.get("Retry-After") ?? "0");
+      await sleep(retryAfter > 0 ? retryAfter * 1000 : Math.pow(2, attempt) * 1000);
+      continue;
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`Shopify GraphQL error ${res.status} for ${base}: ${text}`);
+      return null;
+    }
+
+    const json = (await res.json()) as {
+      data?: Record<string, unknown>;
+      errors?: Array<{ message: string; extensions?: { code?: string } }>;
+    };
+
+    if (json.errors?.length) {
+      const throttled = json.errors.some((e) => e.extensions?.code === "THROTTLED");
+      if (throttled && attempt < retries) {
+        await sleep(Math.pow(2, attempt) * 1000);
+        continue;
+      }
+      console.error(
+        `Shopify GraphQL returned errors for ${base}: ${json.errors.map((e) => e.message).join("; ")}`,
+      );
+      return null;
+    }
+
+    return json.data ?? null;
+  }
+
+  return null;
+}
+
+/** Orders where a return is open (requested / in transit / under inspection). */
+export interface PendingReturnOrder {
+  id: string;
+  name: string;
+  totalPrice: number;
+  currency: string;
+  /** RETURN_REQUESTED | IN_PROGRESS | INSPECTION_COMPLETE */
+  returnStatus: string;
+  financialStatus: string;
+  createdAt: string;
+  /** Last change on the order — the closest proxy for when the return moved. */
+  updatedAt: string;
+}
+
+const PENDING_RETURN_STATUSES = ["return_requested", "in_progress", "inspection_complete"] as const;
+
+const PENDING_RETURNS_QUERY = `
+  query PendingReturns($query: String!, $cursor: String) {
+    orders(first: 100, query: $query, after: $cursor, sortKey: UPDATED_AT, reverse: true) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id
+        name
+        createdAt
+        updatedAt
+        returnStatus
+        displayFinancialStatus
+        currentTotalPriceSet { shopMoney { amount currencyCode } }
+        totalPriceSet { shopMoney { amount currencyCode } }
+      }
+    }
+  }
+`;
+
+/**
+ * Fetches orders with an open (not yet refunded) return. Filtering is done on `updated_at`
+ * because a return is usually opened days after the order was created. Returns an empty list
+ * when the store/token can't serve the query so the caller can degrade gracefully.
+ */
+export async function getPendingReturnOrders(
+  domain: string,
+  token: string,
+  sinceDate?: Date,
+  maxPages = 3,
+): Promise<PendingReturnOrder[]> {
+  const statusFilter = PENDING_RETURN_STATUSES.map((s) => `return_status:${s}`).join(" OR ");
+  const dateFilter = sinceDate ? ` AND updated_at:>='${sinceDate.toISOString()}'` : "";
+  const query = `(${statusFilter})${dateFilter}`;
+
+  const result: PendingReturnOrder[] = [];
+  let cursor: string | null = null;
+
+  for (let page = 0; page < maxPages; page++) {
+    const data: Record<string, unknown> | null = await shopifyGraphQL(domain, token, PENDING_RETURNS_QUERY, {
+      query,
+      cursor,
+    });
+    const orders = data?.orders as
+      | {
+          pageInfo?: { hasNextPage?: boolean; endCursor?: string | null };
+          nodes?: Array<Record<string, unknown>>;
+        }
+      | undefined;
+    if (!orders) break;
+
+    for (const node of orders.nodes ?? []) {
+      const current = (node.currentTotalPriceSet as { shopMoney?: { amount?: string; currencyCode?: string } })?.shopMoney;
+      const original = (node.totalPriceSet as { shopMoney?: { amount?: string; currencyCode?: string } })?.shopMoney;
+      const money = original ?? current;
+      result.push({
+        id: String(node.id ?? ""),
+        name: (node.name as string) ?? "",
+        totalPrice: parseFloat(money?.amount ?? "0") || 0,
+        currency: money?.currencyCode ?? "USD",
+        returnStatus: ((node.returnStatus as string) ?? "IN_PROGRESS").toUpperCase(),
+        financialStatus: ((node.displayFinancialStatus as string) ?? "").toLowerCase(),
+        createdAt: (node.createdAt as string) ?? "",
+        updatedAt: (node.updatedAt as string) ?? (node.createdAt as string) ?? "",
+      });
+    }
+
+    if (!orders.pageInfo?.hasNextPage || !orders.pageInfo.endCursor) break;
+    cursor = orders.pageInfo.endCursor;
   }
 
   return result;

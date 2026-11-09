@@ -105,6 +105,8 @@ async function run(req: NextRequest) {
         status: "recovered",
         recoveredOrderId: order.id,
         recoveredOrderName: order.name,
+        recoveredOrderTotal: order.totalPrice ?? null,
+        recoveredCurrency: order.currency ?? (doc.data().currency as string | undefined) ?? null,
         recoveredAt: FieldValue.serverTimestamp(),
       });
 

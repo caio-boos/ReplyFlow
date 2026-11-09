@@ -43,7 +43,8 @@ const stores = {
       step1: "Go to <mono>admin.shopify.com</mono> → Settings → Apps → <b>Develop apps</b>",
       step2: "Click <b>Create app</b> → give it a name (e.g. ReplyFlow) → uncheck <i>Embed app in Shopify admin</i>",
       step3: "Under <b>App URL</b>, paste: <code>{url}</code>",
-      step4: "Under <b>Access scopes</b>, paste: <code>read_orders,read_customers</code>",
+      step4: "Under <b>Access scopes</b>, paste exactly: <code>{scopes}</code>",
+      scopesNote: "<b>Important:</b> also enable <code>read_all_orders</code> (under <i>Admin API access scopes</i>, click <i>Request access</i> for “All orders”). Without it Shopify only returns the last 60 days of orders and the 90-day/all-time reports come back incomplete.",
       step5: "Under <b>Settings</b>, copy the <i>Client ID</i> and <i>Client secret</i> and paste them into the fields below",
       step6: "Save the account and click <b>Connect Shopify</b> to authorize",
     },
@@ -141,7 +142,7 @@ const stores = {
     shopifyNotConfigured: "This account doesn't have Shopify set up.",
     invalidToken: "Invalid Shopify token — reconnect the store.",
     shopifyForbidden:
-      "The app doesn't have permission to read this data in Shopify. Go to Accounts, reconnect the store and accept the permissions (read_products, read_orders, read_customers).",
+      "The app doesn't have permission to read this data in Shopify. Go to Accounts, reconnect the store and accept the permissions (read_orders, read_all_orders, read_customers, read_products).",
     shopifyRateLimited: "Shopify is rate-limiting requests. Please try again in a moment.",
     shopifyApiError: "Shopify API error ({status}).",
     orderNotFound: "No Shopify order found for this search.",

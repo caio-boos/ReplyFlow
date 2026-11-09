@@ -45,7 +45,8 @@ const stores: Messages["stores"] = {
       step1: "Accédez à <mono>admin.shopify.com</mono> → Paramètres → Applications → <b>Développer des applications</b>",
       step2: "Cliquez sur <b>Créer une application</b> → donnez-lui un nom (ex. : ReplyFlow) → décochez <i>Embed app in Shopify admin</i>",
       step3: "Dans <b>App URL</b>, collez : <code>{url}</code>",
-      step4: "Dans <b>Access scopes</b>, collez : <code>read_orders,read_customers</code>",
+      step4: "Dans <b>Access scopes</b>, collez exactement : <code>{scopes}</code>",
+      scopesNote: "<b>Important :</b> activez aussi <code>read_all_orders</code> (dans <i>Admin API access scopes</i>, cliquez sur <i>Request access</i> pour « All orders »). Sans cela, Shopify ne renvoie que les 60 derniers jours de commandes et les rapports 90 jours/toute la période sont incomplets.",
       step5: "Dans <b>Settings</b>, copiez le <i>Client ID</i> et le <i>Client secret</i> puis collez-les dans les champs ci-dessous",
       step6: "Enregistrez le compte et cliquez sur <b>Connecter Shopify</b> pour autoriser l’accès",
     },
@@ -143,7 +144,7 @@ const stores: Messages["stores"] = {
     shopifyNotConfigured: "Shopify n’est pas configuré pour ce compte.",
     invalidToken: "Jeton Shopify invalide — reconnectez la boutique.",
     shopifyForbidden:
-      "L’application n’a pas l’autorisation de lire ces données dans Shopify. Allez dans Comptes, reconnectez la boutique et acceptez les autorisations (read_products, read_orders, read_customers).",
+      "L’application n’a pas l’autorisation de lire ces données dans Shopify. Allez dans Comptes, reconnectez la boutique et acceptez les autorisations (read_orders, read_all_orders, read_customers, read_products).",
     shopifyRateLimited: "Shopify limite les requêtes. Veuillez réessayer dans quelques instants.",
     shopifyApiError: "Erreur de l’API Shopify ({status}).",
     orderNotFound: "Aucune commande Shopify trouvée pour cette recherche.",

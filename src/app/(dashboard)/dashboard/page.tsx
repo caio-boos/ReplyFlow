@@ -9,16 +9,38 @@ import { useFormat, useT } from "@/lib/i18n/client";
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface DayPoint { date: string; recebidos: number; enviados: number; }
-interface PedidoDayPoint { date: string; count: number; valorPoupado: number; }
+interface PedidoDayPoint {
+  date: string; count: number; valorPoupado: number;
+  concluidas: number; pendentes: number; valorReembolsado: number;
+}
+interface CartDayPoint { date: string; recuperados: number; valor: number; enviados: number; }
 
 interface PedidosData {
   total: number; valorAnalisado: number; valorReembolsado: number;
   valorPoupado: number; percentualPoupado: number;
   reembolsosParciais: number; reembolsosTotais: number;
   byDay: PedidoDayPoint[];
+  pendentes: {
+    total: number; valorEmRisco: number;
+    returnRequested: number; inProgress: number; inspectionComplete: number;
+    internos: number; valorInterno: number;
+  };
   porConta: Array<{
     id: string; label: string; total: number;
     valorAnalisado: number; valorReembolsado: number; valorPoupado: number; percentualPoupado: number;
+    pendentes: number;
+  }>;
+}
+
+interface CarrinhosData {
+  enviados: number; recuperados: number; taxaRecuperacao: number;
+  valorRecuperado: number; valorEmAberto: number; ticketMedio: number;
+  byDay: CartDayPoint[];
+  topProdutos: Array<{ title: string; imageUrl: string | null; pedidos: number; quantidade: number; valor: number }>;
+  porConta: Array<{ id: string; label: string; enviados: number; recuperados: number; valorRecuperado: number; taxaRecuperacao: number }>;
+  recentes: Array<{
+    id: string; customerName: string; customerEmail: string; orderName: string;
+    valor: number; recoveredAt: string; accountLabel: string;
   }>;
 }
 
@@ -40,9 +62,18 @@ interface DashboardData {
     pedidos: PedidosData;
     refundedOrders: Array<{
       id: string; name: string; financialStatus: string; currency: string;
-      totalPriceUSD: number; totalRefundedUSD: number; createdAt: string; accountLabel: string;
+      totalPriceUSD: number; totalRefundedUSD: number; createdAt: string; refundedAt: string; accountLabel: string;
+    }>;
+    pendingReturns: Array<{
+      id: string; name: string; returnStatus: string; currency: string;
+      totalPriceUSD: number; createdAt: string; updatedAt: string; accountLabel: string;
+    }>;
+    pendingRefundRequests: Array<{
+      id: string; customerId: string; customerName: string; subject: string;
+      description: string; orderValueUSD: number; createdAt: string; accountLabel: string;
     }>;
   };
+  carrinhos: CarrinhosData;
   perAccount: Array<{
     id: string; label: string; email: string; shopifyConnected: boolean;
     enviados: number; chargebacks: number;
@@ -295,13 +326,23 @@ const IconBlock = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
   </svg>
 );
+const IconClock = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+const IconTag = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.659A2.25 2.25 0 009.568 3z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M6 6h.008v.008H6V6z" />
+  </svg>
+);
 const IconCart = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
   </svg>
 );
-const IconBar = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+const IconBar = () => (  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
   </svg>
 );
@@ -314,7 +355,7 @@ export default function DashboardPage() {
   const tc = useT("common");
   const f = useFormat();
   const [period, setPeriod] = useState<Period>("30");
-  const [tab, setTab] = useState<"atendimentos" | "financeiro">("atendimentos");
+  const [tab, setTab] = useState<"atendimentos" | "financeiro" | "carrinhos">("atendimentos");
   const [displayCurrency, setDisplayCurrency] = useState<string>("USD");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -340,12 +381,14 @@ export default function DashboardPage() {
   const at = data?.atendimentos;
   const fin = data?.financeiro;
   const pd = fin?.pedidos;
+  const ct = data?.carrinhos;
   const displayRate = fin?.rates[displayCurrency] ?? 1;
   const toDisplay = (usdVal: number) => usdVal * displayRate;
 
   const sparkSent     = at?.byDay.map((d) => d.enviados) ?? [];
   const sparkReceived = at?.byDay.map((d) => d.recebidos) ?? [];
   const sparkPoupado  = pd?.byDay.map((d) => d.valorPoupado) ?? [];
+  const sparkRecuperados = ct?.byDay.map((d) => d.recuperados) ?? [];
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
@@ -398,6 +441,7 @@ export default function DashboardPage() {
         {([
           { value: "atendimentos" as const, label: t("dashboard.tabs.support") },
           { value: "financeiro" as const, label: t("dashboard.tabs.financial") },
+          { value: "carrinhos" as const, label: t("dashboard.tabs.carts") },
         ]).map((item) => (
           <button
             key={item.value}
@@ -645,8 +689,8 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              {/* Top 3 metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Top metrics */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <MetricCard
                   label={t("dashboard.financial.saved.label", { currency: displayCurrency })}
                   value={loading ? "—" : money(toDisplay(pd?.valorPoupado ?? 0))}
@@ -670,7 +714,71 @@ export default function DashboardPage() {
                   accent="red" loading={loading}
                   icon={<IconBar />}
                 />
+                <MetricCard
+                  label={t("dashboard.financial.pending.label")}
+                  value={loading ? "—" : f.number((pd?.pendentes.total ?? 0) + (pd?.pendentes.internos ?? 0))}
+                  sub={loading ? undefined : t("dashboard.financial.pending.sub", {
+                    shopify: pd?.pendentes.total ?? 0,
+                    internal: pd?.pendentes.internos ?? 0,
+                  })}
+                  sparkData={pd?.byDay.map((d) => d.pendentes) ?? []}
+                  sparkColor="#f59e0b"
+                  accent="violet" loading={loading}
+                  icon={<IconClock />}
+                />
               </div>
+
+              {/* Pending returns breakdown */}
+              {!loading && ((pd?.pendentes.total ?? 0) > 0 || (pd?.pendentes.internos ?? 0) > 0) && (
+                <div className="bg-gray-900/60 border border-white/6 rounded-2xl p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-200">{t("dashboard.financial.pendingBreakdown.title")}</h3>
+                      <p className="text-xs text-gray-600 mt-0.5">{t("dashboard.financial.pendingBreakdown.sub")}</p>
+                    </div>
+                    <span className="text-xs font-semibold text-amber-400">
+                      {t("dashboard.financial.pendingBreakdown.atRisk", {
+                        value: money(toDisplay((pd?.pendentes.valorEmRisco ?? 0) + (pd?.pendentes.valorInterno ?? 0))),
+                      })}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: t("dashboard.financial.pendingBreakdown.requested"), value: pd?.pendentes.returnRequested ?? 0, text: "text-amber-300" },
+                      { label: t("dashboard.financial.pendingBreakdown.inProgress"), value: pd?.pendentes.inProgress ?? 0, text: "text-indigo-300" },
+                      { label: t("dashboard.financial.pendingBreakdown.inspection"), value: pd?.pendentes.inspectionComplete ?? 0, text: "text-violet-300" },
+                      { label: t("dashboard.financial.pendingBreakdown.internal"), value: pd?.pendentes.internos ?? 0, text: "text-sky-300" },
+                    ].map((item) => (
+                      <div key={item.label} className="bg-white/2 border border-white/5 rounded-xl px-3 py-2.5">
+                        <p className={`text-lg font-bold ${item.text}`}>{f.number(item.value)}</p>
+                        <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{item.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Returns volume chart */}
+              <ChartCard
+                title={t("dashboard.financial.returnsChart.title")}
+                sub={t("dashboard.financial.returnsChart.sub")}
+                legend={[
+                  { label: t("dashboard.financial.returnsChart.completed"), color: "#ef4444" },
+                  { label: t("dashboard.financial.returnsChart.pending"), color: "#f59e0b" },
+                ]}
+              >
+                {loading ? <Sk h="h-44" /> : (
+                  <DashAreaChart
+                    chartId="dev"
+                    data={pd?.byDay.map((d) => ({ date: day(d.date), completed: d.concluidas, pending: d.pendentes })) ?? []}
+                    lines={[
+                      { key: "completed", name: t("dashboard.financial.returnsChart.completed"), color: "#ef4444" },
+                      { key: "pending", name: t("dashboard.financial.returnsChart.pending"), color: "#f59e0b" },
+                    ]}
+                    height={180}
+                  />
+                )}
+              </ChartCard>
 
               {/* Saving breakdown */}
               {!loading && (pd?.valorAnalisado ?? 0) > 0 && (
@@ -732,6 +840,7 @@ export default function DashboardPage() {
                             {[
                               t("dashboard.financial.perStore.store"),
                               t("dashboard.financial.perStore.orders"),
+                              t("dashboard.financial.perStore.pending"),
                               t("dashboard.financial.perStore.analyzed"),
                               t("dashboard.financial.perStore.refunded"),
                               t("dashboard.financial.perStore.saved"),
@@ -746,6 +855,11 @@ export default function DashboardPage() {
                             <tr key={acc.id} className="border-t border-white/5 hover:bg-white/2 transition-colors">
                               <td className="px-3 py-3 text-sm text-gray-200">{acc.label}</td>
                               <td className="px-3 py-3 text-sm text-gray-400 text-right">{acc.total}</td>
+                              <td className="px-3 py-3 text-right">
+                                <span className={`text-sm ${acc.pendentes > 0 ? "text-amber-400" : "text-gray-600"}`}>
+                                  {acc.pendentes > 0 ? acc.pendentes : "—"}
+                                </span>
+                              </td>
                               <td className="px-3 py-3 text-right">
                                 <span className="text-sm text-gray-300">{money(toDisplay(acc.valorAnalisado))}</span>
                               </td>
@@ -771,6 +885,117 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </ChartCard>
+              )}
+
+              {/* Devoluções pendentes — returns abertos na Shopify */}
+              {!loading && (fin?.pendingReturns.length ?? 0) > 0 && (
+                <div className="bg-gray-900/60 border border-white/6 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-200">{t("dashboard.financial.pendingReturns.title")}</h3>
+                      <p className="text-xs text-gray-600 mt-0.5">{t("dashboard.financial.pendingReturns.sub")}</p>
+                    </div>
+                    <span className="text-xs text-gray-600">{t("dashboard.financial.refundedOrders.count", { count: fin!.pendingReturns.length })}</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr>
+                          {[
+                            t("dashboard.financial.refundedOrders.order"),
+                            t("dashboard.financial.pendingReturns.updated"),
+                            t("dashboard.financial.refundedOrders.currency"),
+                            t("dashboard.financial.refundedOrders.value"),
+                            t("dashboard.financial.pendingReturns.status"),
+                          ].map((h, i) => (
+                            <th key={h} className={`px-4 py-2.5 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fin!.pendingReturns.map((order) => (
+                          <tr key={order.id} className="border-t border-white/5 hover:bg-white/2 transition-colors">
+                            <td className="px-4 py-3">
+                              <p className="text-sm text-gray-200 font-mono">{order.name}</p>
+                              {order.accountLabel && <p className="text-xs text-gray-600">{order.accountLabel}</p>}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-500 text-right whitespace-nowrap">
+                              {order.updatedAt ? day(order.updatedAt) : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded">{order.currency}</span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-300 text-right">{money(toDisplay(order.totalPriceUSD))}</td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-400 whitespace-nowrap">
+                                {order.returnStatus === "RETURN_REQUESTED"
+                                  ? t("dashboard.financial.pendingBreakdown.requested")
+                                  : order.returnStatus === "INSPECTION_COMPLETE"
+                                    ? t("dashboard.financial.pendingBreakdown.inspection")
+                                    : t("dashboard.financial.pendingBreakdown.inProgress")}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Reembolsos aceitos pelo cliente e ainda não processados */}
+              {!loading && (fin?.pendingRefundRequests.length ?? 0) > 0 && (
+                <div className="bg-gray-900/60 border border-white/6 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-200">{t("dashboard.financial.pendingRefunds.title")}</h3>
+                      <p className="text-xs text-gray-600 mt-0.5">{t("dashboard.financial.pendingRefunds.sub")}</p>
+                    </div>
+                    <span className="text-xs text-gray-600">{t("dashboard.financial.pendingRefunds.count", { count: fin!.pendingRefundRequests.length })}</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr>
+                          {[
+                            t("dashboard.financial.pendingRefunds.customer"),
+                            t("dashboard.financial.pendingRefunds.action"),
+                            t("dashboard.financial.refundedOrders.value"),
+                            t("dashboard.financial.refundedOrders.date"),
+                            "",
+                          ].map((h, i) => (
+                            <th key={i} className={`px-4 py-2.5 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : i === 4 ? "text-center" : "text-right"}`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fin!.pendingRefundRequests.map((item) => (
+                          <tr key={item.id} className="border-t border-white/5 hover:bg-white/2 transition-colors">
+                            <td className="px-4 py-3">
+                              <p className="text-sm text-gray-200">{item.customerName || "—"}</p>
+                              {item.accountLabel && <p className="text-xs text-gray-600">{item.accountLabel}</p>}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-400 max-w-60 truncate">{item.description || item.subject}</td>
+                            <td className="px-4 py-3 text-sm text-amber-400 text-right">
+                              {item.orderValueUSD > 0 ? money(toDisplay(item.orderValueUSD)) : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-500 text-right whitespace-nowrap">
+                              {item.createdAt ? day(item.createdAt) : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <Link
+                                href="/tasks"
+                                className="px-2.5 py-1 rounded-lg text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
+                              >
+                                {t("dashboard.financial.pendingRefunds.viewTask")}
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
 
               {/* Devoluções — pedidos Shopify reembolsados individualmente */}
@@ -810,7 +1035,7 @@ export default function DashboardPage() {
                                 {order.accountLabel && <p className="text-xs text-gray-600">{order.accountLabel}</p>}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500 text-right whitespace-nowrap">
-                                {order.createdAt ? day(order.createdAt) : "—"}
+                                {order.refundedAt ? day(order.refundedAt) : order.createdAt ? day(order.createdAt) : "—"}
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded">{order.currency}</span>
@@ -842,6 +1067,224 @@ export default function DashboardPage() {
                             </tr>
                           );
                         })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ══ Tab: Carrinhos recuperados ══ */}
+      {tab === "carrinhos" && (
+        <div className="space-y-6">
+          {!loading && (ct?.enviados ?? 0) === 0 && (ct?.recuperados ?? 0) === 0 ? (
+            <div className="bg-gray-900/60 border border-white/6 rounded-2xl p-10 text-center">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                <IconCart />
+              </div>
+              <p className="text-sm font-semibold text-gray-300 mb-1">{t("dashboard.carts.empty.title")}</p>
+              <p className="text-xs text-gray-600 max-w-xs mx-auto">{t("dashboard.carts.empty.hint")}</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <MetricCard
+                  label={t("dashboard.carts.recovered.label")}
+                  value={loading ? "—" : f.number(ct?.recuperados ?? 0)}
+                  sub={loading ? undefined : t("dashboard.carts.recovered.sub", { count: ct?.enviados ?? 0 })}
+                  sparkData={sparkRecuperados}
+                  sparkColor="#10b981"
+                  accent="emerald" loading={loading}
+                  icon={<IconCart />}
+                />
+                <MetricCard
+                  label={t("dashboard.carts.value.label", { currency: displayCurrency })}
+                  value={loading ? "—" : money(toDisplay(ct?.valorRecuperado ?? 0))}
+                  sub={loading ? undefined : t("dashboard.carts.value.sub", { value: money(toDisplay(ct?.ticketMedio ?? 0)) })}
+                  accent="amber" loading={loading}
+                  icon={<IconCoin />}
+                />
+                <MetricCard
+                  label={t("dashboard.carts.rate.label")}
+                  value={loading ? "—" : `${ct?.taxaRecuperacao ?? 0}%`}
+                  sub={loading ? undefined : t("dashboard.carts.rate.sub", { count: ct?.enviados ?? 0 })}
+                  accent="indigo" loading={loading}
+                  icon={<IconBar />}
+                />
+                <MetricCard
+                  label={t("dashboard.carts.open.label", { currency: displayCurrency })}
+                  value={loading ? "—" : money(toDisplay(ct?.valorEmAberto ?? 0))}
+                  sub={t("dashboard.carts.open.sub")}
+                  accent="violet" loading={loading}
+                  icon={<IconClock />}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <ChartCard
+                  title={t("dashboard.carts.chart.title")}
+                  sub={t("dashboard.carts.chart.sub")}
+                  legend={[
+                    { label: t("dashboard.carts.chart.recovered"), color: "#10b981" },
+                    { label: t("dashboard.carts.chart.sent"), color: "#6366f1" },
+                  ]}
+                >
+                  {loading ? <Sk h="h-44" /> : (
+                    <DashAreaChart
+                      chartId="crt"
+                      data={ct?.byDay.map((d) => ({ date: day(d.date), recovered: d.recuperados, sent: d.enviados })) ?? []}
+                      lines={[
+                        { key: "recovered", name: t("dashboard.carts.chart.recovered"), color: "#10b981" },
+                        { key: "sent", name: t("dashboard.carts.chart.sent"), color: "#6366f1" },
+                      ]}
+                      height={180}
+                    />
+                  )}
+                </ChartCard>
+
+                <ChartCard
+                  title={t("dashboard.carts.valueChart.title")}
+                  sub={t("dashboard.carts.valueChart.sub")}
+                  legend={[{ label: t("dashboard.carts.valueChart.legend", { currency: displayCurrency }), color: "#f59e0b" }]}
+                >
+                  {loading ? <Sk h="h-44" /> : (
+                    <DashAreaChart
+                      chartId="crtv"
+                      data={ct?.byDay.map((d) => ({ date: day(d.date), value: toDisplay(d.valor) })) ?? []}
+                      lines={[{ key: "value", name: t("dashboard.carts.valueChart.legend", { currency: displayCurrency }), color: "#f59e0b" }]}
+                      height={180}
+                      yFormatter={money}
+                      yAxisWidth={72}
+                    />
+                  )}
+                </ChartCard>
+              </div>
+
+              {/* Top produtos recuperados */}
+              {!loading && (ct?.topProdutos.length ?? 0) > 0 && (
+                <div className="bg-gray-900/60 border border-white/6 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-200">{t("dashboard.carts.topProducts.title")}</h3>
+                      <p className="text-xs text-gray-600 mt-0.5">{t("dashboard.carts.topProducts.sub")}</p>
+                    </div>
+                    <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center"><IconTag /></span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr>
+                          {[
+                            t("dashboard.carts.topProducts.product"),
+                            t("dashboard.carts.topProducts.carts"),
+                            t("dashboard.carts.topProducts.units"),
+                            t("dashboard.carts.topProducts.value"),
+                          ].map((h, i) => (
+                            <th key={h} className={`px-4 py-2.5 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ct!.topProdutos.map((p) => (
+                          <tr key={p.title} className="border-t border-white/5 hover:bg-white/2 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                {p.imageUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={p.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover bg-gray-800 shrink-0" />
+                                ) : (
+                                  <span className="w-9 h-9 rounded-lg bg-gray-800 shrink-0" />
+                                )}
+                                <p className="text-sm text-gray-200 line-clamp-2">{p.title}</p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-400 text-right">{f.number(p.pedidos)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-300 text-right">{f.number(p.quantidade)}</td>
+                            <td className="px-4 py-3 text-sm font-semibold text-emerald-400 text-right">{money(toDisplay(p.valor))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Por loja */}
+              {!loading && (ct?.porConta.length ?? 0) > 1 && (
+                <ChartCard title={t("dashboard.carts.perStore.title")} sub={t("dashboard.carts.perStore.sub")}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr>
+                          {[
+                            t("dashboard.financial.perStore.store"),
+                            t("dashboard.carts.perStore.sent"),
+                            t("dashboard.carts.perStore.recovered"),
+                            t("dashboard.carts.perStore.rate"),
+                            t("dashboard.carts.perStore.value"),
+                          ].map((h, i) => (
+                            <th key={h} className={`px-3 py-2 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ct!.porConta.map((acc) => (
+                          <tr key={acc.id} className="border-t border-white/5 hover:bg-white/2 transition-colors">
+                            <td className="px-3 py-3 text-sm text-gray-200">{acc.label}</td>
+                            <td className="px-3 py-3 text-sm text-gray-400 text-right">{f.number(acc.enviados)}</td>
+                            <td className="px-3 py-3 text-sm text-emerald-300 text-right">{f.number(acc.recuperados)}</td>
+                            <td className="px-3 py-3 text-right">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${acc.taxaRecuperacao > 0 ? "bg-emerald-500/10 text-emerald-400" : "text-gray-700"}`}>
+                                {acc.taxaRecuperacao > 0 ? `${acc.taxaRecuperacao}%` : "—"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-sm text-gray-300 text-right">{money(toDisplay(acc.valorRecuperado))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </ChartCard>
+              )}
+
+              {/* Recuperações recentes */}
+              {!loading && (ct?.recentes.length ?? 0) > 0 && (
+                <div className="bg-gray-900/60 border border-white/6 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("dashboard.carts.recent.title")}</h3>
+                    <Link href="/remarketing" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                      {t("dashboard.carts.recent.viewAll")}
+                    </Link>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr>
+                          {[
+                            t("dashboard.carts.recent.customer"),
+                            t("dashboard.carts.recent.order"),
+                            t("dashboard.financial.refundedOrders.value"),
+                            t("dashboard.financial.refundedOrders.date"),
+                          ].map((h, i) => (
+                            <th key={h} className={`px-4 py-2.5 text-xs font-medium text-gray-600 uppercase tracking-wider ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ct!.recentes.map((r) => (
+                          <tr key={r.id} className="border-t border-white/5 hover:bg-white/2 transition-colors">
+                            <td className="px-4 py-3">
+                              <p className="text-sm text-gray-200">{r.customerName || r.customerEmail}</p>
+                              <p className="text-xs text-gray-600 font-mono">{r.customerEmail}</p>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-300 font-mono text-right">{r.orderName || "—"}</td>
+                            <td className="px-4 py-3 text-sm font-semibold text-emerald-400 text-right">{money(toDisplay(r.valor))}</td>
+                            <td className="px-4 py-3 text-sm text-gray-500 text-right whitespace-nowrap">{r.recoveredAt ? day(r.recoveredAt) : "—"}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n/client";
 import type { RichTags } from "@/lib/i18n/rich";
+import { SHOPIFY_SCOPES_STRING } from "@/lib/shopify/scopes";
 import { useStoreContext } from "./store-context";
 
 interface Account {
@@ -248,9 +249,12 @@ function AccountForm({
             <p className="font-medium text-emerald-400">{t("form.shopifyGuide.title")}</p>
             <ol className="space-y-1.5 list-none">
               {SHOPIFY_GUIDE_STEPS.map((step, i) => (
-                <li key={step} className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">{i + 1}.</span><span>{t.rich(`form.shopifyGuide.${step}`, SHOPIFY_GUIDE_TAGS, { url: `${typeof window !== "undefined" ? window.location.origin : ""}/api/shopify/callback` })}</span></li>
+                <li key={step} className="flex gap-2"><span className="text-emerald-500 font-bold shrink-0">{i + 1}.</span><span>{t.rich(`form.shopifyGuide.${step}`, SHOPIFY_GUIDE_TAGS, { url: `${typeof window !== "undefined" ? window.location.origin : ""}/api/shopify/callback`, scopes: SHOPIFY_SCOPES_STRING })}</span></li>
               ))}
             </ol>
+            <p className="pl-5 text-amber-300/80 leading-relaxed">
+              {t.rich("form.shopifyGuide.scopesNote", SHOPIFY_GUIDE_TAGS)}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

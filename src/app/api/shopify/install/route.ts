@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { decrypt } from "@/lib/crypto/encryption";
+import { SHOPIFY_SCOPES_STRING } from "@/lib/shopify/scopes";
 import { getT } from "@/lib/i18n/server";
 
 export async function GET(req: NextRequest) {
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
 
   const authUrl = new URL(`https://${shop}/admin/oauth/authorize`);
   authUrl.searchParams.set("client_id", clientId);
-  authUrl.searchParams.set("scope", "read_orders,read_customers,read_products");
+  authUrl.searchParams.set("scope", SHOPIFY_SCOPES_STRING);
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("state", state);
 

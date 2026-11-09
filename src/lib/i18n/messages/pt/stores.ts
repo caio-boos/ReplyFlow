@@ -45,7 +45,8 @@ const stores: Messages["stores"] = {
       step1: "Acesse <mono>admin.shopify.com</mono> → Configurações → Apps → <b>Desenvolver apps</b>",
       step2: "Clique em <b>Criar app</b> → dê um nome (ex: ReplyFlow) → desmarque <i>Embed app in Shopify admin</i>",
       step3: "Em <b>App URL</b> cole: <code>{url}</code>",
-      step4: "Em <b>Access scopes</b> cole: <code>read_orders,read_customers</code>",
+      step4: "Em <b>Access scopes</b> cole exatamente: <code>{scopes}</code>",
+      scopesNote: "<b>Importante:</b> marque também <code>read_all_orders</code> (em <i>Admin API access scopes</i>, clique em <i>Request access</i> para “All orders”). Sem ele a Shopify só devolve os pedidos dos últimos 60 dias e os relatórios de 90 dias/todo o período ficam incompletos.",
       step5: "Em <b>Settings</b> copie o <i>Client ID</i> e <i>Client secret</i> e cole nos campos abaixo",
       step6: "Salve a conta e clique em <b>Conectar Shopify</b> para autorizar",
     },
@@ -143,7 +144,7 @@ const stores: Messages["stores"] = {
     shopifyNotConfigured: "Esta conta não tem Shopify configurado",
     invalidToken: "Token Shopify inválido — reconecte a loja",
     shopifyForbidden:
-      "O app não tem permissão para ler esses dados na Shopify. Vá em Contas, clique em reconectar a loja e aceite as permissões (read_products, read_orders, read_customers).",
+      "O app não tem permissão para ler esses dados na Shopify. Vá em Contas, clique em reconectar a loja e aceite as permissões (read_orders, read_all_orders, read_customers, read_products).",
     shopifyRateLimited: "A Shopify limitou as requisições. Tente novamente em instantes.",
     shopifyApiError: "Erro na API da Shopify ({status}).",
     orderNotFound: "Pedido não encontrado na Shopify para essa busca.",

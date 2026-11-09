@@ -177,6 +177,7 @@ export interface RemarketingLineItem {
   title: string;
   quantity: number;
   price: number;
+  imageUrl?: string | null;
 }
 
 export interface RemarketingDoc {
@@ -192,9 +193,14 @@ export interface RemarketingDoc {
   abandonedCheckoutUrl: string;
   couponCode: string;
   sentMessageId: string;
-  status: "sent" | "failed" | "replied";
+  status: "sent" | "failed" | "replied" | "recovered";
   errorMessage?: string;
   repliedEmailId: string | null;
+  recoveredOrderId?: number | null;
+  recoveredOrderName?: string | null;
+  recoveredOrderTotal?: number | null;
+  recoveredCurrency?: string | null;
+  recoveredAt?: { seconds: number; nanoseconds: number } | null;
   sentAt: { seconds: number; nanoseconds: number } | null;
   createdAt: { seconds: number; nanoseconds: number };
 }
